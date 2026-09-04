@@ -52,7 +52,7 @@ async function downloadPng(code: QrCode) { const canvas = await renderQr(code.re
 async function toDataUrl(source: string) { const response = await fetch(source); if (!response.ok) throw new Error("Could not load the QR image."); const blob = await response.blob(); return new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("Could not read the QR image.")); reader.readAsDataURL(blob); }); }
 async function downloadSvg(code: QrCode) {
   let svg = await QRCode.toString(code.redirectUrl, { type: "svg", errorCorrectionLevel: "H", margin: 4, width: 1200, color: { dark: "#1e293b", light: "#fff" } });
-  if (code.imageUrl) { const image = await toDataUrl(code.imageUrl); svg = svg.replace("</svg>", `<rect x="420" y="420" width="360" height="360" rx="22" fill="#fff"/><image href="${image}" x="450" y="450" width="300" height="300" preserveAspectRatio="xMidYMid meet"/></svg>`); }
+  if (code.imageUrl) { const image = await toDataUrl(code.imageUrl); svg = svg.replace("</svg>", `<rect x="35%" y="35%" width="30%" height="30%" rx="2%" fill="#fff"/><image href="${image}" x="37.5%" y="37.5%" width="25%" height="25%" preserveAspectRatio="xMidYMid meet"/></svg>`); }
   const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })); download(url, `${safeName(code.name)}.svg`); setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
