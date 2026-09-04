@@ -9,7 +9,7 @@ This project was created with create-vinext-app.
 - `pnpm run start` starts the built Worker locally with Wrangler.
 - `pnpm run deploy` deploys the Cloudflare Worker.
 
-## Database migrations
+## Database migrations 
 
 Apply pending migrations to the production D1 database before deploying code that depends on them:
 
