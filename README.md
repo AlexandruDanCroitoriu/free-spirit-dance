@@ -9,6 +9,16 @@ This project was created with create-vinext-app.
 - `pnpm run start` starts the built Worker locally with Wrangler.
 - `pnpm run deploy` deploys the Cloudflare Worker.
 
+## Database migrations
+
+Apply pending migrations to the production D1 database before deploying code that depends on them:
+
+```sh
+npx wrangler d1 migrations apply free-spirit-dance-db --remote
+```
+
+The QR redirect feature also expects `go.alexandru-croitoriu.dev` to point to this Worker. Cloudflare Access must protect the complete hostname while a more-specific application bypasses authentication only for `go.alexandru-croitoriu.dev/s/*`.
+
 ## Development on a new machine
 
 ### Prerequisites
@@ -69,4 +79,3 @@ ingress:
 Replace `YOUR_TUNNEL_UUID` and `YOUR_USER` with the appropriate values. Never commit the tunnel credentials, `config.yml`, or Google OAuth secrets to the repository.
 
 If the existing tunnel credentials cannot be transferred, create a new named tunnel and update the hostname route and `config.yml` accordingly.
-

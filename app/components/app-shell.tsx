@@ -3,13 +3,14 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
-type IconName = "book" | "home" | "users";
+type IconName = "book" | "home" | "qr-code" | "users";
 type AdminProfile = { email: string; name: string; picture: string | null };
 
 const navigation: Array<{ label: string; href: string; icon: IconName }> = [
   { label: "Dashboard", href: "/", icon: "home" },
   { label: "Students", href: "/students", icon: "users" },
   { label: "Courses", href: "/courses", icon: "book" },
+  { label: "QR Codes", href: "/qr-codes", icon: "qr-code" },
 ];
 
 function Icon({ name }: { name: IconName }) {
@@ -17,6 +18,7 @@ function Icon({ name }: { name: IconName }) {
     home: <><path d="m3 10 9-7 9 7" /><path d="M5 9v10h14V9M9 19v-5h6v5" /></>,
     users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>,
     book: <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /></>,
+    "qr-code": <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3" /></>,
   };
   return <svg aria-hidden="true" className="h-4 w-4 shrink-0 stroke-current stroke-2" fill="none" viewBox="0 0 24 24">{paths[name]}</svg>;
 }
@@ -46,7 +48,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<AdminProfile>({ email: "", name: "Loading account...", picture: null });
   const pathname = usePathname();
   const studentDetailPage = pathname.startsWith("/students/");
-  const pageTitle = pathname === "/" ? "Dashboard" : pathname === "/students" ? "Students" : studentDetailPage ? "Student details" : pathname.startsWith("/courses") ? "Courses" : pathname.startsWith("/settings") ? "Settings" : "Free Spirit Dance";
+  const pageTitle = pathname === "/" ? "Dashboard" : pathname === "/students" ? "Students" : studentDetailPage ? "Student details" : pathname.startsWith("/courses") ? "Courses" : pathname.startsWith("/qr-codes") ? "QR Codes" : pathname.startsWith("/settings") ? "Settings" : "Free Spirit Dance";
 
   useEffect(() => {
     const loadProfile = () => fetch("/api/admin-profile")
@@ -60,6 +62,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   return <div className="min-h-screen bg-stone-50"><div className="fixed inset-y-0 left-0 z-10 hidden w-64 md:block"><Sidebar pathname={pathname} profile={profile} /></div>{sidebarOpen && <button aria-label="Close menu" className="fixed inset-0 z-20 border-0 bg-slate-950/70 md:hidden" onClick={() => setSidebarOpen(false)} />}<div className={`fixed inset-y-0 left-0 z-30 block w-72 max-w-full transition-transform duration-200 md:hidden ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}><Sidebar close={() => setSidebarOpen(false)} pathname={pathname} profile={profile} /></div>
-    <div className="flex min-h-screen flex-col md:ml-64"><header className="shrink-0 border-b border-stone-200 bg-white px-5 md:px-12"><div className={`mx-auto flex h-16 items-center gap-3 ${studentDetailPage ? "max-w-3xl" : "max-w-5xl"}`}><button aria-label="Open menu" className="flex w-8 shrink-0 flex-col gap-1 border-0 bg-transparent p-1 md:hidden" onClick={() => setSidebarOpen(true)}><span className="h-px w-4 bg-slate-600" /><span className="h-px w-4 bg-slate-600" /><span className="h-px w-4 bg-slate-600" /></button>{studentDetailPage && <a aria-label="Back to students" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-stone-100 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-lime-600" href="/students"><svg aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></a>}<h1 className="m-0 min-w-0 flex-1 truncate text-2xl font-normal text-slate-800">{pageTitle}</h1>{pathname === "/students" && <button onClick={() => window.dispatchEvent(new Event("open-add-student"))} className="shrink-0 rounded-lg border-0 bg-slate-800 px-4 py-2.5 font-sans text-xs font-bold text-stone-100">+ Add student</button>}{pathname === "/courses" && <button className="shrink-0 rounded-lg border-0 bg-slate-800 px-4 py-2.5 font-sans text-xs font-bold text-stone-100">+ Add course</button>}</div></header>{children}</div>
+    <div className="flex min-h-screen flex-col md:ml-64"><header className="shrink-0 border-b border-stone-200 bg-white px-5 md:px-12"><div className={`mx-auto flex h-16 items-center gap-3 ${studentDetailPage ? "max-w-3xl" : "max-w-5xl"}`}><button aria-label="Open menu" className="flex w-8 shrink-0 flex-col gap-1 border-0 bg-transparent p-1 md:hidden" onClick={() => setSidebarOpen(true)}><span className="h-px w-4 bg-slate-600" /><span className="h-px w-4 bg-slate-600" /><span className="h-px w-4 bg-slate-600" /></button>{studentDetailPage && <a aria-label="Back to students" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-stone-100 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-lime-600" href="/students"><svg aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></a>}<h1 className="m-0 min-w-0 flex-1 truncate text-2xl font-normal text-slate-800">{pageTitle}</h1>{pathname === "/students" && <button onClick={() => window.dispatchEvent(new Event("open-add-student"))} className="shrink-0 rounded-lg border-0 bg-slate-800 px-4 py-2.5 font-sans text-xs font-bold text-stone-100">+ Add student</button>}{pathname === "/courses" && <button className="shrink-0 rounded-lg border-0 bg-slate-800 px-4 py-2.5 font-sans text-xs font-bold text-stone-100">+ Add course</button>}{pathname === "/qr-codes" && <button onClick={() => window.dispatchEvent(new Event("open-add-qr-code"))} className="shrink-0 rounded-lg border-0 bg-slate-800 px-4 py-2.5 font-sans text-xs font-bold text-stone-100">+ Create QR code</button>}</div></header>{children}</div>
   </div>;
 }

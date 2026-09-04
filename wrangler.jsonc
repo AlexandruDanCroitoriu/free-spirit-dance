@@ -6,7 +6,10 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "free-spirit-dance",
 	"compatibility_date": "2026-09-03",
-	"main": "vinext/server/fetch-handler",
+	"main": "worker.ts",
+	"vars": {
+		"PUBLIC_QR_BASE_URL": "https://go.alexandru-croitoriu.dev"
+	},
 	"assets": {
 		"directory": "dist/client",
 		"not_found_handling": "none",
