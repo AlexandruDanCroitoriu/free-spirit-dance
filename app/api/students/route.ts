@@ -4,6 +4,10 @@ type StudentRow = { id: number; first_name: string; last_name: string; email: st
 
 function json(data: unknown, init?: ResponseInit) { return Response.json(data, init); }
 
+function isPhoneConstraintError(error: unknown) {
+  return error instanceof Error && error.message.includes("UNIQUE constraint failed") && error.message.includes("phone");
+}
+
 function validateStudent(input: unknown) {
   if (!input || typeof input !== "object") return "A student object is required.";
   const student = input as Record<string, unknown>;
@@ -53,6 +57,7 @@ export async function POST(request: Request) {
     ).first<StudentRow>();
     return json(serialize(result as StudentRow), { status: 201 });
   } catch (error) {
+    if (isPhoneConstraintError(error)) return json({ error: "A student with this phone number already exists." }, { status: 409 });
     console.error("Could not create student", error);
     return json({ error: "Could not create student. Check the Cloudflare Access service token." }, { status: 500 });
   }

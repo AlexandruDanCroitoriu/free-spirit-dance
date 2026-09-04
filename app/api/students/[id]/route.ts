@@ -6,6 +6,10 @@ function serialize(row: StudentRow) {
   return { id: row.id, firstName: row.first_name, lastName: row.last_name, email: row.email, phone: row.phone, picture: row.picture, active: row.active === 1 };
 }
 
+function isPhoneConstraintError(error: unknown) {
+  return error instanceof Error && error.message.includes("UNIQUE constraint failed") && error.message.includes("phone");
+}
+
 function imageKey(picture: string | null) {
   const prefix = "/api/student-images/";
   if (!picture?.startsWith(prefix)) return null;
@@ -42,14 +46,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const db = (env as unknown as CloudflareEnv).DB;
     const existing = await db.prepare("SELECT picture FROM students WHERE id = ?").bind(id).first<{ picture: string | null }>();
     if (!existing) return Response.json({ error: "Student not found." }, { status: 404 });
+    const phone = student.phone.trim();
+    if (phone) {
+      const duplicatePhone = await db.prepare("SELECT id FROM students WHERE id <> ? AND trim(phone) = ? LIMIT 1").bind(id, phone).first<{ id: number }>();
+      if (duplicatePhone) return Response.json({ error: "A student with this phone number already exists." }, { status: 409 });
+    }
     const result = await db.prepare("UPDATE students SET first_name = ?, last_name = ?, email = ?, phone = ?, picture = ?, active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, first_name, last_name, email, phone, picture, active").bind(
-      student.firstName.trim(), student.lastName.trim(), student.email.trim(), student.phone.trim(), typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active ? 1 : 0, id,
+      student.firstName.trim(), student.lastName.trim(), student.email.trim(), phone, typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active ? 1 : 0, id,
     ).first<StudentRow>();
     if (!result) return Response.json({ error: "Student not found." }, { status: 404 });
     const previousImageKey = imageKey(existing.picture);
     if (previousImageKey && existing.picture !== result.picture) await (env as unknown as CloudflareEnv).STUDENT_IMAGES.delete(previousImageKey);
     return Response.json({ id: result.id, firstName: result.first_name, lastName: result.last_name, email: result.email, phone: result.phone, picture: result.picture, active: result.active === 1 });
   } catch (error) {
+    if (isPhoneConstraintError(error)) return Response.json({ error: "A student with this phone number already exists." }, { status: 409 });
     console.error("Could not update student", error);
     return Response.json({ error: "Could not update student. Check the Cloudflare Access service token." }, { status: 500 });
   }

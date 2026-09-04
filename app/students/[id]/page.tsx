@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import StudentCard from "../../components/student-card";
 
 type Student = { id: number; firstName: string; lastName: string; email: string; phone: string; picture: string | null; active: boolean };
 type Field = keyof Student;
-const editableFields: Array<{ key: Exclude<Field, "id" | "picture">; label: string; type?: string }> = [
+type EditableTextField = "firstName" | "lastName" | "email" | "phone";
+type Drafts = Record<EditableTextField, string>;
+const editableFields: Array<{ key: EditableTextField; label: string; type?: string }> = [
   { key: "firstName", label: "First name" },
   { key: "lastName", label: "Last name" },
   { key: "email", label: "Email", type: "email" },
   { key: "phone", label: "Phone" },
 ];
 const maxImageBytes = 250_000;
+const emptyDrafts: Drafts = { firstName: "", lastName: "", email: "", phone: "" };
 
 async function readJson<T>(response: Response): Promise<T> {
   const body = await response.text();
@@ -38,17 +41,17 @@ async function compressImage(file: File): Promise<File> {
 export default function StudentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [student, setStudent] = useState<Student | null>(null);
-  const [editing, setEditing] = useState<Field | null>(null);
-  const [draft, setDraft] = useState("");
+  const studentRef = useRef<Student | null>(null);
+  const [drafts, setDrafts] = useState<Drafts>(emptyDrafts);
+  const [activeDraft, setActiveDraft] = useState("true");
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingField, setSavingField] = useState<Field | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => { fetch(`/api/students/${id}`).then(async (response) => { const data = await readJson<Student & { error?: string }>(response); if (!response.ok) throw new Error(data.error ?? "Could not load student."); setStudent(data); }).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false)); }, [id]);
-
-  function beginEdit(field: Exclude<Field, "id">) { if (!student) return; setEditing(field); setDraft(String(student[field])); setError(""); }
+  useEffect(() => { fetch(`/api/students/${id}`).then(async (response) => { const data = await readJson<Student & { error?: string }>(response); if (!response.ok) throw new Error(data.error ?? "Could not load student."); studentRef.current = data; setStudent(data); setDrafts({ firstName: data.firstName, lastName: data.lastName, email: data.email, phone: data.phone }); setActiveDraft(String(data.active)); }).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false)); }, [id]);
 
   async function selectImage(file: File | undefined) {
     if (!file) return;
@@ -56,23 +59,36 @@ export default function StudentDetailPage() {
     catch (reason) { setError(reason instanceof Error ? reason.message : "Could not prepare image."); }
   }
 
-  async function saveField(field: Exclude<Field, "id">, value = draft) {
-    if (!student) return;
+  async function saveField(field: Exclude<Field, "id">, value: string) {
+    const current = studentRef.current;
+    if (!current || String(current[field]) === value) return;
+    if ((field === "firstName" || field === "lastName") && !value.trim()) { setError(`${field === "firstName" ? "First" : "Last"} name is required.`); return; }
+    if (field === "email" && (!value.trim() || !value.includes("@"))) { setError("A valid email is required."); return; }
     if (field === "phone" && value.trim() && !/^\d{10,}$/.test(value.trim())) { setError("Phone must contain only numbers and be at least 10 digits."); return; }
-    setSaving(true); setError("");
-    let picture = student.picture;
+    setSavingField(field); setError("");
+    let picture = current.picture;
     if (field === "picture" && pendingImage) {
       const imageData = new FormData(); imageData.append("file", pendingImage);
       const uploadResponse = await fetch("/api/student-images", { method: "POST", body: imageData });
       const upload = await readJson<{ picture?: string; error?: string }>(uploadResponse);
-      if (!uploadResponse.ok || !upload.picture) { setError(upload.error ?? "Could not upload image."); setSaving(false); return; }
+      if (!uploadResponse.ok || !upload.picture) { setError(upload.error ?? "Could not upload image."); setSavingField(null); return; }
       picture = upload.picture;
     }
-    const next = { ...student, [field]: field === "active" ? value === "true" : value || "", picture };
-    const response = await fetch(`/api/students/${student.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) });
+    const next = { ...current, [field]: field === "active" ? value === "true" : value, picture };
+    studentRef.current = next;
+    setStudent(next);
+    const response = await fetch(`/api/students/${current.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) });
     const data = await readJson<Student & { error?: string }>(response);
-    if (!response.ok) setError(data.error ?? "Could not save field."); else { setStudent(data); setEditing(null); setPendingImage(null); }
-    setSaving(false);
+    if (!response.ok) {
+      setError(data.error ?? "Could not save field.");
+      if (studentRef.current?.[field] === next[field]) { studentRef.current = { ...studentRef.current, [field]: current[field], picture: current.picture }; setStudent(studentRef.current); }
+    } else {
+      studentRef.current = { ...(studentRef.current ?? data), [field]: data[field], picture: data.picture };
+      setStudent(studentRef.current); setPendingImage(null);
+      if (field === "active") setActiveDraft(String(data.active));
+      else if (field !== "picture") setDrafts((currentDrafts) => ({ ...currentDrafts, [field]: String(data[field]) }));
+    }
+    setSavingField(null);
   }
 
   async function deleteStudent() {
@@ -83,8 +99,6 @@ export default function StudentDetailPage() {
     if (!response.ok) { setError(data.error ?? "Could not delete student."); setSaving(false); return; }
     window.location.href = "/students";
   }
-
-  function beginActiveEdit() { if (!student) return; setEditing("active"); setDraft(String(student.active)); setError(""); }
 
   if (loading) return <main className="flex-1 px-6 py-6 md:px-12"><p className="font-sans text-sm text-slate-400">Loading student...</p></main>;
   if (!student) return <main className="flex-1 px-6 py-6 md:px-12"><p className="font-sans text-sm text-red-700">{error || "Student not found."}</p><a className="mt-4 inline-block font-sans text-sm font-semibold" href="/students">Back to students</a></main>;
@@ -99,10 +113,10 @@ export default function StudentDetailPage() {
     <section aria-label="Student info" className="mt-4 overflow-hidden rounded-xl border border-stone-200 bg-white px-5 shadow-sm">
       <div className="flex items-center justify-between gap-4 border-b border-stone-200 py-4">
         <div className="min-w-0"><p className="m-0 font-sans text-xs font-bold uppercase tracking-wider text-slate-400">Profile photo</p><p className="mt-1 truncate font-sans text-sm text-slate-800">Update the student image</p></div>
-        <div className="flex flex-wrap justify-end gap-2">{editing === "picture" ? <><label className="cursor-pointer rounded-md border border-stone-300 px-3 py-2 font-sans text-xs font-semibold">Camera<input accept="image/*" capture="environment" type="file" className="sr-only" onChange={(event) => { void selectImage(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="cursor-pointer rounded-md border border-stone-300 px-3 py-2 font-sans text-xs font-semibold">Upload<input accept="image/*" type="file" className="sr-only" onChange={(event) => { void selectImage(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><button disabled={saving || !pendingImage} onClick={() => saveField("picture")} className="rounded-md border-0 bg-slate-800 px-3 py-2 font-sans text-xs font-bold text-stone-100 disabled:opacity-50">Save</button></> : <button onClick={() => { setEditing("picture"); setPendingImage(null); setError(""); }} className="rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold">Edit</button>}</div>
+        <div className="flex flex-wrap justify-end gap-2"><label className="cursor-pointer rounded-md border border-stone-300 px-3 py-2 font-sans text-xs font-semibold">Camera<input accept="image/*" capture="environment" type="file" className="sr-only" onChange={(event) => { void selectImage(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="cursor-pointer rounded-md border border-stone-300 px-3 py-2 font-sans text-xs font-semibold">Upload<input accept="image/*" type="file" className="sr-only" onChange={(event) => { void selectImage(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label>{pendingImage && <button disabled={savingField === "picture"} onClick={() => void saveField("picture", student.picture ?? "")} className="rounded-md border-0 bg-slate-800 px-3 py-2 font-sans text-xs font-bold text-stone-100 disabled:opacity-50">{savingField === "picture" ? "Saving..." : "Save photo"}</button>}</div>
       </div>
-      {editableFields.map(({ key, label, type }) => <div key={key} className="flex items-end gap-4 border-b border-stone-200 py-4"><label className="min-w-0 flex-1 font-sans"><span className="block text-xs font-bold uppercase tracking-wider text-slate-400">{label}</span>{editing === key ? <input autoFocus type={type ?? "text"} {...(key === "phone" ? { inputMode: "numeric" as const, minLength: 10, pattern: "[0-9]{10,}", title: "Enter at least 10 numbers." } : {})} value={draft} onChange={(event) => setDraft(event.target.value)} className="mt-2 w-full rounded-md border border-stone-300 px-3 py-2 text-sm text-slate-800 outline-none focus:border-lime-600" /> : <span className="mt-1 block truncate text-sm text-slate-800">{student[key] || "Not provided"}</span>}</label>{editing === key ? <button disabled={saving} onClick={() => saveField(key)} className="shrink-0 rounded-md border-0 bg-slate-800 px-3 py-2 font-sans text-xs font-bold text-stone-100">Save</button> : <button onClick={() => beginEdit(key)} className="shrink-0 rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold">Edit</button>}</div>)}
-      <div className="flex items-center gap-4 border-b border-stone-200 py-4"><div className="min-w-0 flex-1 font-sans"><span className="block text-xs font-bold uppercase tracking-wider text-slate-400">Status</span>{editing === "active" ? <select value={draft} onChange={(event) => setDraft(event.target.value)} className="mt-2 rounded-md border border-stone-300 px-3 py-2 text-sm"><option value="true">Active</option><option value="false">Inactive</option></select> : <span className={`mt-1 block text-sm font-semibold ${student.active ? "text-lime-700" : "text-slate-400"}`}>{student.active ? "Active" : "Inactive"}</span>}</div>{editing === "active" ? <button disabled={saving} onClick={() => saveField("active")} className="shrink-0 rounded-md border-0 bg-slate-800 px-3 py-2 font-sans text-xs font-bold text-stone-100">Save</button> : <button onClick={beginActiveEdit} className="shrink-0 rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold">Edit</button>}</div>
+      {editableFields.map(({ key, label, type }) => <div key={key} className="border-b border-stone-200 py-4"><label className="block font-sans"><span className="flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-wider text-slate-400"><span>{label}</span>{savingField === key && <span className="normal-case tracking-normal text-lime-700">Saving...</span>}</span><input type={type ?? "text"} {...(key === "phone" ? { inputMode: "numeric" as const, minLength: 10, pattern: "[0-9]{10,}", title: "Enter at least 10 numbers." } : {})} value={drafts[key]} onChange={(event) => setDrafts((current) => ({ ...current, [key]: event.target.value }))} onBlur={() => void saveField(key, drafts[key])} className="mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-lime-600 focus:ring-1 focus:ring-lime-600" /></label></div>)}
+      <div className="border-b border-stone-200 py-4"><label className="block font-sans"><span className="flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-wider text-slate-400"><span>Status</span>{savingField === "active" && <span className="normal-case tracking-normal text-lime-700">Saving...</span>}</span><select value={activeDraft} onChange={(event) => setActiveDraft(event.target.value)} onBlur={(event) => void saveField("active", event.currentTarget.value)} className={`mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-lime-600 focus:ring-1 focus:ring-lime-600 ${activeDraft === "true" ? "text-lime-700" : "text-slate-500"}`}><option value="true">Active</option><option value="false">Inactive</option></select></label></div>
       {error && <p role="alert" className="py-4 font-sans text-sm text-red-700">{error}</p>}
       <div className="flex justify-end py-4"><button disabled={saving} onClick={() => setDeleteConfirmOpen(true)} className="rounded-md border border-red-300 bg-white px-3 py-2 font-sans text-xs font-semibold text-red-700 transition-colors hover:bg-red-50">Delete student</button></div>
     </section>
