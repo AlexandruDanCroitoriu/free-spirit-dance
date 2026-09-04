@@ -24,7 +24,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   try {
     await bindings.STUDENT_IMAGES.put(key, file.stream(), { httpMetadata: { contentType: file.type, cacheControl: "private, max-age=3600" } });
-    const row = await bindings.DB.prepare("UPDATE qr_codes SET image_mode = 'custom', image_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, slug, name, destination_url, active, image_mode, image_path, module_shape, foreground_color, eye_shape, background_color, logo_size, logo_shape, advanced_style, created_at, updated_at")
+    const row = await bindings.DB.prepare("UPDATE qr_codes SET image_mode = 'custom', image_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, slug, name, destination_url, active, image_mode, image_path, module_shape, foreground_color, eye_shape, eye_color, logo_size, logo_shape, created_at, updated_at")
       .bind(imagePath, id).first<Record<string, unknown>>();
     if (!row) {
       await bindings.STUDENT_IMAGES.delete(key);
@@ -39,9 +39,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       redirectUrl: `${bindings.PUBLIC_QR_BASE_URL.replace(/\/$/, "")}/s/${row.slug}`,
       active: row.active === 1, imageMode: row.image_mode, imageUrl: row.image_path,
       moduleShape: row.module_shape, foregroundColor: row.foreground_color,
-      eyeShape: row.eye_shape, backgroundColor: row.background_color, logoSize: row.logo_size,
+      eyeShape: row.eye_shape, logoSize: row.logo_size,
       logoShape: row.logo_shape,
-      advancedStyle: JSON.parse(String(row.advanced_style || "{}")),
+      advancedStyle: { eyeColor: row.eye_color },
       createdAt: row.created_at, updatedAt: row.updated_at,
     });
   } catch (error) {

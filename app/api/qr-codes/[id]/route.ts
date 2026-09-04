@@ -11,10 +11,9 @@ type QrCodeRow = {
   module_shape: "square" | "circle";
   foreground_color: string;
   eye_shape: "square" | "rounded" | "circle";
-  background_color: string;
   logo_size: number;
   logo_shape: "square" | "rounded" | "circle";
-  advanced_style: string;
+  eye_color: string;
   created_at: string;
   updated_at: string;
 };
@@ -31,10 +30,9 @@ function validate(input: unknown) {
   if (!["square", "circle"].includes(String(qrCode.moduleShape))) return "Choose a valid QR code shape.";
   if (typeof qrCode.foregroundColor !== "string" || !/^#[0-9a-fA-F]{6}$/.test(qrCode.foregroundColor)) return "Enter a valid 6-digit hex color.";
   if (!["square", "rounded", "circle"].includes(String(qrCode.eyeShape))) return "Choose a valid corner style.";
-  if (typeof qrCode.backgroundColor !== "string" || !/^#[0-9a-fA-F]{6}$/.test(qrCode.backgroundColor)) return "Enter a valid background color.";
   if (!Number.isInteger(qrCode.logoSize) || Number(qrCode.logoSize) < 15 || Number(qrCode.logoSize) > 30) return "Logo size must be between 15 and 30 percent.";
   if (!["square", "rounded", "circle"].includes(String(qrCode.logoShape))) return "Choose a valid logo shape.";
-  if (!qrCode.advancedStyle || typeof qrCode.advancedStyle !== "object") return "Choose valid advanced styling.";
+  if (!qrCode.advancedStyle || typeof qrCode.advancedStyle !== "object" || typeof (qrCode.advancedStyle as Record<string, unknown>).eyeColor !== "string" || !/^#[0-9a-fA-F]{6}$/.test(String((qrCode.advancedStyle as Record<string, unknown>).eyeColor))) return "Enter a valid eye color.";
   try {
     const destination = new URL(qrCode.destinationUrl.trim());
     if (!['http:', 'https:'].includes(destination.protocol)) return "Destination URL must use HTTP or HTTPS.";
@@ -49,7 +47,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const input = await request.json().catch(() => null);
   const validationError = validate(input);
   if (validationError) return Response.json({ error: validationError }, { status: 400 });
-  const qrCode = input as { name: string; destinationUrl: string; active: boolean; imageMode: "none" | "logo" | "custom"; moduleShape: "square" | "circle"; foregroundColor: string; eyeShape: "square" | "rounded" | "circle"; backgroundColor: string; logoSize: number; logoShape: "square" | "rounded" | "circle"; advancedStyle: object };
+  const qrCode = input as { name: string; destinationUrl: string; active: boolean; imageMode: "none" | "logo" | "custom"; moduleShape: "square" | "circle"; foregroundColor: string; eyeShape: "square" | "rounded" | "circle"; logoSize: number; logoShape: "square" | "rounded" | "circle"; advancedStyle: object };
 
   try {
     const bindings = env as unknown as CloudflareEnv;
@@ -58,8 +56,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const keepCustom = qrCode.imageMode === "custom" && existing.image_mode === "custom" && existing.image_path;
     const imageMode = keepCustom ? "custom" : qrCode.imageMode === "custom" ? "none" : qrCode.imageMode;
     const imagePath = keepCustom ? existing.image_path : null;
-    const row = await bindings.DB.prepare("UPDATE qr_codes SET name = ?, destination_url = ?, active = ?, image_mode = ?, image_path = ?, module_shape = ?, foreground_color = ?, eye_shape = ?, background_color = ?, logo_size = ?, logo_shape = ?, advanced_style = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, slug, name, destination_url, active, image_mode, image_path, module_shape, foreground_color, eye_shape, background_color, logo_size, logo_shape, advanced_style, created_at, updated_at")
-      .bind(qrCode.name.trim(), qrCode.destinationUrl.trim(), qrCode.active ? 1 : 0, imageMode, imagePath, qrCode.moduleShape, qrCode.foregroundColor.toLowerCase(), qrCode.eyeShape, qrCode.backgroundColor.toLowerCase(), qrCode.logoSize, qrCode.logoShape, JSON.stringify(qrCode.advancedStyle), id).first<QrCodeRow>();
+    const row = await bindings.DB.prepare("UPDATE qr_codes SET name = ?, destination_url = ?, active = ?, image_mode = ?, image_path = ?, module_shape = ?, foreground_color = ?, eye_shape = ?, eye_color = ?, logo_size = ?, logo_shape = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, slug, name, destination_url, active, image_mode, image_path, module_shape, foreground_color, eye_shape, eye_color, logo_size, logo_shape, created_at, updated_at")
+      .bind(qrCode.name.trim(), qrCode.destinationUrl.trim(), qrCode.active ? 1 : 0, imageMode, imagePath, qrCode.moduleShape, qrCode.foregroundColor.toLowerCase(), qrCode.eyeShape, (qrCode.advancedStyle as { eyeColor: string }).eyeColor.toLowerCase(), qrCode.logoSize, qrCode.logoShape, id).first<QrCodeRow>();
     if (!row) return Response.json({ error: "QR code not found." }, { status: 404 });
     if (existing.image_path && !keepCustom) {
       const oldKey = existing.image_path.split("/").pop();
@@ -79,10 +77,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       moduleShape: row.module_shape,
       foregroundColor: row.foreground_color,
       eyeShape: row.eye_shape,
-      backgroundColor: row.background_color,
       logoSize: row.logo_size,
       logoShape: row.logo_shape,
-      advancedStyle: JSON.parse(row.advanced_style || "{}"),
+      advancedStyle: { eyeColor: row.eye_color },
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     });

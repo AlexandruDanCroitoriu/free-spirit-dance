@@ -11,10 +11,9 @@ type QrCodeRow = {
   module_shape: "square" | "circle";
   foreground_color: string;
   eye_shape: "square" | "rounded" | "circle";
-  background_color: string;
   logo_size: number;
   logo_shape: "square" | "rounded" | "circle";
-  advanced_style: string;
+  eye_color: string;
   created_at: string;
   updated_at: string;
 };
@@ -32,10 +31,9 @@ function serialize(row: QrCodeRow, baseUrl: string) {
     moduleShape: row.module_shape,
     foregroundColor: row.foreground_color,
     eyeShape: row.eye_shape,
-    backgroundColor: row.background_color,
     logoSize: row.logo_size,
     logoShape: row.logo_shape,
-    advancedStyle: JSON.parse(row.advanced_style || "{}"),
+    advancedStyle: { eyeColor: row.eye_color },
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -52,10 +50,9 @@ function validate(input: unknown) {
   if (!["square", "circle"].includes(String(qrCode.moduleShape))) return "Choose a valid QR code shape.";
   if (typeof qrCode.foregroundColor !== "string" || !/^#[0-9a-fA-F]{6}$/.test(qrCode.foregroundColor)) return "Enter a valid 6-digit hex color.";
   if (!["square", "rounded", "circle"].includes(String(qrCode.eyeShape))) return "Choose a valid corner style.";
-  if (typeof qrCode.backgroundColor !== "string" || !/^#[0-9a-fA-F]{6}$/.test(qrCode.backgroundColor)) return "Enter a valid background color.";
   if (!Number.isInteger(qrCode.logoSize) || Number(qrCode.logoSize) < 15 || Number(qrCode.logoSize) > 30) return "Logo size must be between 15 and 30 percent.";
   if (!["square", "rounded", "circle"].includes(String(qrCode.logoShape))) return "Choose a valid logo shape.";
-  if (!qrCode.advancedStyle || typeof qrCode.advancedStyle !== "object") return "Choose valid advanced styling.";
+  if (!qrCode.advancedStyle || typeof qrCode.advancedStyle !== "object" || typeof (qrCode.advancedStyle as Record<string, unknown>).eyeColor !== "string" || !/^#[0-9a-fA-F]{6}$/.test(String((qrCode.advancedStyle as Record<string, unknown>).eyeColor))) return "Enter a valid eye color.";
   try {
     const destination = new URL(qrCode.destinationUrl.trim());
     if (!['http:', 'https:'].includes(destination.protocol)) return "Destination URL must use HTTP or HTTPS.";
@@ -67,7 +64,7 @@ function validate(input: unknown) {
 export async function GET() {
   try {
     const bindings = env as unknown as CloudflareEnv;
-    const result = await bindings.DB.prepare("SELECT id, slug, name, destination_url, active, image_mode, image_path, module_shape, foreground_color, eye_shape, background_color, logo_size, logo_shape, advanced_style, created_at, updated_at FROM qr_codes ORDER BY updated_at DESC, id DESC").all<QrCodeRow>();
+    const result = await bindings.DB.prepare("SELECT id, slug, name, destination_url, active, image_mode, image_path, module_shape, foreground_color, eye_shape, eye_color, logo_size, logo_shape, created_at, updated_at FROM qr_codes ORDER BY updated_at DESC, id DESC").all<QrCodeRow>();
     return Response.json(result.results.map((row) => serialize(row, bindings.PUBLIC_QR_BASE_URL)));
   } catch (error) {
     console.error(JSON.stringify({ message: "Could not load QR codes", error: error instanceof Error ? error.message : String(error) }));
@@ -79,14 +76,14 @@ export async function POST(request: Request) {
   const input = await request.json().catch(() => null);
   const validationError = validate(input);
   if (validationError) return Response.json({ error: validationError }, { status: 400 });
-  const qrCode = input as { name: string; destinationUrl: string; imageMode: "none" | "logo" | "custom"; moduleShape: "square" | "circle"; foregroundColor: string; eyeShape: "square" | "rounded" | "circle"; backgroundColor: string; logoSize: number; logoShape: "square" | "rounded" | "circle"; advancedStyle: object };
+  const qrCode = input as { name: string; destinationUrl: string; imageMode: "none" | "logo" | "custom"; moduleShape: "square" | "circle"; foregroundColor: string; eyeShape: "square" | "rounded" | "circle"; logoSize: number; logoShape: "square" | "rounded" | "circle"; advancedStyle: object };
   const slug = crypto.randomUUID().replaceAll("-", "").slice(0, 16);
 
   try {
     const bindings = env as unknown as CloudflareEnv;
     const initialImageMode = qrCode.imageMode === "custom" ? "none" : qrCode.imageMode;
-    const row = await bindings.DB.prepare("INSERT INTO qr_codes (slug, name, destination_url, image_mode, module_shape, foreground_color, eye_shape, background_color, logo_size, logo_shape, advanced_style) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, slug, name, destination_url, active, image_mode, image_path, module_shape, foreground_color, eye_shape, background_color, logo_size, logo_shape, advanced_style, created_at, updated_at")
-      .bind(slug, qrCode.name.trim(), qrCode.destinationUrl.trim(), initialImageMode, qrCode.moduleShape, qrCode.foregroundColor.toLowerCase(), qrCode.eyeShape, qrCode.backgroundColor.toLowerCase(), qrCode.logoSize, qrCode.logoShape, JSON.stringify(qrCode.advancedStyle)).first<QrCodeRow>();
+    const row = await bindings.DB.prepare("INSERT INTO qr_codes (slug, name, destination_url, image_mode, module_shape, foreground_color, eye_shape, eye_color, logo_size, logo_shape) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, slug, name, destination_url, active, image_mode, image_path, module_shape, foreground_color, eye_shape, eye_color, logo_size, logo_shape, created_at, updated_at")
+      .bind(slug, qrCode.name.trim(), qrCode.destinationUrl.trim(), initialImageMode, qrCode.moduleShape, qrCode.foregroundColor.toLowerCase(), qrCode.eyeShape, (qrCode.advancedStyle as { eyeColor: string }).eyeColor.toLowerCase(), qrCode.logoSize, qrCode.logoShape).first<QrCodeRow>();
     if (!row) throw new Error("Insert did not return a QR code.");
     return Response.json(serialize(row, bindings.PUBLIC_QR_BASE_URL), { status: 201 });
   } catch (error) {
