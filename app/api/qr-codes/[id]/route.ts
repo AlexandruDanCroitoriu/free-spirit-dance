@@ -70,3 +70,25 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return Response.json({ error: "Could not update QR code." }, { status: 500 });
   }
 }
+
+export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const id = Number((await context.params).id);
+  if (!Number.isInteger(id) || id < 1) return Response.json({ error: "Invalid QR code id." }, { status: 400 });
+
+  try {
+    const bindings = env as unknown as CloudflareEnv;
+    const existing = await bindings.DB.prepare("SELECT image_path FROM qr_codes WHERE id = ?").bind(id).first<{ image_path: string | null }>();
+    if (!existing) return Response.json({ error: "QR code not found." }, { status: 404 });
+    const result = await bindings.DB.prepare("DELETE FROM qr_codes WHERE id = ?").bind(id).run();
+    if (!result.success || result.meta.changes !== 1) return Response.json({ error: "Could not delete QR code." }, { status: 500 });
+
+    const imageKey = existing.image_path?.split("/").pop();
+    if (imageKey?.startsWith("qr-")) await bindings.STUDENT_IMAGES.delete(imageKey).catch((error) => {
+      console.error(JSON.stringify({ message: "Could not remove deleted QR code image", error: error instanceof Error ? error.message : String(error), id }));
+    });
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    console.error(JSON.stringify({ message: "Could not delete QR code", error: error instanceof Error ? error.message : String(error), id }));
+    return Response.json({ error: "Could not delete QR code." }, { status: 500 });
+  }
+}
