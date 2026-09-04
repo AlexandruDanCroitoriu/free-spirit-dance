@@ -15,7 +15,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html className="scroll-smooth" lang="en">
       <head><style dangerouslySetInnerHTML={{ __html: globalStyles }} /></head>
-      <body className="min-w-80 bg-[#f7f8f6] font-serif text-[#20262d]"><AppShell>{children}</AppShell></body>
+      <body className="min-w-80 bg-stone-50 font-serif text-slate-800"><AppShell>{children}</AppShell></body>
     </html>
   );
 }

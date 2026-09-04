@@ -1,1 +1,8 @@
 @import "tailwindcss";
+
+@media (max-width: 767px) {
+	main {
+		padding-top: 0.5rem !important;
+		padding-bottom: 1.5rem !important;
+	}
+}

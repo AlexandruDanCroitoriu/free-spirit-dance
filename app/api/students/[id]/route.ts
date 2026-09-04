@@ -49,8 +49,14 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   if (!Number.isInteger(id) || id < 1) return Response.json({ error: "Invalid student id." }, { status: 400 });
   try {
     const db = (env as unknown as CloudflareEnv).DB;
+    const student = await db.prepare("SELECT picture FROM students WHERE id = ?").bind(id).first<{ picture: string | null }>();
+    if (!student) return Response.json({ error: "Student not found." }, { status: 404 });
     const result = await db.prepare("DELETE FROM students WHERE id = ?").bind(id).run();
     if (result.meta.changes === 0) return Response.json({ error: "Student not found." }, { status: 404 });
+    if (student.picture?.startsWith("/api/student-images/")) {
+      const key = decodeURIComponent(student.picture.slice("/api/student-images/".length));
+      await (env as unknown as CloudflareEnv).STUDENT_IMAGES.delete(key);
+    }
     return new Response(null, { status: 204 });
   } catch (error) {
     console.error("Could not delete student", error);

@@ -26,6 +26,13 @@
 			"remote": true
 		}
 	],
+	"r2_buckets": [
+		{
+			"binding": "STUDENT_IMAGES",
+			"bucket_name": "free-spirit-dance-student-images",
+			"remote": true
+		}
+	],
 	"observability": {
 		"enabled": true
 	},
