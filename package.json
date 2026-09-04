@@ -2,7 +2,6 @@
   "name": "free-spirit-dance",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "npm@11.17.0",
   "dependencies": {
     "@vinext/cloudflare": "latest",
     "qrcode": "^1.5.4",
