@@ -5,9 +5,9 @@
   "packageManager": "npm@11.17.0",
   "dependencies": {
     "@vinext/cloudflare": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "react-server-dom-webpack": "latest",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "react-server-dom-webpack": "19.2.6",
     "vinext": "latest"
   },
   "devDependencies": {
@@ -18,6 +18,7 @@
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "latest",
     "@vitejs/plugin-rsc": "latest",
+    "concurrently": "^10.0.5",
     "tailwindcss": "latest",
     "typescript": "latest",
     "vite": "latest",
@@ -25,7 +26,7 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "vinext dev",
+    "dev": "concurrently --kill-others-on-fail \"vinext dev\" \"cloudflared tunnel run free-spirit-dance-local\"",
     "build": "vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "deploy": "vinext-cloudflare deploy --config dist/server/wrangler.json",

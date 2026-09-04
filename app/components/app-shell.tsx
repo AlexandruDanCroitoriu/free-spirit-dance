@@ -1,8 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 type IconName = "book" | "home" | "users";
 
@@ -21,16 +20,8 @@ function Icon({ name }: { name: IconName }) {
   return <svg aria-hidden="true" className="h-[18px] w-[18px] shrink-0 stroke-current stroke-[1.7]" fill="none" viewBox="0 0 24 24">{paths[name]}</svg>;
 }
 
-function Sidebar({ close, pathname }: { close?: () => void; pathname: string }) {
-  const [userEmail, setUserEmail] = useState("Loading account...");
+function Sidebar({ close, pathname, userEmail }: { close?: () => void; pathname: string; userEmail: string }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-
-  useEffect(() => {
-    fetch("/cdn-cgi/access/get-identity")
-      .then((response) => response.ok ? response.json() as Promise<{ email?: string }> : Promise.reject())
-      .then((identity) => setUserEmail(identity.email ?? "Administrator"))
-      .catch(() => setUserEmail("Administrator"));
-  }, []);
 
   return <aside className="flex h-full flex-col bg-[#202a2c] px-[18px] pt-4 pb-5 text-[#eaf0e8]">
     <div className="pb-4"><a className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-[#2c3939] focus:bg-[#2c3939] focus:outline-none" href="/"><img alt="Free Spirit Dance" className="h-20 w-16 max-w-none shrink-0 object-contain" src="/logo.svg" /><div className="min-w-0"><strong className="block whitespace-nowrap font-sans text-base font-bold">Free Spirit Dance</strong><span className="mt-[3px] block whitespace-nowrap font-sans text-[11px] uppercase tracking-[.5px] text-[#9caeab]">Knowledgebase</span></div></a></div>
@@ -51,9 +42,17 @@ function Sidebar({ close, pathname }: { close?: () => void; pathname: string }) 
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState("Loading account...");
   const pathname = usePathname();
 
-  return <div className="min-h-screen bg-[#f7f8f6]"><div className="fixed inset-y-0 left-0 z-10 hidden w-[248px] md:block"><Sidebar pathname={pathname} /></div>{sidebarOpen && <button aria-label="Close menu" className="fixed inset-0 z-20 border-0 bg-[#172325aa] md:hidden" onClick={() => setSidebarOpen(false)} />}<div className={`fixed inset-y-0 left-0 z-30 block w-[min(280px,88vw)] transition-transform duration-200 md:hidden ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}><Sidebar close={() => setSidebarOpen(false)} pathname={pathname} /></div>
+  useEffect(() => {
+    fetch("/cdn-cgi/access/get-identity")
+      .then((response) => response.ok ? response.json() as Promise<{ email?: string }> : Promise.reject())
+      .then((identity) => setUserEmail(identity.email ?? "Administrator"))
+      .catch(() => setUserEmail("Administrator"));
+  }, []);
+
+  return <div className="min-h-screen bg-[#f7f8f6]"><div className="fixed inset-y-0 left-0 z-10 hidden w-[248px] md:block"><Sidebar pathname={pathname} userEmail={userEmail} /></div>{sidebarOpen && <button aria-label="Close menu" className="fixed inset-0 z-20 border-0 bg-[#172325aa] md:hidden" onClick={() => setSidebarOpen(false)} />}<div className={`fixed inset-y-0 left-0 z-30 block w-[min(280px,88vw)] transition-transform duration-200 md:hidden ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}><Sidebar close={() => setSidebarOpen(false)} pathname={pathname} userEmail={userEmail} /></div>
     <div className="min-h-screen md:ml-[248px]"><header className="flex h-16 items-center px-5 md:hidden"><button aria-label="Open menu" className="flex w-[30px] flex-col gap-1 border-0 bg-transparent p-1" onClick={() => setSidebarOpen(true)}><span className="h-px w-[18px] bg-[#52615c]" /><span className="h-px w-[18px] bg-[#52615c]" /><span className="h-px w-[18px] bg-[#52615c]" /></button></header>{children}</div>
   </div>;
 }
