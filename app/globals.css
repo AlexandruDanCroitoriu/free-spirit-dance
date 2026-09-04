@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+.calendar-grid {
+	display: grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendar-widget-body {
+	min-width: 560px;
+}
+
+.calendar-widget-day {
+	min-height: 76px;
+}
+
 @media (max-width: 767px) {
 	main {
 		padding-top: 0.5rem !important;
