@@ -18,6 +18,14 @@
 	"images": {
 		"binding": "IMAGES"
 	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "free-spirit-dance-db",
+			"database_id": "1b6b1660-4abe-4735-91f0-c570d9f7193e",
+			"remote": true
+		}
+	],
 	"observability": {
 		"enabled": true
 	},
