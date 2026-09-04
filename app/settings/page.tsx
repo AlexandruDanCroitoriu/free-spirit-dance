@@ -13,7 +13,7 @@ export default function SettingsPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-stone-50 px-6 py-6 text-slate-800 md:px-12">
+    <main className="flex-1 bg-stone-50 px-6 py-6 text-slate-800 md:px-12">
       <div className="mx-auto max-w-5xl">
         <p className="m-0 font-sans text-sm text-slate-500">Manage your account and school preferences.</p>
         <section className="mt-10 max-w-xl rounded-xl border border-stone-200 bg-white p-6">

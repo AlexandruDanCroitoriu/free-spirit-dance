@@ -1,6 +1,6 @@
 export default function CoursesPage() {
   return (
-    <main className="min-h-screen bg-stone-50 px-6 py-6 text-slate-800 md:px-12">
+    <main className="flex-1 bg-stone-50 px-6 py-6 text-slate-800 md:px-12">
       <div className="mx-auto max-w-5xl">
         <section className="rounded-xl border border-stone-200 bg-white p-10 text-center">
           <h2 className="m-0 text-xl font-normal">No courses yet</h2>

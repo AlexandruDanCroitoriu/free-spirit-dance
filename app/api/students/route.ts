@@ -11,6 +11,7 @@ function validateStudent(input: unknown) {
   if (typeof student.lastName !== "string" || !student.lastName.trim()) return "Last name is required.";
   if (typeof student.email !== "string" || !student.email.trim() || !student.email.includes("@")) return "A valid email is required.";
   if (typeof student.phone !== "string") return "Phone must be text.";
+  if (student.phone.trim() && !/^\d{10,}$/.test(student.phone.trim())) return "Phone must contain only numbers and be at least 10 digits.";
   if (student.picture !== null && student.picture !== undefined && typeof student.picture !== "string") return "Picture must be a URL or empty.";
   if (student.active !== undefined && typeof student.active !== "boolean") return "Active must be true or false.";
   return null;
@@ -38,8 +39,17 @@ export async function POST(request: Request) {
   const student = input as Record<string, unknown>;
   try {
     const db = (env as unknown as CloudflareEnv).DB;
+    const email = (student.email as string).trim();
+    const phone = (student.phone as string).trim();
+    const duplicate = await db.prepare("SELECT email, phone FROM students WHERE lower(trim(email)) = lower(?) OR (? <> '' AND trim(phone) = ?) LIMIT 1").bind(email, phone, phone).first<{ email: string; phone: string }>();
+    if (duplicate) {
+      const emailExists = duplicate.email.trim().toLocaleLowerCase() === email.toLocaleLowerCase();
+      const phoneExists = Boolean(phone) && duplicate.phone.trim() === phone;
+      const message = emailExists && phoneExists ? "A student with this email and phone number already exists." : emailExists ? "A student with this email already exists." : "A student with this phone number already exists.";
+      return json({ error: message }, { status: 409 });
+    }
     const result = await db.prepare("INSERT INTO students (first_name, last_name, email, phone, picture, active) VALUES (?, ?, ?, ?, ?, ?) RETURNING id, first_name, last_name, email, phone, picture, active").bind(
-      (student.firstName as string).trim(), (student.lastName as string).trim(), (student.email as string).trim(), (student.phone as string).trim(), typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active === false ? 0 : 1,
+      (student.firstName as string).trim(), (student.lastName as string).trim(), email, phone, typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active === false ? 0 : 1,
     ).first<StudentRow>();
     return json(serialize(result as StudentRow), { status: 201 });
   } catch (error) {
