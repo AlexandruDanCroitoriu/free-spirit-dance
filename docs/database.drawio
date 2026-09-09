@@ -1,211 +1,207 @@
-<?xml version='1.0' encoding='utf-8'?>
-<mxfile host="app.diagrams.net" version="24.7.17">
-  <diagram name="Database overview" id="Database-overview">
-    <mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1150" math="0" shadow="0">
-      <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-        <mxCell id="title" value="Free Spirit Dance | Database schema" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=26;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="40" y="20" width="1450" height="45" />
-        </mxCell>
-        <mxCell id="subtitle" value="Repository migrations through 0019 • Schema only" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=14;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="40" y="70" width="1450" height="30" />
-        </mxCell>
-        <mxCell id="students" value="students" style="swimlane;html=0;startSize=40;horizontal=1;rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;fontStyle=1;collapsible=0;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="40" y="150" width="450" height="292" />
-        </mxCell>
-        <mxCell id="students-id" value="id : INTEGER  |  PK, NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="students">
-          <mxGeometry as="geometry" x="0" y="40" width="450" height="28" />
-        </mxCell>
-        <mxCell id="students-first_name" value="first_name : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="students">
-          <mxGeometry as="geometry" x="0" y="68" width="450" height="28" />
-        </mxCell>
-        <mxCell id="students-last_name" value="last_name : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="students">
-          <mxGeometry as="geometry" x="0" y="96" width="450" height="28" />
-        </mxCell>
-        <mxCell id="students-email" value="email : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="students">
-          <mxGeometry as="geometry" x="0" y="124" width="450" height="28" />
-        </mxCell>
-        <mxCell id="students-phone" value="phone : TEXT  |  NOT NULL, default ''" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="students">
-          <mxGeometry as="geometry" x="0" y="152" width="450" height="28" />
-        </mxCell>
-        <mxCell id="students-picture" value="picture : TEXT  |  nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="students">
-          <mxGeometry as="geometry" x="0" y="180" width="450" height="28" />
-        </mxCell>
-        <mxCell id="students-active" value="active : INTEGER  |  NOT NULL, default 1" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="students">
-          <mxGeometry as="geometry" x="0" y="208" width="450" height="28" />
-        </mxCell>
-        <mxCell id="students-created_at" value="created_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="students">
-          <mxGeometry as="geometry" x="0" y="236" width="450" height="28" />
-        </mxCell>
-        <mxCell id="students-updated_at" value="updated_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="students">
-          <mxGeometry as="geometry" x="0" y="264" width="450" height="28" />
-        </mxCell>
-        <mxCell id="courses" value="courses" style="swimlane;html=0;startSize=40;horizontal=1;rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;fontStyle=1;collapsible=0;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="550" y="150" width="490" height="376" />
-        </mxCell>
-        <mxCell id="courses-id" value="id : INTEGER  |  PK, NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="courses">
-          <mxGeometry as="geometry" x="0" y="40" width="490" height="28" />
-        </mxCell>
-        <mxCell id="courses-name" value="name : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="courses">
-          <mxGeometry as="geometry" x="0" y="68" width="490" height="28" />
-        </mxCell>
-        <mxCell id="courses-recurrence_one" value="recurrence_one : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="courses">
-          <mxGeometry as="geometry" x="0" y="96" width="490" height="28" />
-        </mxCell>
-        <mxCell id="courses-day_one" value="day_one : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="courses">
-          <mxGeometry as="geometry" x="0" y="124" width="490" height="28" />
-        </mxCell>
-        <mxCell id="courses-start_time_one" value="start_time_one : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="courses">
-          <mxGeometry as="geometry" x="0" y="152" width="490" height="28" />
-        </mxCell>
-        <mxCell id="courses-end_time_one" value="end_time_one : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="courses">
-          <mxGeometry as="geometry" x="0" y="180" width="490" height="28" />
-        </mxCell>
-        <mxCell id="courses-recurrence_two" value="recurrence_two : TEXT  |  nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="courses">
-          <mxGeometry as="geometry" x="0" y="208" width="490" height="28" />
-        </mxCell>
-        <mxCell id="courses-day_two" value="day_two : TEXT  |  nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="courses">
-          <mxGeometry as="geometry" x="0" y="236" width="490" height="28" />
-        </mxCell>
-        <mxCell id="courses-start_time_two" value="start_time_two : TEXT  |  nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="courses">
-          <mxGeometry as="geometry" x="0" y="264" width="490" height="28" />
-        </mxCell>
-        <mxCell id="courses-end_time_two" value="end_time_two : TEXT  |  nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="courses">
-          <mxGeometry as="geometry" x="0" y="292" width="490" height="28" />
-        </mxCell>
-        <mxCell id="courses-created_at" value="created_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="courses">
-          <mxGeometry as="geometry" x="0" y="320" width="490" height="28" />
-        </mxCell>
-        <mxCell id="courses-updated_at" value="updated_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="courses">
-          <mxGeometry as="geometry" x="0" y="348" width="490" height="28" />
-        </mxCell>
-        <mxCell id="qr_codes" value="qr_codes" style="swimlane;html=0;startSize=40;horizontal=1;rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;fontStyle=1;collapsible=0;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="1090" y="150" width="460" height="460" />
-        </mxCell>
-        <mxCell id="qr_codes-id" value="id : INTEGER  |  PK, NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="qr_codes">
-          <mxGeometry as="geometry" x="0" y="40" width="460" height="28" />
-        </mxCell>
-        <mxCell id="qr_codes-slug" value="slug : TEXT  |  NOT NULL, UNIQUE" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="qr_codes">
-          <mxGeometry as="geometry" x="0" y="68" width="460" height="28" />
-        </mxCell>
-        <mxCell id="qr_codes-name" value="name : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="qr_codes">
-          <mxGeometry as="geometry" x="0" y="96" width="460" height="28" />
-        </mxCell>
-        <mxCell id="qr_codes-destination_url" value="destination_url : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="qr_codes">
-          <mxGeometry as="geometry" x="0" y="124" width="460" height="28" />
-        </mxCell>
-        <mxCell id="qr_codes-active" value="active : INTEGER  |  NOT NULL, default 1" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="qr_codes">
-          <mxGeometry as="geometry" x="0" y="152" width="460" height="28" />
-        </mxCell>
-        <mxCell id="qr_codes-image_mode" value="image_mode : TEXT  |  NOT NULL, default 'none'" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="qr_codes">
-          <mxGeometry as="geometry" x="0" y="180" width="460" height="28" />
-        </mxCell>
-        <mxCell id="qr_codes-image_path" value="image_path : TEXT  |  nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="qr_codes">
-          <mxGeometry as="geometry" x="0" y="208" width="460" height="28" />
-        </mxCell>
-        <mxCell id="qr_codes-module_shape" value="module_shape : TEXT  |  NOT NULL, default 'square'" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="qr_codes">
-          <mxGeometry as="geometry" x="0" y="236" width="460" height="28" />
-        </mxCell>
-        <mxCell id="qr_codes-foreground_color" value="foreground_color : TEXT  |  NOT NULL, default '#1e293b'" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="qr_codes">
-          <mxGeometry as="geometry" x="0" y="264" width="460" height="28" />
-        </mxCell>
-        <mxCell id="qr_codes-eye_shape" value="eye_shape : TEXT  |  NOT NULL, default 'square'" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="qr_codes">
-          <mxGeometry as="geometry" x="0" y="292" width="460" height="28" />
-        </mxCell>
-        <mxCell id="qr_codes-eye_color" value="eye_color : TEXT  |  NOT NULL, default '#1e293b'" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="qr_codes">
-          <mxGeometry as="geometry" x="0" y="320" width="460" height="28" />
-        </mxCell>
-        <mxCell id="qr_codes-logo_size" value="logo_size : INTEGER  |  NOT NULL, default 25" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="qr_codes">
-          <mxGeometry as="geometry" x="0" y="348" width="460" height="28" />
-        </mxCell>
-        <mxCell id="qr_codes-logo_shape" value="logo_shape : TEXT  |  NOT NULL, default 'square'" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="qr_codes">
-          <mxGeometry as="geometry" x="0" y="376" width="460" height="28" />
-        </mxCell>
-        <mxCell id="qr_codes-created_at" value="created_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="qr_codes">
-          <mxGeometry as="geometry" x="0" y="404" width="460" height="28" />
-        </mxCell>
-        <mxCell id="qr_codes-updated_at" value="updated_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="qr_codes">
-          <mxGeometry as="geometry" x="0" y="432" width="460" height="28" />
-        </mxCell>
-        <mxCell id="admin_profiles" value="admin_profiles" style="swimlane;html=0;startSize=40;horizontal=1;rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;fontStyle=1;collapsible=0;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="40" y="760" width="450" height="180" />
-        </mxCell>
-        <mxCell id="admin_profiles-email" value="email : TEXT  |  PK, nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="admin_profiles">
-          <mxGeometry as="geometry" x="0" y="40" width="450" height="28" />
-        </mxCell>
-        <mxCell id="admin_profiles-name" value="name : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="admin_profiles">
-          <mxGeometry as="geometry" x="0" y="68" width="450" height="28" />
-        </mxCell>
-        <mxCell id="admin_profiles-picture" value="picture : TEXT  |  nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="admin_profiles">
-          <mxGeometry as="geometry" x="0" y="96" width="450" height="28" />
-        </mxCell>
-        <mxCell id="admin_profiles-created_at" value="created_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="admin_profiles">
-          <mxGeometry as="geometry" x="0" y="124" width="450" height="28" />
-        </mxCell>
-        <mxCell id="admin_profiles-updated_at" value="updated_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="admin_profiles">
-          <mxGeometry as="geometry" x="0" y="152" width="450" height="28" />
-        </mxCell>
-        <mxCell id="administrator_permissions" value="administrator_permissions" style="swimlane;html=0;startSize=40;horizontal=1;rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;fontStyle=1;collapsible=0;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="700" y="760" width="520" height="236" />
-        </mxCell>
-        <mxCell id="administrator_permissions-email" value="email : TEXT  |  PK, nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="administrator_permissions">
-          <mxGeometry as="geometry" x="0" y="40" width="520" height="28" />
-        </mxCell>
-        <mxCell id="administrator_permissions-can_dashboard" value="can_dashboard : INTEGER  |  NOT NULL, default 0" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="administrator_permissions">
-          <mxGeometry as="geometry" x="0" y="68" width="520" height="28" />
-        </mxCell>
-        <mxCell id="administrator_permissions-can_students" value="can_students : INTEGER  |  NOT NULL, default 0" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="administrator_permissions">
-          <mxGeometry as="geometry" x="0" y="96" width="520" height="28" />
-        </mxCell>
-        <mxCell id="administrator_permissions-can_courses" value="can_courses : INTEGER  |  NOT NULL, default 0" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="administrator_permissions">
-          <mxGeometry as="geometry" x="0" y="124" width="520" height="28" />
-        </mxCell>
-        <mxCell id="administrator_permissions-created_at" value="created_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" vertex="1" parent="administrator_permissions">
-          <mxGeometry as="geometry" x="0" y="152" width="520" height="28" />
-        </mxCell>
-        <mxCell id="administrator_permissions-updated_at" value="updated_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="administrator_permissions">
-          <mxGeometry as="geometry" x="0" y="180" width="520" height="28" />
-        </mxCell>
-        <mxCell id="logical-email" value="Same administrator email&#10;0..1 ↔ 0..1, logical only&#10;No foreign key" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=none;startArrow=none;strokeColor=#9673a6;fontSize=12;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="admin_profiles-email" target="administrator_permissions-email">
-          <mxGeometry as="geometry" relative="1" />
-        </mxCell>
-        <mxCell id="notes" value="SCHEMA NOTES&#10;• No FOREIGN KEY constraints exist. Dashed line indicates an application identity association only.&#10;• Students and courses are independent: no enrollment/junction table exists.&#10;• students.phone is unique on trim(phone), only when nonempty. students.email is not database-unique.&#10;• Administrator email primary keys use COLLATE NOCASE. SQLite permits NULL on these TEXT PK columns.&#10;• Integer primary keys use AUTOINCREMENT. CHECK constraints and indexes are on the next page." style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=14;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="40" y="545" width="1000" height="185" />
-        </mxCell>
-        <mxCell id="administrator_permissions-can_qr_codes" value="can_qr_codes : INTEGER  |  NOT NULL, default 0" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" vertex="1" parent="administrator_permissions">
-          <mxGeometry as="geometry" x="0" y="208" width="520" height="28" />
-        </mxCell>
-      </root>
-    </mxGraphModel>
-  </diagram>
-  <diagram name="Constraints and SQL" id="Constraints-and-SQL">
-    <mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1720" math="0" shadow="0">
-      <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-        <mxCell id="sql-title" value="Exact final table definitions and indexes" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=24;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="40" y="20" width="1700" height="50" />
-        </mxCell>
-        <mxCell id="sql-note" value="Derived by applying all repository migrations to an empty in-memory SQLite database. Internal sqlite_* tables are omitted." style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=14;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="40" y="75" width="1700" height="35" />
-        </mxCell>
-        <mxCell id="sql-students" value="CREATE TABLE students (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  first_name TEXT NOT NULL,&#10;  last_name TEXT NOT NULL,&#10;  email TEXT NOT NULL,&#10;  phone TEXT NOT NULL DEFAULT '',&#10;  picture TEXT,&#10;  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),&#10;  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,&#10;  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP&#10;);&#10;&#10;CREATE INDEX students_name_idx ON students (last_name, first_name);&#10;CREATE UNIQUE INDEX students_phone_unique_idx&#10;ON students (trim(phone))&#10;WHERE trim(phone) &lt;&gt; '';" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Courier New;fontSize=13;fillColor=#f5f8fc;spacing=10;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="40" y="130" width="1720" height="326" />
-        </mxCell>
-        <mxCell id="sql-courses" value="CREATE TABLE &quot;courses&quot; (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  name TEXT NOT NULL CHECK (length(trim(name)) &gt; 0),&#10;  recurrence_one TEXT NOT NULL CHECK (recurrence_one IN ('weekly', 'twice_weekly')),&#10;  day_one TEXT NOT NULL CHECK (day_one IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')),&#10;  start_time_one TEXT NOT NULL CHECK (start_time_one GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(start_time_one, 1, 2) AS INTEGER) &lt;= 23),&#10;  end_time_one TEXT NOT NULL CHECK (end_time_one GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(end_time_one, 1, 2) AS INTEGER) &lt;= 23),&#10;  recurrence_two TEXT CHECK (recurrence_two IS NULL OR recurrence_two = 'twice_weekly'),&#10;  day_two TEXT CHECK (day_two IS NULL OR day_two IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')),&#10;  start_time_two TEXT CHECK (start_time_two IS NULL OR (start_time_two GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(start_time_two, 1, 2) AS INTEGER) &lt;= 23)),&#10;  end_time_two TEXT CHECK (end_time_two IS NULL OR (end_time_two GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(end_time_two, 1, 2) AS INTEGER) &lt;= 23)),&#10;  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,&#10;  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,&#10;  CHECK (end_time_one &gt; start_time_one),&#10;  CHECK ((recurrence_one = 'weekly' AND recurrence_two IS NULL AND day_two IS NULL AND start_time_two IS NULL AND end_time_two IS NULL) OR (recurrence_one = 'twice_weekly' AND recurrence_two = 'twice_weekly' AND day_two IS NOT NULL AND start_time_two IS NOT NULL AND end_time_two IS NOT NULL AND end_time_two &gt; start_time_two))&#10;);&#10;&#10;CREATE INDEX courses_name_idx ON courses (name COLLATE NOCASE);" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Courier New;fontSize=13;fillColor=#f5f8fc;spacing=10;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="40" y="476" width="1720" height="362" />
-        </mxCell>
-        <mxCell id="sql-qr_codes" value="CREATE TABLE &quot;qr_codes&quot; (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  slug TEXT NOT NULL UNIQUE,&#10;  name TEXT NOT NULL,&#10;  destination_url TEXT NOT NULL,&#10;  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),&#10;  image_mode TEXT NOT NULL DEFAULT 'none' CHECK (image_mode IN ('none', 'logo', 'custom')),&#10;  image_path TEXT,&#10;  module_shape TEXT NOT NULL DEFAULT 'square' CHECK (module_shape IN ('square', 'circle')),&#10;  foreground_color TEXT NOT NULL DEFAULT '#1e293b',&#10;  eye_shape TEXT NOT NULL DEFAULT 'square' CHECK (eye_shape IN ('square', 'rounded', 'circle')),&#10;  eye_color TEXT NOT NULL DEFAULT '#1e293b',&#10;  logo_size INTEGER NOT NULL DEFAULT 25 CHECK (logo_size BETWEEN 15 AND 30),&#10;  logo_shape TEXT NOT NULL DEFAULT 'square' CHECK (logo_shape IN ('square', 'rounded', 'circle')),&#10;  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,&#10;  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP&#10;);&#10;&#10;CREATE INDEX qr_codes_updated_at_idx ON qr_codes (updated_at DESC);" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Courier New;fontSize=13;fillColor=#f5f8fc;spacing=10;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="40" y="858" width="1720" height="380" />
-        </mxCell>
-        <mxCell id="sql-admin_profiles" value="CREATE TABLE admin_profiles (&#10;  email TEXT PRIMARY KEY COLLATE NOCASE,&#10;  name TEXT NOT NULL,&#10;  picture TEXT,&#10;  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,&#10;  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP&#10;);&#10;&#10;" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Courier New;fontSize=13;fillColor=#f5f8fc;spacing=10;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="40" y="1258" width="1720" height="182" />
-        </mxCell>
-        <mxCell id="sql-administrator_permissions" value="CREATE TABLE &quot;administrator_permissions&quot; (&#10;  email TEXT PRIMARY KEY COLLATE NOCASE,&#10;  can_dashboard INTEGER NOT NULL DEFAULT 0 CHECK (can_dashboard IN (0, 1)),&#10;  can_students INTEGER NOT NULL DEFAULT 0 CHECK (can_students IN (0, 1)),&#10;  can_courses INTEGER NOT NULL DEFAULT 0 CHECK (can_courses IN (0, 1)),&#10;  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,&#10;  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP&#10;, can_qr_codes INTEGER NOT NULL DEFAULT 0&#10;  CHECK (can_qr_codes IN (0, 1)));" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Courier New;fontSize=13;fillColor=#f5f8fc;spacing=10;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="40" y="1460" width="1720" height="200" />
-        </mxCell>
-      </root>
-    </mxGraphModel>
-  </diagram>
+<mxfile host="65bd71144e">
+    <diagram name="Database overview" id="Database-overview">
+        <mxGraphModel dx="1105" dy="770" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1150" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="Free Spirit Dance | Database schema" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=26;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="20" width="1450" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="subtitle" value="Repository migrations 0001–0014 • Schema only; deployed database not queried" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=14;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="70" width="1450" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="students" value="students" style="swimlane;html=0;startSize=40;horizontal=1;rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;fontStyle=1;collapsible=0;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="150" width="450" height="292" as="geometry"/>
+                </mxCell>
+                <mxCell id="students-id" value="id : INTEGER  |  PK, NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="students" vertex="1">
+                    <mxGeometry y="40" width="450" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="students-first_name" value="first_name : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="students" vertex="1">
+                    <mxGeometry y="68" width="450" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="students-last_name" value="last_name : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="students" vertex="1">
+                    <mxGeometry y="96" width="450" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="students-email" value="email : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="students" vertex="1">
+                    <mxGeometry y="124" width="450" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="students-phone" value="phone : TEXT  |  NOT NULL, default &#39;&#39;" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="students" vertex="1">
+                    <mxGeometry y="152" width="450" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="students-picture" value="picture : TEXT  |  nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="students" vertex="1">
+                    <mxGeometry y="180" width="450" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="students-active" value="active : INTEGER  |  NOT NULL, default 1" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="students" vertex="1">
+                    <mxGeometry y="208" width="450" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="students-created_at" value="created_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="students" vertex="1">
+                    <mxGeometry y="236" width="450" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="students-updated_at" value="updated_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="students" vertex="1">
+                    <mxGeometry y="264" width="450" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="courses" value="courses" style="swimlane;html=0;startSize=40;horizontal=1;rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;fontStyle=1;collapsible=0;" parent="1" vertex="1">
+                    <mxGeometry x="550" y="150" width="490" height="376" as="geometry"/>
+                </mxCell>
+                <mxCell id="courses-id" value="id : INTEGER  |  PK, NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="courses" vertex="1">
+                    <mxGeometry y="40" width="490" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="courses-name" value="name : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="courses" vertex="1">
+                    <mxGeometry y="68" width="490" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="courses-recurrence_one" value="recurrence_one : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="courses" vertex="1">
+                    <mxGeometry y="96" width="490" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="courses-day_one" value="day_one : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="courses" vertex="1">
+                    <mxGeometry y="124" width="490" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="courses-start_time_one" value="start_time_one : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="courses" vertex="1">
+                    <mxGeometry y="152" width="490" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="courses-end_time_one" value="end_time_one : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="courses" vertex="1">
+                    <mxGeometry y="180" width="490" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="courses-recurrence_two" value="recurrence_two : TEXT  |  nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="courses" vertex="1">
+                    <mxGeometry y="208" width="490" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="courses-day_two" value="day_two : TEXT  |  nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="courses" vertex="1">
+                    <mxGeometry y="236" width="490" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="courses-start_time_two" value="start_time_two : TEXT  |  nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="courses" vertex="1">
+                    <mxGeometry y="264" width="490" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="courses-end_time_two" value="end_time_two : TEXT  |  nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="courses" vertex="1">
+                    <mxGeometry y="292" width="490" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="courses-created_at" value="created_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="courses" vertex="1">
+                    <mxGeometry y="320" width="490" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="courses-updated_at" value="updated_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="courses" vertex="1">
+                    <mxGeometry y="348" width="490" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes" value="qr_codes" style="swimlane;html=0;startSize=40;horizontal=1;rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;fontStyle=1;collapsible=0;" parent="1" vertex="1">
+                    <mxGeometry x="1090" y="150" width="460" height="460" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes-id" value="id : INTEGER  |  PK, NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="qr_codes" vertex="1">
+                    <mxGeometry y="40" width="460" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes-slug" value="slug : TEXT  |  NOT NULL, UNIQUE" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="qr_codes" vertex="1">
+                    <mxGeometry y="68" width="460" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes-name" value="name : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="qr_codes" vertex="1">
+                    <mxGeometry y="96" width="460" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes-destination_url" value="destination_url : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="qr_codes" vertex="1">
+                    <mxGeometry y="124" width="460" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes-active" value="active : INTEGER  |  NOT NULL, default 1" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="qr_codes" vertex="1">
+                    <mxGeometry y="152" width="460" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes-image_mode" value="image_mode : TEXT  |  NOT NULL, default &#39;none&#39;" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="qr_codes" vertex="1">
+                    <mxGeometry y="180" width="460" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes-image_path" value="image_path : TEXT  |  nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="qr_codes" vertex="1">
+                    <mxGeometry y="208" width="460" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes-module_shape" value="module_shape : TEXT  |  NOT NULL, default &#39;square&#39;" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="qr_codes" vertex="1">
+                    <mxGeometry y="236" width="460" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes-foreground_color" value="foreground_color : TEXT  |  NOT NULL, default &#39;#1e293b&#39;" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="qr_codes" vertex="1">
+                    <mxGeometry y="264" width="460" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes-eye_shape" value="eye_shape : TEXT  |  NOT NULL, default &#39;square&#39;" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="qr_codes" vertex="1">
+                    <mxGeometry y="292" width="460" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes-eye_color" value="eye_color : TEXT  |  NOT NULL, default &#39;#1e293b&#39;" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="qr_codes" vertex="1">
+                    <mxGeometry y="320" width="460" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes-logo_size" value="logo_size : INTEGER  |  NOT NULL, default 25" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="qr_codes" vertex="1">
+                    <mxGeometry y="348" width="460" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes-logo_shape" value="logo_shape : TEXT  |  NOT NULL, default &#39;square&#39;" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="qr_codes" vertex="1">
+                    <mxGeometry y="376" width="460" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes-created_at" value="created_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="qr_codes" vertex="1">
+                    <mxGeometry y="404" width="460" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr_codes-updated_at" value="updated_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="qr_codes" vertex="1">
+                    <mxGeometry y="432" width="460" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="admin_profiles" value="admin_profiles" style="swimlane;html=0;startSize=40;horizontal=1;rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;fontStyle=1;collapsible=0;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="760" width="450" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="admin_profiles-email" value="email : TEXT  |  PK, nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="admin_profiles" vertex="1">
+                    <mxGeometry y="40" width="450" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="admin_profiles-name" value="name : TEXT  |  NOT NULL" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="admin_profiles" vertex="1">
+                    <mxGeometry y="68" width="450" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="admin_profiles-picture" value="picture : TEXT  |  nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="admin_profiles" vertex="1">
+                    <mxGeometry y="96" width="450" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="admin_profiles-created_at" value="created_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="admin_profiles" vertex="1">
+                    <mxGeometry y="124" width="450" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="admin_profiles-updated_at" value="updated_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="admin_profiles" vertex="1">
+                    <mxGeometry y="152" width="450" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="administrator_permissions" value="administrator_permissions" style="swimlane;html=0;startSize=40;horizontal=1;rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;fontStyle=1;collapsible=0;" parent="1" vertex="1">
+                    <mxGeometry x="700" y="760" width="520" height="208" as="geometry"/>
+                </mxCell>
+                <mxCell id="administrator_permissions-email" value="email : TEXT  |  PK, nullable" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="administrator_permissions" vertex="1">
+                    <mxGeometry y="40" width="520" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="administrator_permissions-can_dashboard" value="can_dashboard : INTEGER  |  NOT NULL, default 0" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="administrator_permissions" vertex="1">
+                    <mxGeometry y="68" width="520" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="administrator_permissions-can_students" value="can_students : INTEGER  |  NOT NULL, default 0" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="administrator_permissions" vertex="1">
+                    <mxGeometry y="96" width="520" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="administrator_permissions-can_courses" value="can_courses : INTEGER  |  NOT NULL, default 0" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="administrator_permissions" vertex="1">
+                    <mxGeometry y="124" width="520" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="administrator_permissions-created_at" value="created_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#ffffff;" parent="administrator_permissions" vertex="1">
+                    <mxGeometry y="152" width="520" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="administrator_permissions-updated_at" value="updated_at : TEXT  |  NOT NULL, default CURRENT_TIMESTAMP" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=12;spacingLeft=10;fillColor=#f5f8fc;" parent="administrator_permissions" vertex="1">
+                    <mxGeometry y="180" width="520" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="logical-email" value="Same administrator email&#xa;0..1 ↔ 0..1, logical only&#xa;No foreign key" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=none;startArrow=none;strokeColor=#9673a6;fontSize=12;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="admin_profiles-email" target="administrator_permissions-email" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="notes" value="SCHEMA NOTES&#xa;• No FOREIGN KEY constraints exist. Dashed line indicates an application identity association only.&#xa;• Students and courses are independent: no enrollment/junction table exists.&#xa;• students.phone is unique on trim(phone), only when nonempty. students.email is not database-unique.&#xa;• Administrator email primary keys use COLLATE NOCASE. SQLite permits NULL on these TEXT PK columns.&#xa;• Integer primary keys use AUTOINCREMENT. CHECK constraints and indexes are on the next page." style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=14;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="545" width="1000" height="185" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram name="Constraints and SQL" id="Constraints-and-SQL">
+        <mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1720" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="sql-title" value="Exact final table definitions and indexes" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=24;fontStyle=1;" vertex="1" parent="1">
+                    <mxGeometry as="geometry" x="40" y="20" width="1700" height="50"/>
+                </mxCell>
+                <mxCell id="sql-note" value="Derived by applying all repository migrations to an empty in-memory SQLite database. Internal sqlite_* tables are omitted." style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=14;" vertex="1" parent="1">
+                    <mxGeometry as="geometry" x="40" y="75" width="1700" height="35"/>
+                </mxCell>
+                <mxCell id="sql-students" value="CREATE TABLE students (&#xa;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#xa;  first_name TEXT NOT NULL,&#xa;  last_name TEXT NOT NULL,&#xa;  email TEXT NOT NULL,&#xa;  phone TEXT NOT NULL DEFAULT &#39;&#39;,&#xa;  picture TEXT,&#xa;  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),&#xa;  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,&#xa;  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP&#xa;);&#xa;&#xa;CREATE INDEX students_name_idx ON students (last_name, first_name);&#xa;CREATE UNIQUE INDEX students_phone_unique_idx&#xa;ON students (trim(phone))&#xa;WHERE trim(phone) &lt;&gt; &#39;&#39;;" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Courier New;fontSize=13;fillColor=#f5f8fc;spacing=10;" vertex="1" parent="1">
+                    <mxGeometry as="geometry" x="40" y="130" width="1720" height="326"/>
+                </mxCell>
+                <mxCell id="sql-courses" value="CREATE TABLE &quot;courses&quot; (&#xa;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#xa;  name TEXT NOT NULL CHECK (length(trim(name)) &gt; 0),&#xa;  recurrence_one TEXT NOT NULL CHECK (recurrence_one IN (&#39;weekly&#39;, &#39;twice_weekly&#39;)),&#xa;  day_one TEXT NOT NULL CHECK (day_one IN (&#39;Monday&#39;, &#39;Tuesday&#39;, &#39;Wednesday&#39;, &#39;Thursday&#39;, &#39;Friday&#39;, &#39;Saturday&#39;, &#39;Sunday&#39;)),&#xa;  start_time_one TEXT NOT NULL CHECK (start_time_one GLOB &#39;[0-2][0-9]:[0-5][0-9]&#39; AND CAST(substr(start_time_one, 1, 2) AS INTEGER) &lt;= 23),&#xa;  end_time_one TEXT NOT NULL CHECK (end_time_one GLOB &#39;[0-2][0-9]:[0-5][0-9]&#39; AND CAST(substr(end_time_one, 1, 2) AS INTEGER) &lt;= 23),&#xa;  recurrence_two TEXT CHECK (recurrence_two IS NULL OR recurrence_two = &#39;twice_weekly&#39;),&#xa;  day_two TEXT CHECK (day_two IS NULL OR day_two IN (&#39;Monday&#39;, &#39;Tuesday&#39;, &#39;Wednesday&#39;, &#39;Thursday&#39;, &#39;Friday&#39;, &#39;Saturday&#39;, &#39;Sunday&#39;)),&#xa;  start_time_two TEXT CHECK (start_time_two IS NULL OR (start_time_two GLOB &#39;[0-2][0-9]:[0-5][0-9]&#39; AND CAST(substr(start_time_two, 1, 2) AS INTEGER) &lt;= 23)),&#xa;  end_time_two TEXT CHECK (end_time_two IS NULL OR (end_time_two GLOB &#39;[0-2][0-9]:[0-5][0-9]&#39; AND CAST(substr(end_time_two, 1, 2) AS INTEGER) &lt;= 23)),&#xa;  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,&#xa;  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,&#xa;  CHECK (end_time_one &gt; start_time_one),&#xa;  CHECK ((recurrence_one = &#39;weekly&#39; AND recurrence_two IS NULL AND day_two IS NULL AND start_time_two IS NULL AND end_time_two IS NULL) OR (recurrence_one = &#39;twice_weekly&#39; AND recurrence_two = &#39;twice_weekly&#39; AND day_two IS NOT NULL AND start_time_two IS NOT NULL AND end_time_two IS NOT NULL AND end_time_two &gt; start_time_two))&#xa;);&#xa;&#xa;CREATE INDEX courses_name_idx ON courses (name COLLATE NOCASE);" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Courier New;fontSize=13;fillColor=#f5f8fc;spacing=10;" vertex="1" parent="1">
+                    <mxGeometry as="geometry" x="40" y="476" width="1720" height="362"/>
+                </mxCell>
+                <mxCell id="sql-qr_codes" value="CREATE TABLE &quot;qr_codes&quot; (&#xa;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#xa;  slug TEXT NOT NULL UNIQUE,&#xa;  name TEXT NOT NULL,&#xa;  destination_url TEXT NOT NULL,&#xa;  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),&#xa;  image_mode TEXT NOT NULL DEFAULT &#39;none&#39; CHECK (image_mode IN (&#39;none&#39;, &#39;logo&#39;, &#39;custom&#39;)),&#xa;  image_path TEXT,&#xa;  module_shape TEXT NOT NULL DEFAULT &#39;square&#39; CHECK (module_shape IN (&#39;square&#39;, &#39;circle&#39;)),&#xa;  foreground_color TEXT NOT NULL DEFAULT &#39;#1e293b&#39;,&#xa;  eye_shape TEXT NOT NULL DEFAULT &#39;square&#39; CHECK (eye_shape IN (&#39;square&#39;, &#39;rounded&#39;, &#39;circle&#39;)),&#xa;  eye_color TEXT NOT NULL DEFAULT &#39;#1e293b&#39;,&#xa;  logo_size INTEGER NOT NULL DEFAULT 25 CHECK (logo_size BETWEEN 15 AND 30),&#xa;  logo_shape TEXT NOT NULL DEFAULT &#39;square&#39; CHECK (logo_shape IN (&#39;square&#39;, &#39;rounded&#39;, &#39;circle&#39;)),&#xa;  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,&#xa;  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP&#xa;);&#xa;&#xa;CREATE INDEX qr_codes_updated_at_idx ON qr_codes (updated_at DESC);" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Courier New;fontSize=13;fillColor=#f5f8fc;spacing=10;" vertex="1" parent="1">
+                    <mxGeometry as="geometry" x="40" y="858" width="1720" height="380"/>
+                </mxCell>
+                <mxCell id="sql-admin_profiles" value="CREATE TABLE admin_profiles (&#xa;  email TEXT PRIMARY KEY COLLATE NOCASE,&#xa;  name TEXT NOT NULL,&#xa;  picture TEXT,&#xa;  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,&#xa;  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP&#xa;);&#xa;&#xa;" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Courier New;fontSize=13;fillColor=#f5f8fc;spacing=10;" vertex="1" parent="1">
+                    <mxGeometry as="geometry" x="40" y="1258" width="1720" height="182"/>
+                </mxCell>
+                <mxCell id="sql-administrator_permissions" value="CREATE TABLE administrator_permissions (&#xa;  email TEXT PRIMARY KEY COLLATE NOCASE,&#xa;  can_dashboard INTEGER NOT NULL DEFAULT 0 CHECK (can_dashboard IN (0, 1)),&#xa;  can_students INTEGER NOT NULL DEFAULT 0 CHECK (can_students IN (0, 1)),&#xa;  can_courses INTEGER NOT NULL DEFAULT 0 CHECK (can_courses IN (0, 1)),&#xa;  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,&#xa;  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP&#xa;);&#xa;&#xa;" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Courier New;fontSize=13;fillColor=#f5f8fc;spacing=10;" vertex="1" parent="1">
+                    <mxGeometry as="geometry" x="40" y="1460" width="1720" height="200"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
 </mxfile>
