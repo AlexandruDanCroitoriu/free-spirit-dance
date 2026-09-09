@@ -5,13 +5,13 @@ import { useEffect, useState, type ReactNode } from "react";
 
 type IconName = "book" | "home" | "qr-code" | "shield" | "users";
 type AdminProfile = { email: string; name: string; picture: string | null };
-type Permissions = { dashboard: boolean; students: boolean; courses: boolean; administrators: boolean };
+type Permissions = { dashboard: boolean; students: boolean; courses: boolean; qrCodes: boolean; administrators: boolean };
 
 const navigation: Array<{ label: string; href: string; icon: IconName; permission: keyof Permissions | null }> = [
   { label: "Dashboard", href: "/", icon: "home", permission: "dashboard" },
   { label: "Students", href: "/students", icon: "users", permission: "students" },
   { label: "Courses", href: "/courses", icon: "book", permission: "courses" },
-  { label: "QR Codes", href: "/qr-codes", icon: "qr-code", permission: null },
+  { label: "QR Codes", href: "/qr-codes", icon: "qr-code", permission: "qrCodes" },
   { label: "Administrators", href: "/administrators", icon: "shield", permission: "administrators" },
 ];
 
@@ -31,7 +31,7 @@ function Sidebar({ close, pathname, permissions, profile }: { close?: () => void
   const visibleNavigation = navigation.filter(({ permission }) => permission === null || permissions[permission]);
 
   return <aside className="flex h-full flex-col bg-slate-900 px-4 pt-4 pb-5 text-stone-100">
-    <div className="pb-4"><a className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-slate-800 focus:bg-slate-800 focus:outline-none" href={permissions.dashboard ? "/" : "/qr-codes"}><img alt="Free Spirit Dance" className="h-20 w-16 max-w-none shrink-0 object-contain" src="/logo.svg" /><div className="min-w-0"><strong className="block whitespace-nowrap font-sans text-base font-bold">Free Spirit Dance</strong><span className="mt-1 block whitespace-nowrap font-sans text-xs uppercase tracking-wide text-slate-400">Knowledgebase</span></div></a></div>
+    <div className="pb-4"><a className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-slate-800 focus:bg-slate-800 focus:outline-none" href={visibleNavigation[0]?.href ?? "/settings"}><img alt="Free Spirit Dance" className="h-20 w-16 max-w-none shrink-0 object-contain" src="/logo.svg" /><div className="min-w-0"><strong className="block whitespace-nowrap font-sans text-base font-bold">Free Spirit Dance</strong><span className="mt-1 block whitespace-nowrap font-sans text-xs uppercase tracking-wide text-slate-400">Knowledgebase</span></div></a></div>
     <nav aria-label="Main navigation" className="font-sans text-sm"><p className="m-0 mb-2.5 px-2.5 text-xs font-bold uppercase tracking-widest text-slate-500">Workspace</p>{visibleNavigation.map((item) => { const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href); return <a className={`flex items-center gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-slate-800 focus:bg-slate-800 focus:outline-none ${active ? "bg-slate-700 text-orange-300" : "text-slate-300 hover:text-stone-100 focus:text-stone-100"}`} href={item.href} key={item.href} onClick={close}><Icon name={item.icon} />{item.label}</a>; })}</nav>
     <div className="relative mt-auto border-t border-slate-700 pt-4">
       {userMenuOpen && <div className="absolute bottom-24 left-0 right-0 rounded-xl border border-slate-600 bg-slate-800 p-2 shadow-2xl md:bottom-20 md:rounded-lg md:p-1">
@@ -50,7 +50,7 @@ function Sidebar({ close, pathname, permissions, profile }: { close?: () => void
 export default function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profile, setProfile] = useState<AdminProfile>({ email: "", name: "Loading account...", picture: null });
-  const [permissions, setPermissions] = useState<Permissions>({ dashboard: false, students: false, courses: false, administrators: false });
+  const [permissions, setPermissions] = useState<Permissions>({ dashboard: false, students: false, courses: false, qrCodes: false, administrators: false });
   const pathname = usePathname();
   const studentDetailPage = pathname.startsWith("/students/");
   const pageTitle = pathname === "/" ? "Dashboard" : pathname === "/students" ? "Students" : studentDetailPage ? "Student details" : pathname.startsWith("/courses") ? "Courses" : pathname.startsWith("/administrators") ? "Administrators" : pathname.startsWith("/qr-codes") ? "QR Codes" : pathname.startsWith("/settings") ? "Settings" : "Free Spirit Dance";
@@ -62,7 +62,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       .catch(() => setProfile({ email: "", name: "Profile", picture: null }));
     const updateProfile = (event: Event) => setProfile((event as CustomEvent<AdminProfile>).detail);
     void loadProfile();
-    void fetch("/api/access-permissions").then((response) => response.ok ? response.json() as Promise<Permissions> : Promise.reject()).then(setPermissions).catch(() => setPermissions({ dashboard: false, students: false, courses: false, administrators: false }));
+    void fetch("/api/access-permissions").then((response) => response.ok ? response.json() as Promise<Permissions> : Promise.reject()).then(setPermissions).catch(() => setPermissions({ dashboard: false, students: false, courses: false, qrCodes: false, administrators: false }));
     window.addEventListener("admin-profile-updated", updateProfile);
     return () => window.removeEventListener("admin-profile-updated", updateProfile);
   }, []);
