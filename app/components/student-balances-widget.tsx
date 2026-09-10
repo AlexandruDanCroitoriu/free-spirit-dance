@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import StudentPanel from "./student-panel";
 
 const filterStorageKey = "free-spirit-dance.student-balances.filters.v1";
@@ -8,10 +8,13 @@ const filterStorageKey = "free-spirit-dance.student-balances.filters.v1";
 type StudentBalance = { id: number; firstName: string; lastName: string; picture: string | null; balances: { courseId: number; courseName: string; remainingAllowance: number; excessAttendance: number }[] };
 
 export default function StudentBalancesWidget() {
+  const courseDropdown = useRef<HTMLDivElement>(null);
+  const courseTrigger = useRef<HTMLButtonElement>(null);
+  const [coursesOpen, setCoursesOpen] = useState(false);
   const [students, setStudents] = useState<StudentBalance[]>([]);
   const [courses, setCourses] = useState<{ id: number; name: string }[]>([]);
   const [filter, setFilter] = useState("unpaid");
-  const [courseId, setCourseId] = useState("all");
+  const [courseIds, setCourseIds] = useState<string[]>([]);
   const [remaining, setRemaining] = useState("1");
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -25,7 +28,9 @@ export default function StudentBalancesWidget() {
       if (saved && typeof saved === "object") {
         const values = saved as Record<string, unknown>;
         if (values.filter === "unpaid" || values.filter === "remaining") setFilter(values.filter);
-        if (typeof values.courseId === "string" && (values.courseId === "all" || (/^[1-9]\d*$/.test(values.courseId) && Number.isSafeInteger(Number(values.courseId))))) setCourseId(values.courseId);
+        const isCourseId = (value: unknown): value is string => typeof value === "string" && /^[1-9]\d*$/.test(value) && Number.isSafeInteger(Number(value));
+        if (Array.isArray(values.courseIds)) setCourseIds([...new Set(values.courseIds.filter(isCourseId))]);
+        else if (isCourseId(values.courseId)) setCourseIds([values.courseId]);
         if (typeof values.remaining === "string" && /^\d+$/.test(values.remaining) && Number.isSafeInteger(Number(values.remaining))) setRemaining(values.remaining);
       }
     } catch {
@@ -37,11 +42,11 @@ export default function StudentBalancesWidget() {
     // Wait for restoration so initial defaults cannot overwrite saved filters.
     if (!filtersLoaded) return;
     try {
-      window.localStorage.setItem(filterStorageKey, JSON.stringify({ filter, courseId, remaining }));
+      window.localStorage.setItem(filterStorageKey, JSON.stringify({ filter, courseIds, remaining }));
     } catch {
       // Filters still work when browser storage is blocked or full.
     }
-  }, [filtersLoaded, filter, courseId, remaining]);
+  }, [filtersLoaded, filter, courseIds, remaining]);
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError("");
@@ -61,18 +66,39 @@ export default function StudentBalancesWidget() {
     const interval = window.setInterval(refresh, 60_000);
     return () => { window.removeEventListener("calendar-updated", refresh); window.removeEventListener("student-activity-updated", refresh); window.removeEventListener("student-courses-updated", refresh); window.removeEventListener("focus", refresh); window.clearInterval(interval); };
   }, []);
+  useEffect(() => {
+    if (!coursesOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !courseDropdown.current?.contains(event.target)) setCoursesOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setCoursesOpen(false);
+        courseTrigger.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => { document.removeEventListener("pointerdown", closeOutside); document.removeEventListener("keydown", closeOnEscape); };
+  }, [coursesOpen]);
+  const selectedCourseNames = courseIds.map((id) => courses.find((course) => String(course.id) === id)?.name ?? "Course no longer available").join(", ");
   const validRemaining = /^\d+$/.test(remaining) && Number.isSafeInteger(Number(remaining));
-  const matches = students.map((student) => ({ ...student, balances: student.balances.filter((balance) => (courseId === "all" || String(balance.courseId) === courseId) && (filter === "unpaid" ? balance.excessAttendance > 0 : validRemaining && balance.remainingAllowance === Number(remaining))) })).filter((student) => student.balances.length > 0);
-  return <section aria-labelledby="student-balances-title" className="min-w-0 self-start overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+  const matches = students.map((student) => ({ ...student, balances: student.balances.filter((balance) => (courseIds.length === 0 || courseIds.includes(String(balance.courseId))) && (filter === "unpaid" ? balance.excessAttendance > 0 : validRemaining && balance.remainingAllowance === Number(remaining))) })).filter((student) => student.balances.length > 0);
+  return <section aria-labelledby="student-balances-title" className="min-w-0 self-start rounded-2xl border border-stone-200 bg-white shadow-sm">
     <div className="border-b border-stone-200 p-4">
       <h2 id="student-balances-title" className="m-0 text-lg font-normal">Student balances</h2>
-      <label className="mt-3 block font-sans text-xs font-semibold text-slate-600">Course
-        <select value={courseId} onChange={(event) => setCourseId(event.target.value)} className="mt-2 w-full rounded-md border border-stone-300 bg-white p-2 text-sm focus:ring-2 focus:ring-lime-600">
-          <option value="all">All courses</option>
-          {courseId !== "all" && !courses.some(({ id }) => String(id) === courseId) && <option value={courseId}>Course no longer available</option>}
-          {courses.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
-        </select>
-      </label>
+      <fieldset className="mt-3 min-w-0 font-sans text-xs text-slate-600">
+        <legend className="font-semibold">Courses</legend>
+        <div ref={courseDropdown} onBlur={(event) => { if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setCoursesOpen(false); }} className="relative mt-2 rounded-md border border-stone-300 bg-white text-sm">
+          <button ref={courseTrigger} type="button" aria-expanded={coursesOpen} aria-controls="student-balance-courses" onClick={() => setCoursesOpen((open) => !open)} title={selectedCourseNames || "All courses"} className="flex w-full cursor-pointer items-center gap-2 rounded-md p-2 text-left focus-visible:outline-lime-600"><span aria-hidden="true" className="shrink-0">{coursesOpen ? "▾" : "▸"}</span><span className="truncate">{selectedCourseNames || "All courses"}</span></button>
+          {coursesOpen && <div id="student-balance-courses" className="absolute inset-x-0 top-full z-20 mt-1 max-h-48 space-y-2 overflow-y-auto rounded-md border border-stone-300 bg-white p-2 shadow-lg">
+            {[...courses.map(({ id, name }) => ({ id: String(id), name })), ...courseIds.filter((id) => !courses.some((course) => String(course.id) === id)).map((id) => ({ id, name: "Course no longer available" }))].map(({ id, name }) => <label key={id} className="flex items-center gap-2">
+              <input type="checkbox" checked={courseIds.includes(id)} onChange={(event) => { const checked = event.currentTarget.checked; setCourseIds((current) => checked ? [...current, id] : current.filter((courseId) => courseId !== id)); }} className="h-4 w-4 shrink-0 accent-lime-700" />
+              {name}
+            </label>)}
+          </div>}
+        </div>
+      </fieldset>
       <label className="mt-3 block font-sans text-xs font-semibold text-slate-600">Show students with
         <select value={filter} onChange={(event) => setFilter(event.target.value)} className="mt-2 w-full rounded-md border border-stone-300 bg-white p-2 text-sm focus:ring-2 focus:ring-lime-600">
           <option value="unpaid">Unpaid attendance</option><option value="remaining">Class credits remaining</option>
@@ -84,7 +110,7 @@ export default function StudentBalancesWidget() {
     </div>
     {error ? <div role="alert" className="p-4 font-sans text-sm text-red-700">{error}<button type="button" onClick={refresh} className="ml-2 underline">Retry</button></div> : loading ? <p role="status" className="p-4 font-sans text-sm text-slate-500">Loading balances…</p> : <>
       <p role="status" className="m-0 px-4 py-3 font-sans text-xs text-slate-500">{matches.length} {matches.length === 1 ? "student" : "students"}</p>
-      {!matches.length && <p className="m-0 px-4 pb-4 font-sans text-sm text-slate-500">{filter === "unpaid" ? courseId === "all" ? "No students have unpaid attendance." : "No students have unpaid attendance in this course." : "No students match this credit balance."}</p>}
+      {!matches.length && <p className="m-0 px-4 pb-4 font-sans text-sm text-slate-500">{filter === "unpaid" ? courseIds.length === 0 ? "No students have unpaid attendance." : "No students have unpaid attendance in the selected courses." : "No students match this credit balance."}</p>}
       <ul className="m-0 max-h-80 list-none divide-y divide-stone-100 overflow-y-auto p-0">{matches.map((student) => <li key={student.id}>
         <button type="button" aria-haspopup="dialog" onClick={() => setSelectedId(student.id)} className="block w-full border-0 bg-white p-4 text-left hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-lime-600">
           <span className="flex items-center gap-3">

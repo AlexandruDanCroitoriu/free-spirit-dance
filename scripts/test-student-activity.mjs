@@ -117,8 +117,12 @@ console.log('PASS: Access permission gate protects both reading and writing stud
 
 const firstLogs = await read();
 const secondLogs = await read(1,'?logsPage=2');
-const combinedLogs = [...firstLogs.logs, ...secondLogs.logs];
-assert.equal(firstLogs.logs.length,25);
+const thirdLogs = await read(1,'?logsPage=3');
+const combinedLogs = [...firstLogs.logs, ...secondLogs.logs, ...thirdLogs.logs];
+assert.equal(firstLogs.logs.length,10);
+assert.equal(secondLogs.logs.length,10);
+assert.equal(thirdLogs.logs.length,10);
+assert.equal((await read(1,'?logsPage=4')).logs.length,0);
 assert.equal(combinedLogs.length,30);
 assert.equal(new Set(combinedLogs.map(row=>row.kind+':'+row.id)).size,30);
 assert.equal(combinedLogs.filter(row=>row.kind==='attendance').length,3);
@@ -138,3 +142,35 @@ for (const log of coverageLogs.logs.filter(row => row.kind === 'payment')) {
   }
 }
 console.log('PASS: paginated payment logs include per-course coverage.');
+
+for (const size of [10,20,30,40,50]) {
+  const first = await read(1, `?logsPageSize=${size}`);
+  const second = await read(1, `?logsPageSize=${size}&logsPage=2`);
+  assert.equal(first.logsPageSize, size);
+  assert.equal(first.logs.length, Math.min(size, 30));
+  assert.equal(second.logs.length, Math.max(0, Math.min(size, 30-size)));
+  assert.equal(new Set([...first.logs,...second.logs].map(row => row.kind+':'+row.id)).size, first.logs.length+second.logs.length);
+}
+for (const size of ['0','15','60','-10','abc']) {
+  assert.equal((await api.GET(new Request(`https://example.test/api/students/1/activity?logsPageSize=${size}`),context())).status,400);
+}
+console.log('PASS: selectable log page sizes are validated and paginate without duplicate entries.');
+
+const beforeCancellation = await read(1, '?logsPageSize=50');
+sqlite.exec("INSERT INTO classes (course_id,class_date,start_time,cancelled) VALUES (1,'2026-09-01','18:30',1)");
+const withCancellation = await read(1, '?logsPageSize=50');
+const cancelled = withCancellation.logs.filter(row => row.kind === 'cancelled');
+assert.equal(cancelled.length, 1);
+assert.equal(cancelled[0].eventDate, '2026-09-01T18:30:00');
+assert.equal(withCancellation.logsCount, beforeCancellation.logsCount + 1);
+assert.deepEqual(withCancellation.summary, beforeCancellation.summary, 'cancellation logs do not alter credits or missed totals');
+assert.equal((await read(2)).logs.some(row => row.kind === 'cancelled'), false);
+sqlite.exec("UPDATE classes SET cancelled=0 WHERE course_id=1 AND class_date='2026-09-01' AND start_time='18:30'");
+assert.equal((await read(1, '?logsPageSize=50')).logs.some(row => row.kind === 'cancelled'), false);
+console.log('PASS: cancellation logs are student-scoped, included in pagination totals, and removed on restoration.');
+
+sqlite.exec("INSERT INTO classes (course_id,class_date,start_time,cancelled) VALUES (1,'2099-01-01','18:30',1)");
+const upcomingLog = await read(1, '?logsPageSize=50');
+assert.ok(upcomingLog.logs.some(row => row.kind === 'cancelled' && row.eventDate === '2099-01-01T18:30:00'), 'known future cancellations are included before attendance reaches them');
+assert.equal(upcomingLog.logsCount, upcomingLog.logs.length);
+console.log('PASS: API exposes known upcoming cancellations in activity and pagination.');

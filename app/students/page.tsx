@@ -52,7 +52,7 @@ export default function StudentsPage() {
       setLoading(false);
       return;
     }
-    setStudents(data);
+    setStudents([...data].sort((a, b) => b.id - a.id));
     setLoading(false);
   }
 
@@ -127,7 +127,7 @@ export default function StudentsPage() {
       data = await readJson<Student & ApiError>(updateResponse);
       if (!updateResponse.ok) { setError(data.error ?? "Student was saved, but the image could not be linked."); setSaving(false); return; }
     }
-    setStudents((current) => [...current, { ...data, courseIds: form.courseIds }].sort((a, b) => a.id - b.id));
+    setStudents((current) => [...current, { ...data, courseIds: form.courseIds }].sort((a, b) => b.id - a.id));
     imageVersion.current++; setPreparingImage(false); setFormOpen(false); setForm(emptyForm); setPendingImage(null); setSaving(false);
   }
 

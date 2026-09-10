@@ -58,3 +58,26 @@ assert.equal((await api.DELETE(req('DELETE',{paymentId:1}),ctx())).status,200);
 assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM payment_course_allowances').get().n,0);
 assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM student_payments').get().n,0);
 console.log('PASS: payment edits, allowance replacement, log course IDs, rollback, student isolation, and deletion.');
+
+const owner = 'croitoriu.alexandru.code@gmail.com';
+const future = {...body, requestKey:'future-payment-test-1234', paidOn:'2099-01-01'};
+const ownerReq = (method, data) => {
+  const request = req(method, data);
+  request.headers.set('cf-access-authenticated-user-email', owner);
+  return request;
+};
+assert.equal((await api.POST(req('POST', future), ctx())).status, 400);
+assert.equal((await api.POST(ownerReq('POST', {...future, paidOn:'2099-02-29'}), ctx())).status, 400);
+const created = await api.POST(ownerReq('POST', future), ctx());
+assert.equal(created.status, 201);
+const futureId = (await created.json()).id;
+assert.equal((await api.PATCH(req('PATCH', {...future, paymentId:futureId, paidOn:'2099-01-02'}), ctx())).status, 400);
+assert.equal((await api.PATCH(ownerReq('PATCH', {...future, paymentId:futureId, paidOn:'2099-01-02'}), ctx())).status, 200);
+assert.equal(sqlite.prepare('SELECT paid_on FROM student_payments WHERE id = ?').get(futureId).paid_on, '2099-01-02');
+for (const [email, expected] of [[owner,true],['admin@test',false],['',false]]) {
+  const response = await api.GET(new Request('https://school.test/api/students/1/activity', {headers: {'cf-access-authenticated-user-email':email}}), ctx());
+  const result = await response.json();
+  assert.equal(result.canRecordFuturePayments, expected);
+  assert.equal(result.summary.paidAllowance, 0, 'future payments activate on their payment date');
+}
+console.log('PASS: only the main administrator can create and edit future payments; invalid dates remain rejected.');

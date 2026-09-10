@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { activityPageSize, formatLogDate, formatMoney, schoolToday, type StudentActivity as Activity } from "../lib/student-activity";
+import { activityLogPageSize, activityLogPageSizes, formatLogDate, formatMoney, schoolToday, type StudentActivity as Activity } from "../lib/student-activity";
 import { presetDraft, type PaymentPreset } from "../lib/payment-presets";
 
 const button = "rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold disabled:opacity-50";
@@ -19,6 +19,7 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [reload, setReload] = useState(0);
+  const [logsPageSize, setLogsPageSize] = useState(activityLogPageSize);
   const [logsPage, setLogsPage] = useState(1);
   const [mode, setMode] = useState<"payment" | null>(null);
   const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
@@ -36,7 +37,7 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
   const [amount, setAmount] = useState("");
   const [allocations, setAllocations] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState("");
-  const presetToMatch = useRef<Activity["logs"][number] | null>(null);
+  const presetToMatch = useRef<Pick<Activity["logs"][number], "amountMinor" | "allocations"> | null>(null);
   const requestKey = useRef("");
   const submitted = useRef<string | null>(null);
   const url = `/api/students/${studentId}/activity`;
@@ -44,16 +45,25 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError("");
-    fetch(`${url}?logsPage=${logsPage}`, { signal: controller.signal })
+    fetch(`${url}?logsPage=${logsPage}&logsPageSize=${logsPageSize}`, { signal: controller.signal })
       .then(readResponse).then((body) => { if (!controller.signal.aborted) setData(body as Activity); })
       .catch((reason) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load student activity."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [url, reload, logsPage]);
+  }, [url, reload, logsPage, logsPageSize]);
   useEffect(() => {
     const refresh = (event: Event) => { if ((event as CustomEvent<number>).detail === studentId) setReload((value) => value + 1); };
+    const refreshActivity = () => setReload((value) => value + 1);
     window.addEventListener("student-courses-updated", refresh);
-    return () => window.removeEventListener("student-courses-updated", refresh);
+    window.addEventListener("calendar-updated", refreshActivity);
+    window.addEventListener("student-activity-updated", refreshActivity);
+    window.addEventListener("focus", refreshActivity);
+    return () => {
+      window.removeEventListener("student-courses-updated", refresh);
+      window.removeEventListener("calendar-updated", refreshActivity);
+      window.removeEventListener("student-activity-updated", refreshActivity);
+      window.removeEventListener("focus", refreshActivity);
+    };
   }, [studentId]);
   useEffect(() => {
     if (!mode) return;
@@ -83,10 +93,15 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
   }, [mode, presetRetry]);
 
   function open(next: "payment") {
-    presetToMatch.current = null;
+    // Payments are returned newest first independently of the current activity-log page.
+    const previous = data?.payments[0];
+    presetToMatch.current = previous ?? null;
     setEditingPaymentId(null); setConfirmDelete(false);
     setPresetId(""); setPresets([]);
-    setDate(schoolToday()); setAmount(""); setAllocations({}); setNotes(""); setFormError("");
+    setDate(schoolToday());
+    setAmount(previous ? (previous.amountMinor / 100).toFixed(2) : "");
+    setAllocations(Object.fromEntries((previous?.allocations ?? []).map((allocation) => [String(allocation.courseId), String(allocation.allowance)])));
+    setNotes(previous?.notes ?? ""); setFormError("");
     submitted.current = null; requestKey.current = crypto.randomUUID(); setMode(next);
   }
   function editPayment(row: Activity["logs"][number]) {
@@ -160,14 +175,21 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
   const connections = (data?.logs ?? []).flatMap((payment, paymentIndex) => {
     if (payment.kind !== "payment") return [];
     const attendanceRows = (data?.logs ?? []).flatMap((entry, index) =>
-      entry.kind === "attendance" && payment.allocations.some((allocation) =>
+      (entry.kind === "attendance" || entry.kind === "missed") && payment.allocations.some((allocation) =>
         allocation.courseId === entry.courseId && allocation.coverage?.classes.some((slot) =>
-          slot.attended && slot.startsAt === entry.eventDate.slice(0, 16))) ? [index] : []);
+          (slot.attended === (entry.kind === "attendance")) && slot.startsAt === entry.eventDate.slice(0, 16))) ? [index] : []);
     if (!attendanceRows.length) return [];
     const rows = [paymentIndex, ...attendanceRows];
     return [{ paymentId: payment.id, rows, first: Math.min(...rows), last: Math.max(...rows) }];
   });
-  const connectorWidth = connections.length ? 12 + connections.length * 10 : 0;
+  const laneEnds: number[] = [];
+  const positionedConnections = [...connections].sort((a, b) => a.first - b.first || a.last - b.last).map((connection) => {
+    const available = laneEnds.findIndex((last) => last < connection.first);
+    const lane = available === -1 ? laneEnds.length : available;
+    laneEnds[lane] = connection.last;
+    return { ...connection, lane };
+  });
+  const connectorWidth = laneEnds.length ? 12 + laneEnds.length * 10 : 0;
 
   return <section aria-labelledby="student-activity-title" className="mt-6 space-y-5 rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="student-activity-title" className="m-0 text-xl font-normal">Attendance & payments</h2><div className="flex flex-wrap gap-2"><button type="button" className={primary} disabled={loading || !data || !data.courses.length} onClick={() => open("payment")}>Record payment</button></div></div>
@@ -188,25 +210,25 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
               <tr>{["Type", "Date", "Class", "Attendances added", "Recorded by", "Actions"].map((label) => <th key={label} scope="col" className="px-3 py-3 font-semibold">{label}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
-              {data.logs.map((row, rowIndex) => <tr key={`${row.kind}-${row.id}`} className="align-top">
+              {data.logs.map((row, rowIndex) => <tr key={`${row.kind}-${row.id}-${row.eventDate}`} className="align-top">
                 <td className="relative px-3 py-4" style={{ paddingLeft: 12 + connectorWidth }}>
-                  {connections.map((connection, lane) => rowIndex >= connection.first && rowIndex <= connection.last && <span key={connection.paymentId} aria-hidden="true">
-                    <span className="pointer-events-none absolute border-l-2 border-lime-600" style={{ left: 10 + lane * 10, top: rowIndex === connection.first ? 28 : -1, bottom: rowIndex === connection.last ? "calc(100% - 28px)" : -1 }} />
-                    {connection.rows.includes(rowIndex) && <span className="pointer-events-none absolute top-7 border-t-2 border-lime-600" style={{ left: 10 + lane * 10, width: connectorWidth - lane * 10 }} />}
+                  {positionedConnections.map((connection) => rowIndex >= connection.first && rowIndex <= connection.last && <span key={connection.paymentId} aria-hidden="true">
+                    <span className="pointer-events-none absolute border-l-2 border-lime-600" style={{ left: 10 + connection.lane * 10, top: rowIndex === connection.first ? 28 : -1, bottom: rowIndex === connection.last ? "calc(100% - 28px)" : -1 }} />
+                    {connection.rows.includes(rowIndex) && <span className="pointer-events-none absolute top-7 border-t-2 border-lime-600" style={{ left: 10 + connection.lane * 10, width: connectorWidth - connection.lane * 10 }} />}
                   </span>)}
-                  {row.kind === "attendance" && connections.filter((connection) => connection.rows.includes(rowIndex)).map((connection) => <span key={connection.paymentId} className="sr-only">Covered by payment #{connection.paymentId}. </span>)}
-                  <span className={`relative inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${row.kind === "payment" ? "bg-lime-50 text-lime-800" : "bg-blue-50 text-blue-800"}`}>{row.kind === "payment" ? "Payment" : "Attendance"}</span></td>
+                  {row.kind !== "payment" && connections.filter((connection) => connection.rows.includes(rowIndex)).map((connection) => <span key={connection.paymentId} className="sr-only">Covered by payment #{connection.paymentId}. </span>)}
+                  <span className={`relative inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${row.kind === "payment" ? "bg-lime-50 text-lime-800" : row.kind === "missed" ? "bg-amber-50 text-amber-800" : row.kind === "cancelled" ? "bg-stone-100 text-stone-600" : "bg-blue-50 text-blue-800"}`}>{row.kind === "payment" ? "Payment" : row.kind === "missed" ? "Missed" : row.kind === "cancelled" ? "Cancelled" : "Attendance"}</span></td>
                 <td className="whitespace-nowrap px-3 py-4 text-xs text-slate-500"><time dateTime={row.eventDate.slice(0, 10)}>{formatLogDate(row.eventDate.slice(0, 10))}</time></td>
                 <td className="px-3 py-4">{row.kind === "payment" ? row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1">{allocation.courseName}</p>) : row.courseName}</td>
-                <td className="px-3 py-4">{row.kind === "payment" ? row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1 whitespace-nowrap">Next {allocation.allowance} classes</p>) : row.complimentary ? <span className="text-lime-700">Free attendance{row.complimentaryBy && <span className="mt-1 block break-all text-xs text-slate-500">Granted by {row.complimentaryBy}</span>}{row.complimentaryAt && <time className="mt-1 block text-xs text-slate-500" dateTime={row.complimentaryAt}>{formatLogDate(row.complimentaryAt)}</time>}</span> : "1 attended"}</td>
-                <td className="px-3 py-4 text-xs text-slate-500"><span className="break-all">{row.recordedBy}</span>{row.recordedAt && <time className="mt-1 block" dateTime={row.recordedAt}>{formatLogDate(row.recordedAt)}</time>}</td>
-                <td className="px-3 py-4">{row.kind === "payment" ? <button type="button" className={button + " whitespace-nowrap"} disabled={loading || busy} onClick={() => editPayment(row)}>Edit payment</button> : <button type="button" aria-label={`Free attendance for ${row.courseName} on ${formatLogDate(row.eventDate.slice(0, 10))}`} aria-pressed={row.complimentary === 1} disabled={loading || busy || !row.courseId} onClick={() => void toggleFreeAttendance(row)} className={`${button.replace("bg-white", "").replace("border-stone-300", "")} whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-green-600 ${row.complimentary === 1 ? "border-green-600 bg-green-600 text-white hover:bg-green-700" : "border-stone-300 bg-white text-slate-600 hover:border-green-500"}`}>{row.complimentary === 1 ? "✓ Free attendance" : "Free attendance"}</button>}</td>
+                <td className="px-3 py-4">{row.kind === "payment" ? row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1 whitespace-nowrap">Next {allocation.allowance} classes</p>) : row.kind === "missed" ? <span className="whitespace-nowrap text-amber-800">1 missed</span> : row.kind === "cancelled" ? <span className="whitespace-nowrap text-slate-500">Cancelled · no credit used</span> : row.complimentary ? <span className="whitespace-nowrap text-lime-700">Free attendance{row.complimentaryBy && <span className="mt-1 block max-w-40 truncate text-xs text-slate-500" title={`Granted by ${row.complimentaryBy}`}>Granted by {row.complimentaryBy}</span>}{row.complimentaryAt && <time className="mt-1 block whitespace-nowrap text-xs text-slate-500" dateTime={row.complimentaryAt}>{formatLogDate(row.complimentaryAt)}</time>}</span> : "1 attended"}</td>
+                <td className="px-3 py-4 text-xs text-slate-500"><span className="block max-w-40 truncate" title={row.recordedBy}>{row.recordedBy}</span>{row.recordedAt && <time className="mt-1 block whitespace-nowrap" dateTime={row.recordedAt}>{formatLogDate(row.recordedAt)}</time>}</td>
+                <td className="px-3 py-4">{row.kind === "payment" ? <button type="button" className={button + " whitespace-nowrap"} disabled={loading || busy} onClick={() => editPayment(row)}>Edit payment</button> : row.kind === "missed" || row.kind === "cancelled" ? <span className="text-slate-400">—</span> : <button type="button" aria-label={`Free attendance for ${row.courseName} on ${formatLogDate(row.eventDate.slice(0, 10))}`} aria-pressed={row.complimentary === 1} disabled={loading || busy || !row.courseId} onClick={() => void toggleFreeAttendance(row)} className={`${button.replace("bg-white", "").replace("border-stone-300", "")} whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-green-600 ${row.complimentary === 1 ? "border-green-600 bg-green-600 text-white hover:bg-green-700" : "border-stone-300 bg-white text-slate-600 hover:border-green-500"}`}>{row.complimentary === 1 ? "✓ Free attendance" : "Free attendance"}</button>}</td>
               </tr>)}
               {!data.logs.length && <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-500">No attendance or payment logs yet.</td></tr>}
             </tbody>
           </table>
         </div>
-        <Pagination label="Logs" page={data.logsPage} count={data.summary.attendanceCount + data.summary.paymentCount} disabled={loading} onPage={setLogsPage} />
+        <Pagination label="Logs" pageSize={logsPageSize} onPageSize={(size) => { setLogsPageSize(size); setLogsPage(1); }} page={data.logsPage} count={data.logsCount ?? data.summary.attendanceCount + data.summary.paymentCount + (data.summary.missedClasses ?? 0)} disabled={loading} onPage={setLogsPage} />
       </div>
     </>}
     {mode && data && <dialog ref={dialog} aria-labelledby="activity-dialog-title" aria-describedby="activity-dialog-help" className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-xl border border-stone-200 bg-white p-6 text-slate-800 shadow-2xl backdrop:bg-slate-950/60" onCancel={(event) => { event.preventDefault(); closePayment(); }} onClick={(event) => {
@@ -218,7 +240,7 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
       <p id="activity-dialog-help" className="font-sans text-sm leading-5 text-slate-500">{"Record the money received and how many classes it covers in each course."}</p>
       <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
         <fieldset disabled={locked} className="m-0 space-y-4 border-0 p-0 font-sans text-xs font-semibold text-slate-600">
-          <label className="block">{"Payment date"}<input autoFocus required type="date" min="1900-01-01" max={schoolToday()} value={date} onChange={(event) => setDate(event.target.value)} className={inputClass} /></label>
+          <label className="block">{"Payment date"}<input autoFocus required type="date" min="1900-01-01" max={data.canRecordFuturePayments ? undefined : schoolToday()} value={date} onChange={(event) => setDate(event.target.value)} className={inputClass} /></label>
           <>
             <label className="block">Payment preset<select className={inputClass} value={presetId} disabled={presetsLoading} onChange={(event) => {
               const selected = event.target.value;
@@ -252,7 +274,6 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
   </section>;
 }
 
-function Pagination({ label, page, count, disabled, onPage }: { label: string; page: number; count: number; disabled: boolean; onPage: (page: number) => void }) {
-  if (count <= activityPageSize && page === 1) return null;
-  return <nav aria-label={`${label} pages`} className="mt-3 flex items-center justify-between gap-3"><button className={button} disabled={disabled || page <= 1} onClick={() => onPage(page - 1)}>Previous</button><span className="font-sans text-xs text-slate-500">Page {page} of {Math.max(1, Math.ceil(count / activityPageSize))}</span><button className={button} disabled={disabled || page * activityPageSize >= count} onClick={() => onPage(page + 1)}>Next</button></nav>;
+function Pagination({ label, page, pageSize, onPageSize, count, disabled, onPage }: { label: string; page: number; pageSize: number; onPageSize: (size: number) => void; count: number; disabled: boolean; onPage: (page: number) => void }) {
+  return <nav aria-label={`${label} pages`} className="mt-3 flex flex-wrap items-center justify-between gap-3"><label className="flex items-center gap-2 font-sans text-xs text-slate-500">Rows per page<select value={pageSize} disabled={disabled} onChange={(event) => onPageSize(Number(event.target.value))} className="rounded-md border border-stone-300 bg-white p-2 text-slate-800 focus:ring-2 focus:ring-lime-600">{activityLogPageSizes.map((size) => <option key={size} value={size}>{size}</option>)}</select></label><button className={button} disabled={disabled || page <= 1} onClick={() => onPage(page - 1)}>Previous</button><span className="font-sans text-xs text-slate-500">Page {page} of {Math.max(1, Math.ceil(count / pageSize))}</span><button className={button} disabled={disabled || page * pageSize >= count} onClick={() => onPage(page + 1)}>Next</button></nav>;
 }

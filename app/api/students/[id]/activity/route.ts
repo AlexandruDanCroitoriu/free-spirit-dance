@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { courseCreditBalance, activityPageSize, parseAmount, validPastDate, type StudentActivity, type PaymentCoverage } from "../../../../lib/student-activity";
+import { courseCreditBalance, activityPageSize, activityLogPageSize, activityLogPageSizes, parseAmount, validPaymentDate, canRecordFuturePayments, type StudentActivity, type PaymentCoverage } from "../../../../lib/student-activity";
 
 type Context = { params: Promise<{ id: string }> };
 const headers = { "Cache-Control": "no-store" };
@@ -16,9 +16,10 @@ function actor(request: Request) {
 export async function GET(request: Request, context: Context) {
   const id = Number((await context.params).id);
   const url = new URL(request.url);
+  const logsPageSize = Number(url.searchParams.get("logsPageSize") ?? activityLogPageSize);
   const logsPage = page(url.searchParams.get("logsPage"));
   const attendancePage = page(url.searchParams.get("attendancePage")), paymentsPage = page(url.searchParams.get("paymentsPage"));
-  if (!Number.isSafeInteger(id) || id < 1 || attendancePage === null || paymentsPage === null || logsPage === null) return json({ error: "Invalid student or page." }, 400);
+  if (!Number.isSafeInteger(id) || id < 1 || attendancePage === null || paymentsPage === null || logsPage === null || !activityLogPageSizes.includes(logsPageSize)) return json({ error: "Invalid student or page." }, 400);
   try {
     const db = env.DB;
     if (!await db.prepare("SELECT id FROM students WHERE id = ?").bind(id).first()) return json({ error: "Student not found." }, 404);
@@ -36,7 +37,7 @@ export async function GET(request: Request, context: Context) {
         SELECT p.id, 0 AS complimentary, NULL AS complimentaryBy, NULL AS complimentaryAt, NULL AS courseId, 'payment', paid_on, paid_on, NULL, amount_minor, notes, recorded_by, recorded_at,
           (SELECT json_group_array(json_object('courseId', a.course_id, 'courseName', a.course_name, 'allowance', a.allowance)) FROM payment_course_allowances a WHERE a.payment_id = p.id)
         FROM student_payments p WHERE student_id = ?
-      ) ORDER BY eventDate DESC, eventTime DESC, recordedAt DESC, kind DESC, id DESC LIMIT ? OFFSET ?`).bind(id, id, activityPageSize, (logsPage - 1) * activityPageSize),
+      ) ORDER BY eventDate DESC, eventTime DESC, recordedAt DESC, kind DESC, id DESC LIMIT ? OFFSET ?`).bind(id, id, logsPage * logsPageSize, 0),
     ]);
     const creditData = await db.batch([
       db.prepare("SELECT course_id AS courseId, day_of_week AS day, start_time AS startTime FROM course_schedule"),
@@ -47,6 +48,7 @@ export async function GET(request: Request, context: Context) {
     type CourseCredit = Parameters<typeof courseCreditBalance>[0];
     const forCourse = <T,>(index: number, courseId: number) => (creditData[index].results as (T & { courseId: number })[]).filter((row) => row.courseId === courseId);
     const coverage = new Map<string, PaymentCoverage>();
+    const calculatedLogs: StudentActivity["logs"] = [];
     const now = new Date();
     const balances = (results[0].results as CourseCredit[]).map((course) => courseCreditBalance(course,
       forCourse<Parameters<typeof courseCreditBalance>[1][number]>(0, course.courseId),
@@ -55,11 +57,19 @@ export async function GET(request: Request, context: Context) {
       forCourse<Parameters<typeof courseCreditBalance>[4][number]>(3, course.courseId),
       now,
       (paymentId, detail) => coverage.set(`${paymentId}:${course.courseId}`, detail),
+      (startsAt) => calculatedLogs.push({ id: course.courseId, kind: "missed", courseId: course.courseId, courseName: course.courseName, eventDate: `${startsAt}:00`, amountMinor: null, notes: "", recordedBy: "Automatic", recordedAt: null, allocations: [] }),
+      (startsAt) => calculatedLogs.push({ id: course.courseId, kind: "cancelled", courseId: course.courseId, courseName: course.courseName, eventDate: `${startsAt}:00`, amountMinor: null, notes: "", recordedBy: "—", recordedAt: null, allocations: [] }),
     )).sort((a, b) => a.courseName.localeCompare(b.courseName));
     const summary = balances.reduce((sum, b) => ({ ...sum, missedClasses: sum.missedClasses + b.missedClasses, attendanceCount: sum.attendanceCount + b.attendanceCount, paidAllowance: sum.paidAllowance + b.paidAllowance, remainingAllowance: sum.remainingAllowance + b.remainingAllowance, excessAttendance: sum.excessAttendance + b.excessAttendance }), { missedClasses: 0, attendanceCount: 0, paidAllowance: 0, remainingAllowance: 0, excessAttendance: 0, ...results[4].results[0] as { paymentCount: number; totalPaidMinor: number } });
+    summary.missedClasses = calculatedLogs.filter((row) => row.kind === "missed").length;
     const allocations = results[3].results as { paymentId: number; courseId: number; courseName: string; allowance: number }[];
     const payments = (results[2].results as Omit<StudentActivity["payments"][number], "allocations">[]).map((p) => ({ ...p, allocations: allocations.filter((a) => a.paymentId === p.id).map(({ courseId, courseName, allowance }) => ({ courseId, courseName, allowance })) }));
-    return json({ logs: (results[6].results as (Omit<StudentActivity["logs"][number], "allocations"> & { allocations: string; eventTime: string })[]).map((row) => ({ ...row, eventDate: row.eventTime, allocations: (JSON.parse(row.allocations) as StudentActivity["logs"][number]["allocations"]).map((allocation) => ({ ...allocation, coverage: coverage.get(`${row.id}:${allocation.courseId}`) })) })), logsPage, summary, balances, payments, attendance: results[1].results as StudentActivity["attendance"], courses: results[5].results as StudentActivity["courses"], attendancePage, paymentsPage } satisfies StudentActivity);
+    const recordedLogs: StudentActivity["logs"] = (results[6].results as (Omit<StudentActivity["logs"][number], "allocations"> & { allocations: string; eventTime: string })[]).map((row) => ({ ...row, eventDate: row.eventTime, allocations: (JSON.parse(row.allocations) as StudentActivity["logs"][number]["allocations"]).map((allocation) => ({ ...allocation, coverage: coverage.get(`${row.id}:${allocation.courseId}`) })) }));
+    // Merge calculated absences before pagination so no entries are skipped between pages.
+    const logs = [...recordedLogs, ...calculatedLogs].sort((a, b) =>
+      b.eventDate.localeCompare(a.eventDate) || (b.recordedAt ?? "").localeCompare(a.recordedAt ?? "") || b.kind.localeCompare(a.kind) || b.id - a.id,
+    ).slice((logsPage - 1) * logsPageSize, logsPage * logsPageSize);
+    return json({ canRecordFuturePayments: canRecordFuturePayments(actor(request)), logs, logsPage, logsPageSize, logsCount: summary.attendanceCount + summary.paymentCount + calculatedLogs.length, summary, balances, payments, attendance: results[1].results as StudentActivity["attendance"], courses: results[5].results as StudentActivity["courses"], attendancePage, paymentsPage } satisfies StudentActivity);
   } catch (error) {
     console.error("Could not load student activity", error);
     return json({ error: "Could not load attendance and payments." }, 500);
@@ -76,7 +86,7 @@ export async function POST(request: Request, context: Context) {
   let payload: Record<string, unknown>;
   {
     const amountMinor = parseAmount(input.amount);
-    if (amountMinor === null || !validPastDate(input.paidOn) || !Array.isArray(input.allocations) || input.allocations.length < 1 || input.allocations.length > 100) return json({ error: "Enter a positive RON amount, a payment date up to today, and course allowances." }, 400);
+    if (amountMinor === null || !validPaymentDate(input.paidOn, canRecordFuturePayments(email)) || !Array.isArray(input.allocations) || input.allocations.length < 1 || input.allocations.length > 100) return json({ error: canRecordFuturePayments(email) ? "Enter a positive RON amount, a valid payment date, and course allowances." : "Enter a positive RON amount, a payment date up to today, and course allowances." }, 400);
     const allocations: { courseId: number; allowance: number }[] = [];
     for (const item of input.allocations) {
       if (!item || !Number.isSafeInteger(item.courseId) || item.courseId < 1 || !Number.isInteger(item.allowance) || item.allowance < 1 || item.allowance > 10000 || allocations.some((a) => a.courseId === item.courseId)) return json({ error: "Select each course once and enter 1–10,000 classes per course." }, 400);
