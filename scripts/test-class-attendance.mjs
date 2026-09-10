@@ -117,3 +117,38 @@ assert.equal(sqlite.prepare("SELECT class_id FROM attendance WHERE course_id=1 A
 sqlite.exec("DELETE FROM course_schedule WHERE course_id=1");
 assert.equal((await get({classDate:'2026-09-16'})).status,200,'Stored class survives schedule changes');
 console.log('PASS: attendance references class and stored occurrences survive schedule changes.');
+
+const freeInput = { classDate: '2026-09-16', studentIds: [2], complimentaryStudentIds: [2], complimentaryReason: ' Trial class ' };
+assert.equal((await api.POST(request({ ...freeInput, complimentaryStudentIds: [3] }))).status, 400);
+assert.equal((await api.POST(request({ ...freeInput, complimentaryReason: 'x'.repeat(501) }))).status, 400);
+assert.equal((await api.POST(request(freeInput))).status, 200);
+assert.equal((await api.POST(request(freeInput))).status, 200);
+const freeRow = sqlite.prepare("SELECT complimentary, notes, recorded_by FROM attendance WHERE student_id=2 AND attended_at='2026-09-16T18:30:00'").get();
+assert.equal(freeRow.complimentary, 1);
+assert.equal(freeRow.notes, 'Trial class');
+assert.equal(freeRow.recorded_by, 'croitoriu.alexandru.code@gmail.com');
+assert.equal((await (await get({classDate:'2026-09-16'})).json()).students.find(s=>s.id===2).complimentary,1);
+assert.equal((await api.POST(request({ ...freeInput, studentIds:[3,999], complimentaryStudentIds:[3] }))).status,409);
+assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM attendance WHERE student_id=3 AND attended_at='2026-09-16T18:30:00'").get().n,0);
+console.log('PASS: complimentary attendance validates grants, records attribution, retries safely and rolls back invalid submissions.');
+
+// Ordinary attendance administrators can grant a complimentary class on today's date.
+sqlite.prepare("INSERT INTO classes (course_id,class_date,start_time,end_time) VALUES (2,?,'12:00','13:00') ON CONFLICT DO NOTHING").run(schoolToday());
+assert.equal((await api.POST(request({ courseId:2, classDate:schoolToday(), startTime:'12:00', studentIds:[3], complimentaryStudentIds:[3] }, 'both@example.test'))).status,200);
+assert.equal(sqlite.prepare("SELECT complimentary FROM attendance WHERE student_id=3 AND course_id=2 AND attended_at=?").get(schoolToday()+'T12:00:00').complimentary,1);
+const activityApi = await import(moduleUrl(readFileSync('app/api/students/[id]/activity/route.ts','utf8').replace('import { env } from "cloudflare:workers";', 'const env = globalThis.activityTestEnv;').replace('"../../../../lib/student-activity"', JSON.stringify(activityUrl))));
+const freeActivity = await (await activityApi.GET(new Request('https://school.example.test/api/students/2/activity'), {params:Promise.resolve({id:'2'})})).json();
+assert.ok(freeActivity.logs.some(log=>log.kind==='attendance' && log.complimentary===1 && log.notes==='Trial class'));
+console.log('PASS: ordinary administrator complimentary grants and student log attribution.');
+
+const existingToggle = { classDate:'2026-09-16', studentIds:[], complimentaryChanges:[{studentId:2,complimentary:false}] };
+assert.equal((await api.POST(request(existingToggle))).status,200);
+assert.equal(sqlite.prepare("SELECT complimentary FROM attendance WHERE student_id=2 AND attended_at='2026-09-16T18:30:00'").get().complimentary,0);
+assert.equal((await api.POST(request({...existingToggle, complimentaryChanges:[{studentId:2,complimentary:true}]}))).status,200);
+assert.equal((await api.POST(request({...existingToggle, complimentaryChanges:[{studentId:999,complimentary:true}]}))).status,409);
+assert.equal((await api.POST(request({...existingToggle, removeStudentIds:[2]}))).status,400);
+const toggled = sqlite.prepare("SELECT notes, recorded_by FROM attendance WHERE student_id=2 AND attended_at='2026-09-16T18:30:00'").get();
+assert.match(toggled.notes,/Trial class/);
+assert.doesNotMatch(toggled.notes,/Complimentary removed by/);
+assert.doesNotMatch(toggled.notes,/Complimentary granted by/);
+console.log('PASS: existing attendance complimentary status can be toggled with preserved notes and administrator attribution.');

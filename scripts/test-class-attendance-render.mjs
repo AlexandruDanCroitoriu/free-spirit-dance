@@ -14,6 +14,10 @@ try {
   const outfile=resolve(directory,'all')+'.mjs';await build({stdin:{contents:fixture,resolveDir:resolve('app/components'),loader:'tsx'},outfile,bundle:true,format:'esm',platform:'node',jsx:'automatic',external:['react','react/jsx-runtime']});
   const {default:Panel,AttendanceStudentCard:Card}=await import(pathToFileURL(outfile).href);
   const html=renderToString(createElement(Panel,{slot:{courseId:1,classDate:'2026-09-09',startTime:'18:30'},courseName:'Zouk',onClose(){}})).replaceAll('<!-- -->','');
+  assert.match(html,/Free attendance for Assigned Student/);
+  assert.match(html,/Free attendance for Recorded Student/);
+  assert.match(html,/flex items-center gap-2 overflow-hidden rounded-xl/);
+  assert.doesNotMatch(html,/px-3 pb-3/);
   assert.match(html,/<dialog/);assert.match(html,/right-0 left-auto/);assert.match(html,/Assigned students \(1\)/);assert.match(html,/Other students \(2\)/);
   assert.ok(html.indexOf('Assigned Student')<html.indexOf('Other Dancer'));assert.match(html,/2 changes · 1 recorded/);assert.match(html,/Submit attendance/);assert.match(html,/bg-green-50/);
   assert.match(html,/Recorded Student/);assert.match(html,/✓ Recorded/);

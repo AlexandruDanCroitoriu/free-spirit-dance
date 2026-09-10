@@ -3,7 +3,7 @@ export type PaymentLog = { id: number; paidOn: string; amountMinor: number; allo
 export type AttendanceLog = { id: number; courseId: number; courseName: string; attendedAt: string; notes: string; recordedBy: string; recordedAt: string | null };
 export type ActivitySummary = { missedClasses: number; attendanceCount: number; paymentCount: number; paidAllowance: number; remainingAllowance: number; excessAttendance: number; totalPaidMinor: number };
 export type StudentActivity = {
-  logs: { id: number; kind: "attendance" | "payment"; courseId?: number | null; eventDate: string; courseName: string | null; amountMinor: number | null; notes: string; recordedBy: string; recordedAt: string | null; allocations: { courseId: number; courseName: string; allowance: number; coverage?: PaymentCoverage }[] }[];
+  logs: { id: number; kind: "attendance" | "payment"; complimentary?: number; complimentaryBy?: string | null; complimentaryAt?: string | null; courseId?: number | null; eventDate: string; courseName: string | null; amountMinor: number | null; notes: string; recordedBy: string; recordedAt: string | null; allocations: { courseId: number; courseName: string; allowance: number; coverage?: PaymentCoverage }[] }[];
   logsPage: number;
   summary: ActivitySummary;
   balances: { courseId: number; courseName: string; attendanceCount: number; paidAllowance: number; remainingAllowance: number; excessAttendance: number }[];
@@ -50,7 +50,7 @@ export function courseCreditBalance(
   schedules: { day: string; startTime: string }[],
   occurrences: { classDate: string; startTime: string; cancelled: number }[],
   payments: { paymentId?: number; paidOn: string; allowance: number }[],
-  attendance: { attendedAt: string }[],
+  attendance: { attendedAt: string; complimentary?: number }[],
   now = new Date(),
   onCoverage?: (paymentId: number, coverage: PaymentCoverage) => void,
 ) {
@@ -59,6 +59,7 @@ export function courseCreditBalance(
   const current = `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
   const today = current.slice(0, 10);
   const ordered = [...payments].filter((payment) => payment.paidOn <= today).sort((a, b) => a.paidOn.localeCompare(b.paidOn));
+  const free = new Set(attendance.filter((entry) => entry.complimentary === 1).map((entry) => entry.attendedAt.slice(0, 16)));
   const attended = new Set(attendance.map((entry) => entry.attendedAt.slice(0, 16)));
   const paidAllowance = ordered.reduce((sum, payment) => sum + payment.allowance, 0);
   const slots = new Map<string, boolean>();
@@ -77,7 +78,7 @@ export function courseCreditBalance(
   for (const slot of attended) if (!slots.has(slot)) slots.set(slot, true);
   // Allocate consecutive classes, including gaps before attendance recorded in advance.
   // Consumption follows today or the latest recorded attendance, whichever is later.
-  const held = [...slots].filter(([slot, active]) => active && slot.slice(0, 10) <= horizon).map(([slot]) => slot).sort();
+  const held = [...slots].filter(([slot, active]) => active && !free.has(slot) && slot.slice(0, 10) <= horizon).map(([slot]) => slot).sort();
   const covered = new Set<string>();
   for (const payment of ordered) {
     const unpaid = held.find((slot) => attended.has(slot) && !covered.has(slot) && slot.slice(0, 10) <= payment.paidOn);

@@ -1,5 +1,5 @@
 export type CalendarClass = { courseId: number; classDate: string; startTime: string };
-export type ClassStudent = { id: number; firstName: string; lastName: string; picture: string | null; active: number; assigned: number; attended: number };
+export type ClassStudent = { id: number; firstName: string; lastName: string; picture: string | null; active: number; assigned: number; attended: number; complimentary?: number };
 export type ClassRoster = { cancelled: boolean; canManageClass: boolean; canEdit: boolean; courseName: string; endTime: string | null; students: ClassStudent[] };
 export function parseClass(value: Record<string, unknown>): CalendarClass | null {
   const courseId = Number(value.courseId);

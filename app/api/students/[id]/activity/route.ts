@@ -30,10 +30,10 @@ export async function GET(request: Request, context: Context) {
       db.prepare("SELECT COUNT(*) AS paymentCount, COALESCE(SUM(amount_minor), 0) AS totalPaidMinor FROM student_payments WHERE student_id = ?").bind(id),
       db.prepare("SELECT id, name FROM courses ORDER BY name COLLATE NOCASE, id"),
       db.prepare(`SELECT * FROM (
-        SELECT id, course_id AS courseId, 'attendance' AS kind, substr(attended_at, 1, 10) AS eventDate, attended_at AS eventTime, course_name AS courseName, NULL AS amountMinor, notes, recorded_by AS recordedBy, recorded_at AS recordedAt, '[]' AS allocations
+        SELECT id, complimentary, complimentary_by AS complimentaryBy, complimentary_at AS complimentaryAt, course_id AS courseId, 'attendance' AS kind, substr(attended_at, 1, 10) AS eventDate, attended_at AS eventTime, course_name AS courseName, NULL AS amountMinor, notes, recorded_by AS recordedBy, recorded_at AS recordedAt, '[]' AS allocations
         FROM attendance WHERE student_id = ?
         UNION ALL
-        SELECT p.id, NULL AS courseId, 'payment', paid_on, paid_on, NULL, amount_minor, notes, recorded_by, recorded_at,
+        SELECT p.id, 0 AS complimentary, NULL AS complimentaryBy, NULL AS complimentaryAt, NULL AS courseId, 'payment', paid_on, paid_on, NULL, amount_minor, notes, recorded_by, recorded_at,
           (SELECT json_group_array(json_object('courseId', a.course_id, 'courseName', a.course_name, 'allowance', a.allowance)) FROM payment_course_allowances a WHERE a.payment_id = p.id)
         FROM student_payments p WHERE student_id = ?
       ) ORDER BY eventDate DESC, eventTime DESC, recordedAt DESC, kind DESC, id DESC LIMIT ? OFFSET ?`).bind(id, id, activityPageSize, (logsPage - 1) * activityPageSize),
@@ -42,7 +42,7 @@ export async function GET(request: Request, context: Context) {
       db.prepare("SELECT course_id AS courseId, day_of_week AS day, start_time AS startTime FROM course_schedule"),
       db.prepare("SELECT course_id AS courseId, class_date AS classDate, start_time AS startTime, cancelled FROM classes"),
       db.prepare("SELECT p.id AS paymentId, a.course_id AS courseId, p.paid_on AS paidOn, a.allowance FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = ? ORDER BY p.paid_on, p.id").bind(id),
-      db.prepare("SELECT course_id AS courseId, attended_at AS attendedAt FROM attendance WHERE student_id = ?").bind(id),
+      db.prepare("SELECT course_id AS courseId, attended_at AS attendedAt, complimentary FROM attendance WHERE student_id = ?").bind(id),
     ]);
     type CourseCredit = Parameters<typeof courseCreditBalance>[0];
     const forCourse = <T,>(index: number, courseId: number) => (creditData[index].results as (T & { courseId: number })[]).filter((row) => row.courseId === courseId);

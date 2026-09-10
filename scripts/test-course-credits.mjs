@@ -107,3 +107,12 @@ assert.equal(screenshotBalance.missedClasses, 1, 'September 24 is the one missed
 assert.equal(screenshotBalance.excessAttendance, 2);
 assert.equal(screenshotBalance.remainingAllowance, 0);
 console.log('PASS: screenshot scenario counts one missed class before later recorded attendance.');
+
+const freeAttendance = [{ attendedAt: '2026-01-05T19:00:00', complimentary: 1 }];
+const freeOnly = run('2026-01-05T20:00:00Z', [], freeAttendance, []);
+assert.equal(freeOnly.attendanceCount, 1);
+assert.equal(freeOnly.excessAttendance, 0);
+assert.equal(freeOnly.missedClasses, 0);
+assert.equal(run('2026-01-05T20:00:00Z', [], freeAttendance).remainingAllowance, 4, 'complimentary attendance preserves every paid credit');
+assert.equal(run('2026-01-12T20:00:00Z', [], freeAttendance).remainingAllowance, 3, 'next scheduled class consumes the first paid credit');
+console.log('PASS: complimentary attendance counts as attendance without debt, missed classes or paid-credit use.');

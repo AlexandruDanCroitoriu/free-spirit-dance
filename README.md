@@ -56,7 +56,7 @@ npx wrangler d1 migrations list free-spirit-dance-db --remote
 npx wrangler d1 migrations apply free-spirit-dance-db --remote
 ```
 
-**Review migrations against a private backup before applying them.** Existing migration `0025` deletes retired subscriptions, purchases, and their payments; `0028` deletes historical entry grants. These historical migrations are retained for upgrades and must not be rewritten or applied blindly. The current schema requires migrations through `0033_add_payments_permission.sql`. The local checks verify synthetic-data preservation and schema parity, not the contents or migration state of production.
+**Review migrations against a private backup before applying them.** Existing migration `0025` deletes retired subscriptions, purchases, and their payments; `0028` deletes historical entry grants. These historical migrations are retained for upgrades and must not be rewritten or applied blindly. The current schema requires migrations through `0035_free_attendance_attribution.sql`. The local checks verify synthetic-data preservation and schema parity, not the contents or migration state of production.
 
 The schema is documented in [docs/database.drawio](docs/database.drawio). `python3 scripts/validate-schema.py` checks migration/diagram parity. Its optional SQL-backup argument expects the pre-0020 schema; keep backups outside Git.
 
@@ -77,3 +77,7 @@ The public QR hostname, `go.alexandru-croitoriu.dev`, routes to this Worker. Pro
 - Balances: each payment covers consecutive non-cancelled classes starting at the earliest unpaid attendance, including missed classes. With no unpaid attendance, coverage starts from the payment date. Credits are tracked independently per course. The dashboard filters unpaid attendance or an exact remaining credit count and remembers the filter in browser storage.
 
 Calendar attendance requires both Dashboard and Students permissions. Student activity, course assignments, and balances use Students permission. Payments page access and preset changes require the independent Payments permission, managed on the Administrators page. Students permission also permits reading presets when recording a student payment. Migration `0033` preserves existing Payments access for administrators who already have Students access; new administrators start with Payments disabled. The calendar schedule requires Dashboard permission.
+
+In calendar attendance, select a student and tick **Complimentary class**, optionally enter a reason, then submit attendance. All administrators with attendance access can grant this on dates they can edit. The log identifies the complimentary attendance and recording administrator. Complimentary classes create no debt and consume no paid credits. Apply migration `0034` before deploying.
+
+Migration `0035` replaces generated free-attendance audit text with the current grant administrator and timestamp, retaining unrelated notes. Disabling free attendance clears the grant attribution.

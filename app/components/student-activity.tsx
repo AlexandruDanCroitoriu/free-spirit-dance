@@ -130,6 +130,33 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
     if (submitted.current) setReload((value) => value + 1);
   }
   const locked = busy || submitted.current !== null;
+  async function toggleFreeAttendance(row: Activity["logs"][number]) {
+    if (saving.current || loading || row.kind !== "attendance" || !row.courseId) return;
+    saving.current = true;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await readResponse(await fetch("/api/class-attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          courseId: row.courseId,
+          classDate: row.eventDate.slice(0, 10),
+          startTime: row.eventDate.slice(11, 16),
+          studentIds: [],
+          complimentaryChanges: [{ studentId, complimentary: row.complimentary !== 1 }],
+        }),
+      }));
+      setReload((value) => value + 1);
+      window.dispatchEvent(new Event("student-activity-updated"));
+      window.dispatchEvent(new Event("calendar-updated"));
+      setNotice(row.complimentary === 1 ? "Free attendance disabled." : "Free attendance enabled.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not update free attendance.");
+    } finally {
+      saving.current = false; setBusy(false);
+    }
+  }
+
   const connections = (data?.logs ?? []).flatMap((payment, paymentIndex) => {
     if (payment.kind !== "payment") return [];
     const attendanceRows = (data?.logs ?? []).flatMap((entry, index) =>
@@ -171,9 +198,9 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
                   <span className={`relative inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${row.kind === "payment" ? "bg-lime-50 text-lime-800" : "bg-blue-50 text-blue-800"}`}>{row.kind === "payment" ? "Payment" : "Attendance"}</span></td>
                 <td className="whitespace-nowrap px-3 py-4 text-xs text-slate-500"><time dateTime={row.eventDate.slice(0, 10)}>{formatLogDate(row.eventDate.slice(0, 10))}</time></td>
                 <td className="px-3 py-4">{row.kind === "payment" ? row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1">{allocation.courseName}</p>) : row.courseName}</td>
-                <td className="px-3 py-4">{row.kind === "payment" ? row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1 whitespace-nowrap">Next {allocation.allowance} classes</p>) : "1 attended"}</td>
+                <td className="px-3 py-4">{row.kind === "payment" ? row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1 whitespace-nowrap">Next {allocation.allowance} classes</p>) : row.complimentary ? <span className="text-lime-700">Free attendance{row.complimentaryBy && <span className="mt-1 block break-all text-xs text-slate-500">Granted by {row.complimentaryBy}</span>}{row.complimentaryAt && <time className="mt-1 block text-xs text-slate-500" dateTime={row.complimentaryAt}>{formatLogDate(row.complimentaryAt)}</time>}</span> : "1 attended"}</td>
                 <td className="px-3 py-4 text-xs text-slate-500"><span className="break-all">{row.recordedBy}</span>{row.recordedAt && <time className="mt-1 block" dateTime={row.recordedAt}>{formatLogDate(row.recordedAt)}</time>}</td>
-                <td className="px-3 py-4">{row.kind === "payment" ? <button type="button" className={button + " whitespace-nowrap"} disabled={loading || busy} onClick={() => editPayment(row)}>Edit payment</button> : <span className="text-slate-400">—</span>}</td>
+                <td className="px-3 py-4">{row.kind === "payment" ? <button type="button" className={button + " whitespace-nowrap"} disabled={loading || busy} onClick={() => editPayment(row)}>Edit payment</button> : <button type="button" aria-label={`Free attendance for ${row.courseName} on ${formatLogDate(row.eventDate.slice(0, 10))}`} aria-pressed={row.complimentary === 1} disabled={loading || busy || !row.courseId} onClick={() => void toggleFreeAttendance(row)} className={`${button.replace("bg-white", "").replace("border-stone-300", "")} whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-green-600 ${row.complimentary === 1 ? "border-green-600 bg-green-600 text-white hover:bg-green-700" : "border-stone-300 bg-white text-slate-600 hover:border-green-500"}`}>{row.complimentary === 1 ? "✓ Free attendance" : "Free attendance"}</button>}</td>
               </tr>)}
               {!data.logs.length && <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-500">No attendance or payment logs yet.</td></tr>}
             </tbody>

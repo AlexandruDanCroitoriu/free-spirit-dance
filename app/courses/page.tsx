@@ -31,7 +31,7 @@ export default function CoursesPage() {
   const [relationships, setRelationships] = useState<{ table: string; label: string; count: number }[] | null>(null);
   const [relationshipError, setRelationshipError] = useState("");
   const [relationshipRetry, setRelationshipRetry] = useState(0);
-  const canDelete = relationships !== null && relationships.every((item) => item.count === 0) && !relationshipError;
+  const canDelete = relationships !== null && relationships.every((item) => item.table === "course_schedule" || item.table === "classes" || item.count === 0) && !relationshipError;
 
   useEffect(() => {
     setRelationships(null); setRelationshipError("");
@@ -181,13 +181,13 @@ export default function CoursesPage() {
         <svg aria-hidden="true" className="h-7 w-7 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M12 3 2 21h20L12 3Z" strokeLinejoin="round" /><path d="M12 9v5" strokeLinecap="round" /><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none" /></svg>
       </div>
       <h2 id="delete-course-title" className="m-0 text-xl font-semibold text-red-700">Delete course?</h2>
-      <p id="delete-course-description" className="mt-3 font-sans text-sm leading-6 text-slate-600">This will permanently delete <strong>{deleteTarget.name}</strong> once it has no linked records. This cannot be undone.</p>
+      <p id="delete-course-description" className="mt-3 font-sans text-sm leading-6 text-slate-600">This will permanently delete <strong>{deleteTarget.name}</strong> along with its weekly schedule and recorded classes without attendance, once it has no other linked records. This cannot be undone.</p>
       <div className="mt-4 font-sans text-sm">
         <h3 className="font-semibold">Current relationships</h3>
         {!relationships && !relationshipError && <p role="status">Loading relationships…</p>}
         {relationshipError && <p role="alert" className="text-red-700">{relationshipError} <button type="button" className={buttonClass} disabled={busy} onClick={() => setRelationshipRetry((value) => value + 1)}>Retry</button></p>}
-        {relationships && <ul className="mt-2 space-y-2">{relationships.map((item) => <li key={item.table} className="flex justify-between gap-4"><span>{item.label}</span><strong>{item.count}</strong></li>)}</ul>}
-        {relationships && !canDelete && <p className="mt-3 text-amber-800">Deletion is disabled while linked records exist. Remove or reassign these relationships first.</p>}
+        {relationships && <ul className="mt-2 space-y-2">{relationships.map((item) => <li key={item.table} className="flex justify-between gap-4"><span>{item.label}{item.table === "course_schedule" ? " (removed automatically)" : item.table === "classes" ? " (removed automatically if no attendance)" : ""}</span><strong>{item.count}</strong></li>)}</ul>}
+        {relationships && !canDelete && <p className="mt-3 text-amber-800">Deletion is disabled while attendance or other linked records exist. Remove or reassign these relationships first.</p>}
       </div>
       <div className="mt-6 flex justify-end gap-3">
         <button autoFocus type="button" className={buttonClass} disabled={busy} onClick={() => setDeleteTarget(null)}>Cancel</button>

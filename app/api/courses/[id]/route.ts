@@ -55,7 +55,13 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   try {
     const db = env.DB;
     // Foreign keys also protect against relationships added after the popup loads.
-    const result = await db.prepare("DELETE FROM courses WHERE id = ?").bind(id).run();
+    // Remove the owned schedule and empty classes atomically; any blocker rolls it back.
+    const results = await db.batch([
+      db.prepare("DELETE FROM course_schedule WHERE course_id = ?").bind(id),
+      db.prepare("DELETE FROM classes WHERE course_id = ? AND NOT EXISTS (SELECT 1 FROM attendance WHERE class_id = classes.id)").bind(id),
+      db.prepare("DELETE FROM courses WHERE id = ?").bind(id),
+    ]);
+    const result = results[2];
     if (result.meta.changes === 0) return Response.json({ error: "Course not found." }, { status: 404 });
     return new Response(null, { status: 204 });
   } catch (error) {

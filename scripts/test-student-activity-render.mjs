@@ -35,6 +35,8 @@ try {
     assert.match(html,/Missed classes/);
     assert.ok(html.indexOf("Class allowance") < html.indexOf("Missed classes"));
     assert.ok(html.indexOf("Missed classes") < html.indexOf("Attendances without credit"));
+    assert.match(html,/Free attendance for Zouk on 03\/09\/2026/);
+    assert.match(html,/aria-pressed="false"/);
     assert.match(html,/Activity log/); assert.doesNotMatch(html,/>Record attendance<|>Save attendance</);
     assert.match(html,/Payment/);
     if (mode === "payment") assert.match(html,/200\.50/);

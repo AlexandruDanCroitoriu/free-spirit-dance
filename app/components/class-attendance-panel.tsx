@@ -38,6 +38,10 @@ export default function ClassAttendancePanel({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [selected, setSelected] = useState<number[]>([]);
+  const [complimentary, setComplimentary] = useState<number[]>([]);
+  const [complimentaryChanges, setComplimentaryChanges] = useState<Record<number, boolean>>({});
+  const changeCount = selected.length + Object.keys(complimentaryChanges).length;
+  const [complimentaryReason, setComplimentaryReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [retry, setRetry] = useState(0);
   const editable = data?.canEdit === true;
@@ -65,7 +69,7 @@ export default function ClassAttendancePanel({
       .then((result) => {
         if (!controller.signal.aborted) {
           setData(result);
-          setSelected([]);
+          setSelected([]); setComplimentary([]); setComplimentaryChanges({}); setComplimentaryReason("");
         }
       })
       .catch((reason) => {
@@ -84,7 +88,7 @@ export default function ClassAttendancePanel({
   function close() {
     if (saving.current) return;
     if (
-      selected.length &&
+      changeCount > 0 &&
       !window.confirm("Close without submitting the selected attendance?")
     )
       return;
@@ -92,6 +96,8 @@ export default function ClassAttendancePanel({
   }
   function toggle(id: number) {
     setNotice("");
+    setComplimentary((ids) => ids.filter((value) => value !== id));
+    setComplimentaryChanges((current) => { const next = { ...current }; delete next[id]; return next; });
     setSelected((ids) =>
       ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id],
     );
@@ -102,14 +108,14 @@ export default function ClassAttendancePanel({
     saving.current = true; setBusy(true); setError("");
     try {
       await readResponse(await fetch("/api/class-attendance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...slot, cancelled: !data.cancelled }) }));
-      setSelected([]); setRetry((value) => value + 1);
+      setSelected([]); setComplimentary([]); setComplimentaryChanges({}); setComplimentaryReason(""); setRetry((value) => value + 1);
       window.dispatchEvent(new Event("calendar-updated"));
       setNotice(data.cancelled ? "Class restored." : "Class cancelled.");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update class."); }
     finally { saving.current = false; setBusy(false); }
   }
   async function submit() {
-    if (saving.current || !selected.length || !editable) return;
+    if (saving.current || !changeCount || !editable) return;
     saving.current = true;
     setBusy(true);
     setError("");
@@ -121,7 +127,7 @@ export default function ClassAttendancePanel({
         await fetch("/api/class-attendance", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...slot, studentIds: ids, removeStudentIds: removedIds }),
+          body: JSON.stringify({ ...slot, studentIds: ids, removeStudentIds: removedIds, complimentaryStudentIds: complimentary.filter((id) => ids.includes(id)), complimentaryReason, complimentaryChanges: Object.entries(complimentaryChanges).map(([studentId, complimentary]) => ({ studentId: Number(studentId), complimentary })) }),
         }),
       );
       setData((current) =>
@@ -130,15 +136,15 @@ export default function ClassAttendancePanel({
               ...current,
               students: current.students.map((student) =>
                 ids.includes(student.id)
-                  ? { ...student, attended: 1 }
-                  : removedIds.includes(student.id) ? { ...student, attended: 0 } : student,
+                  ? { ...student, attended: 1, complimentary: complimentary.includes(student.id) ? 1 : 0 }
+                  : removedIds.includes(student.id) ? { ...student, attended: 0, complimentary: 0 } : student.id in complimentaryChanges ? { ...student, complimentary: complimentaryChanges[student.id] ? 1 : 0 } : student,
               ),
             }
           : current,
       );
-      setSelected([]);
+      setSelected([]); setComplimentary([]); setComplimentaryChanges({}); setComplimentaryReason("");
       window.dispatchEvent(new Event("student-activity-updated"));
-      setNotice(`Attendance saved: ${result.recorded} added, ${result.removed} removed.`);
+      setNotice(`Attendance saved: ${result.recorded} added, ${result.removed} removed; complimentary changes saved.`);
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -160,6 +166,16 @@ export default function ClassAttendancePanel({
         selected={selected.includes(student.id)}
         disabled={busy || loading || !editable}
         onToggle={() => toggle(student.id)}
+        complimentary={student.attended ? complimentaryChanges[student.id] ?? student.complimentary === 1 : complimentary.includes(student.id)}
+        onComplimentaryToggle={() => {
+          if (student.attended) setComplimentaryChanges((current) => {
+            const next = { ...current };
+            const value = !(current[student.id] ?? student.complimentary === 1);
+            if (value === (student.complimentary === 1)) delete next[student.id]; else next[student.id] = value;
+            return next;
+          });
+          else setComplimentary((ids) => ids.includes(student.id) ? ids.filter((id) => id !== student.id) : [...ids, student.id]);
+        }}
       />
     );
   }
@@ -224,7 +240,7 @@ export default function ClassAttendancePanel({
             </button>
           </div>
         )}
-        {selected.length > 500 && (
+        {changeCount > 500 && (
           <p role="alert" className="font-sans text-sm text-red-700">
             Select up to 500 students per submission.
           </p>
@@ -275,9 +291,10 @@ export default function ClassAttendancePanel({
           </>
         )}
       </div>
+      {(complimentary.length > 0 || Object.values(complimentaryChanges).some(Boolean)) && <label className="block px-5 pb-4 font-sans text-xs text-slate-600">Complimentary reason (optional, applies to selected complimentary students)<input maxLength={500} disabled={busy} value={complimentaryReason} onChange={(event) => setComplimentaryReason(event.target.value)} className="mt-2 w-full rounded-md border border-stone-300 p-2 text-sm" /></label>}
       <footer className="sticky bottom-0 flex items-center justify-between gap-4 border-t border-stone-200 bg-white p-5">
         <p className="m-0 font-sans text-xs text-slate-500">
-          {selected.length} changes ·{" "}
+          {changeCount} changes ·{" "}
           {data?.students.filter((s) => s.attended).length ?? 0} recorded
         </p>
         <button
@@ -286,8 +303,8 @@ export default function ClassAttendancePanel({
             busy ||
             loading ||
             !data ||
-            !selected.length ||
-            selected.length > 500 ||
+            !changeCount ||
+            changeCount > 500 ||
             !editable
           }
           onClick={() => void submit()}
@@ -304,20 +321,25 @@ export function AttendanceStudentCard({
   selected,
   disabled,
   onToggle,
+  complimentary = false,
+  onComplimentaryToggle,
 }: {
   student: ClassStudent;
   selected: boolean;
   disabled: boolean;
   onToggle: () => void;
+  complimentary?: boolean;
+  onComplimentaryToggle?: () => void;
 }) {
   const green = Boolean(student.attended) !== selected;
   return (
+    <div className={`flex items-center gap-2 overflow-hidden rounded-xl border ${green ? "border-green-500 bg-green-50 text-green-900" : "border-stone-200 bg-white hover:border-green-400"}`}>
     <button
       type="button"
       aria-pressed={green}
       disabled={disabled}
       onClick={onToggle}
-      className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left focus:outline-none focus:ring-2 focus:ring-green-600 ${green ? "border-green-500 bg-green-50 text-green-900" : "border-stone-200 bg-white hover:border-green-400"}`}
+      className="flex min-w-0 flex-1 items-center gap-3 border-0 bg-transparent p-3 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-600"
     >
       <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-200 font-sans font-bold text-slate-800">
         {student.picture ? (
@@ -334,15 +356,22 @@ export function AttendanceStudentCard({
         <span className="block truncate font-sans text-sm font-semibold">
           {student.firstName} {student.lastName}
         </span>
+
         {!student.active && (
           <span className="mt-1 block font-sans text-xs text-slate-500">
             Inactive
           </span>
         )}
       </span>
-      <span className="font-sans text-xs font-semibold">
+      <span className="hidden font-sans text-xs font-semibold sm:block">
         {selected ? (student.attended ? "Remove on submit" : "✓ Selected") : student.attended ? "✓ Recorded" : "Select"}
       </span>
     </button>
+    {green && onComplimentaryToggle && <div className="shrink-0 pr-3">
+      <button type="button" aria-label={`Free attendance for ${student.firstName} ${student.lastName}`} aria-pressed={complimentary} disabled={disabled} onClick={onComplimentaryToggle} className={`rounded-md border px-3 py-2 font-sans text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 disabled:opacity-50 ${complimentary ? "border-green-600 bg-green-600 text-white hover:bg-green-700" : "border-stone-300 bg-white text-slate-600 hover:border-green-500"}`}>
+        {complimentary ? "✓ Free attendance" : "Free attendance"}
+      </button>
+    </div>}
+    </div>
   );
 }

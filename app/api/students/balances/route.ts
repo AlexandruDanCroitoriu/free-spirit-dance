@@ -11,7 +11,7 @@ export async function GET() {
       db.prepare("SELECT course_id AS courseId, day_of_week AS day, start_time AS startTime FROM course_schedule"),
       db.prepare("SELECT course_id AS courseId, class_date AS classDate, start_time AS startTime, cancelled FROM classes"),
       db.prepare("SELECT p.student_id AS studentId, a.course_id AS courseId, p.paid_on AS paidOn, a.allowance FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id ORDER BY p.paid_on, p.id"),
-      db.prepare("SELECT student_id AS studentId, course_id AS courseId, attended_at AS attendedAt FROM attendance"),
+      db.prepare("SELECT student_id AS studentId, course_id AS courseId, attended_at AS attendedAt, complimentary FROM attendance"),
       db.prepare("SELECT student_id AS studentId, course_id AS courseId FROM student_courses"),
     ]);
     type Args = Parameters<typeof courseCreditBalance>;
