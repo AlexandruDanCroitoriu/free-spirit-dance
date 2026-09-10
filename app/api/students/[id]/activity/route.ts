@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { courseCreditBalance, activityPageSize, parseAmount, validPastDate, type StudentActivity } from "../../../../lib/student-activity";
+import { courseCreditBalance, activityPageSize, parseAmount, validPastDate, type StudentActivity, type PaymentCoverage } from "../../../../lib/student-activity";
 
 type Context = { params: Promise<{ id: string }> };
 const headers = { "Cache-Control": "no-store" };
@@ -30,10 +30,10 @@ export async function GET(request: Request, context: Context) {
       db.prepare("SELECT COUNT(*) AS paymentCount, COALESCE(SUM(amount_minor), 0) AS totalPaidMinor FROM student_payments WHERE student_id = ?").bind(id),
       db.prepare("SELECT id, name FROM courses ORDER BY name COLLATE NOCASE, id"),
       db.prepare(`SELECT * FROM (
-        SELECT id, 'attendance' AS kind, substr(attended_at, 1, 10) AS eventDate, attended_at AS eventTime, course_name AS courseName, NULL AS amountMinor, notes, recorded_by AS recordedBy, recorded_at AS recordedAt, '[]' AS allocations
+        SELECT id, course_id AS courseId, 'attendance' AS kind, substr(attended_at, 1, 10) AS eventDate, attended_at AS eventTime, course_name AS courseName, NULL AS amountMinor, notes, recorded_by AS recordedBy, recorded_at AS recordedAt, '[]' AS allocations
         FROM attendance WHERE student_id = ?
         UNION ALL
-        SELECT p.id, 'payment', paid_on, paid_on, NULL, amount_minor, notes, recorded_by, recorded_at,
+        SELECT p.id, NULL AS courseId, 'payment', paid_on, paid_on, NULL, amount_minor, notes, recorded_by, recorded_at,
           (SELECT json_group_array(json_object('courseId', a.course_id, 'courseName', a.course_name, 'allowance', a.allowance)) FROM payment_course_allowances a WHERE a.payment_id = p.id)
         FROM student_payments p WHERE student_id = ?
       ) ORDER BY eventDate DESC, eventTime DESC, recordedAt DESC, kind DESC, id DESC LIMIT ? OFFSET ?`).bind(id, id, activityPageSize, (logsPage - 1) * activityPageSize),
@@ -41,21 +41,25 @@ export async function GET(request: Request, context: Context) {
     const creditData = await db.batch([
       db.prepare("SELECT course_id AS courseId, day_of_week AS day, start_time AS startTime FROM course_schedule"),
       db.prepare("SELECT course_id AS courseId, class_date AS classDate, start_time AS startTime, cancelled FROM classes"),
-      db.prepare("SELECT a.course_id AS courseId, p.paid_on AS paidOn, a.allowance FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = ? ORDER BY p.paid_on, p.id").bind(id),
+      db.prepare("SELECT p.id AS paymentId, a.course_id AS courseId, p.paid_on AS paidOn, a.allowance FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = ? ORDER BY p.paid_on, p.id").bind(id),
       db.prepare("SELECT course_id AS courseId, attended_at AS attendedAt FROM attendance WHERE student_id = ?").bind(id),
     ]);
     type CourseCredit = Parameters<typeof courseCreditBalance>[0];
     const forCourse = <T,>(index: number, courseId: number) => (creditData[index].results as (T & { courseId: number })[]).filter((row) => row.courseId === courseId);
+    const coverage = new Map<string, PaymentCoverage>();
+    const now = new Date();
     const balances = (results[0].results as CourseCredit[]).map((course) => courseCreditBalance(course,
       forCourse<Parameters<typeof courseCreditBalance>[1][number]>(0, course.courseId),
       forCourse<Parameters<typeof courseCreditBalance>[2][number]>(1, course.courseId),
       forCourse<Parameters<typeof courseCreditBalance>[3][number]>(2, course.courseId),
       forCourse<Parameters<typeof courseCreditBalance>[4][number]>(3, course.courseId),
+      now,
+      (paymentId, detail) => coverage.set(`${paymentId}:${course.courseId}`, detail),
     )).sort((a, b) => a.courseName.localeCompare(b.courseName));
-    const summary = balances.reduce((sum, b) => ({ ...sum, attendanceCount: sum.attendanceCount + b.attendanceCount, paidAllowance: sum.paidAllowance + b.paidAllowance, remainingAllowance: sum.remainingAllowance + b.remainingAllowance, excessAttendance: sum.excessAttendance + b.excessAttendance }), { attendanceCount: 0, paidAllowance: 0, remainingAllowance: 0, excessAttendance: 0, ...results[4].results[0] as { paymentCount: number; totalPaidMinor: number } });
+    const summary = balances.reduce((sum, b) => ({ ...sum, missedClasses: sum.missedClasses + b.missedClasses, attendanceCount: sum.attendanceCount + b.attendanceCount, paidAllowance: sum.paidAllowance + b.paidAllowance, remainingAllowance: sum.remainingAllowance + b.remainingAllowance, excessAttendance: sum.excessAttendance + b.excessAttendance }), { missedClasses: 0, attendanceCount: 0, paidAllowance: 0, remainingAllowance: 0, excessAttendance: 0, ...results[4].results[0] as { paymentCount: number; totalPaidMinor: number } });
     const allocations = results[3].results as { paymentId: number; courseId: number; courseName: string; allowance: number }[];
     const payments = (results[2].results as Omit<StudentActivity["payments"][number], "allocations">[]).map((p) => ({ ...p, allocations: allocations.filter((a) => a.paymentId === p.id).map(({ courseId, courseName, allowance }) => ({ courseId, courseName, allowance })) }));
-    return json({ logs: (results[6].results as (Omit<StudentActivity["logs"][number], "allocations"> & { allocations: string; eventTime: string })[]).map((row) => ({ ...row, eventDate: row.eventTime, allocations: JSON.parse(row.allocations) })), logsPage, summary, balances, payments, attendance: results[1].results as StudentActivity["attendance"], courses: results[5].results as StudentActivity["courses"], attendancePage, paymentsPage } satisfies StudentActivity);
+    return json({ logs: (results[6].results as (Omit<StudentActivity["logs"][number], "allocations"> & { allocations: string; eventTime: string })[]).map((row) => ({ ...row, eventDate: row.eventTime, allocations: (JSON.parse(row.allocations) as StudentActivity["logs"][number]["allocations"]).map((allocation) => ({ ...allocation, coverage: coverage.get(`${row.id}:${allocation.courseId}`) })) })), logsPage, summary, balances, payments, attendance: results[1].results as StudentActivity["attendance"], courses: results[5].results as StudentActivity["courses"], attendancePage, paymentsPage } satisfies StudentActivity);
   } catch (error) {
     console.error("Could not load student activity", error);
     return json({ error: "Could not load attendance and payments." }, 500);

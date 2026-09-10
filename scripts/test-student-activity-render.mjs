@@ -10,8 +10,8 @@ await mkdir(directory, { recursive: true });
 const source = await readFile('app/components/student-activity.tsx', 'utf8');
 const data = {
   logsPage: 1,
-  logs: [{id:1,kind:"attendance",eventDate:"2026-09-09T18:00:00",courseName:"Zouk",amountMinor:null,notes:"<unsafe>",recordedBy:"admin@example.test",recordedAt:null,allocations:[]},{id:1,kind:"payment",eventDate:"2026-09-09",courseName:null,amountMinor:20050,notes:"Cash",recordedBy:"admin@example.test",recordedAt:null,allocations:[{courseId:1,courseName:"Zouk",allowance:2}]}],
-  summary: { attendanceCount: 3, paidAllowance: 12, excessAttendance: 1, remainingAllowance: 9, paymentCount: 1, totalPaidMinor: 20050 },
+  logs: [{id:1,kind:"attendance",courseId:1,eventDate:"2026-09-03T18:00:00",courseName:"Zouk",amountMinor:null,notes:"<unsafe>",recordedBy:"admin@example.test",recordedAt:null,allocations:[]},{id:1,kind:"payment",eventDate:"2026-09-09",courseName:null,amountMinor:20050,notes:"Cash",recordedBy:"admin@example.test",recordedAt:null,allocations:[{courseId:1,courseName:"Zouk",allowance:2,coverage:{classes:[{startsAt:"2026-09-03T18:00",attended:true},{startsAt:"2026-09-10T18:00",attended:false}],remaining:0}}]}],
+  summary: { missedClasses: 2, attendanceCount: 3, paidAllowance: 12, excessAttendance: 1, remainingAllowance: 9, paymentCount: 1, totalPaidMinor: 20050 },
   balances: [{courseId:1,courseName:'Zouk',attendanceCount:3,paidAllowance:2,remainingAllowance:-1,excessAttendance:1}],
   attendance: [{id:1,courseId:1,courseName:'Zouk',attendedAt:'2026-09-09T18:00:00',notes:'<unsafe>',recordedBy:'admin@example.test',recordedAt:'2026-09-09T18:00:00Z'}],
   payments: [{id:1,paidOn:'2026-09-09',amountMinor:20050,allocations:[{courseId:1,courseName:'Zouk',allowance:2}],notes:'Cash',recordedBy:'admin@example.test',recordedAt:'2026-09-09T18:00:00Z'}],
@@ -28,6 +28,13 @@ try {
     const {default: Component} = await import(pathToFileURL(outfile).href);
     const html = renderToString(createElement(Component,{studentId:1})).replaceAll("<!-- -->", "");
     assert.match(html,/Attendances without credit/);
+    assert.match(html,/Covered by payment #1/);
+    assert.match(html,/03\/09\/2026/);
+    assert.doesNotMatch(html,/Not attended · credit used|Classes covered in Zouk/);
+    assert.match(html,/border-l-2 border-lime-600/);
+    assert.match(html,/Missed classes/);
+    assert.ok(html.indexOf("Class allowance") < html.indexOf("Missed classes"));
+    assert.ok(html.indexOf("Missed classes") < html.indexOf("Attendances without credit"));
     assert.match(html,/Activity log/); assert.doesNotMatch(html,/>Record attendance<|>Save attendance</);
     assert.match(html,/Payment/);
     if (mode === "payment") assert.match(html,/200\.50/);

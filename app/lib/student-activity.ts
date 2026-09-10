@@ -1,8 +1,9 @@
+export type PaymentCoverage = { classes: { startsAt: string; attended: boolean }[]; remaining: number };
 export type PaymentLog = { id: number; paidOn: string; amountMinor: number; allocations: { courseId: number; courseName: string; allowance: number }[]; notes: string; recordedBy: string; recordedAt: string };
 export type AttendanceLog = { id: number; courseId: number; courseName: string; attendedAt: string; notes: string; recordedBy: string; recordedAt: string | null };
-export type ActivitySummary = { attendanceCount: number; paymentCount: number; paidAllowance: number; remainingAllowance: number; excessAttendance: number; totalPaidMinor: number };
+export type ActivitySummary = { missedClasses: number; attendanceCount: number; paymentCount: number; paidAllowance: number; remainingAllowance: number; excessAttendance: number; totalPaidMinor: number };
 export type StudentActivity = {
-  logs: { id: number; kind: "attendance" | "payment"; eventDate: string; courseName: string | null; amountMinor: number | null; notes: string; recordedBy: string; recordedAt: string | null; allocations: { courseId: number; courseName: string; allowance: number }[] }[];
+  logs: { id: number; kind: "attendance" | "payment"; courseId?: number | null; eventDate: string; courseName: string | null; amountMinor: number | null; notes: string; recordedBy: string; recordedAt: string | null; allocations: { courseId: number; courseName: string; allowance: number; coverage?: PaymentCoverage }[] }[];
   logsPage: number;
   summary: ActivitySummary;
   balances: { courseId: number; courseName: string; attendanceCount: number; paidAllowance: number; remainingAllowance: number; excessAttendance: number }[];
@@ -42,55 +43,61 @@ export function formatLogDate(value: string) {
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Bucharest", dateStyle: "short", timeStyle: "short" }).format(date);
 }
 
-// Credits first settle unpaid attendance, then cover consecutive non-cancelled classes.
+// Each payment covers consecutive non-cancelled classes from the earliest unpaid attendance.
 // Payment dates are date-only, so classes on the payment date are eligible.
 export function courseCreditBalance(
   course: { courseId: number; courseName: string; startDate: string | null; endDate: string | null },
   schedules: { day: string; startTime: string }[],
   occurrences: { classDate: string; startTime: string; cancelled: number }[],
-  payments: { paidOn: string; allowance: number }[],
+  payments: { paymentId?: number; paidOn: string; allowance: number }[],
   attendance: { attendedAt: string }[],
   now = new Date(),
+  onCoverage?: (paymentId: number, coverage: PaymentCoverage) => void,
 ) {
   const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Bucharest", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(now);
   const part = (type: string) => parts.find((p) => p.type === type)!.value;
   const current = `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
-  const ordered = [...payments].sort((a, b) => a.paidOn.localeCompare(b.paidOn));
+  const today = current.slice(0, 10);
+  const ordered = [...payments].filter((payment) => payment.paidOn <= today).sort((a, b) => a.paidOn.localeCompare(b.paidOn));
+  const attended = new Set(attendance.map((entry) => entry.attendedAt.slice(0, 16)));
+  const paidAllowance = ordered.reduce((sum, payment) => sum + payment.allowance, 0);
   const slots = new Map<string, boolean>();
-  const first = ordered[0]?.paidOn;
+  const first = [...ordered.map((payment) => payment.paidOn), ...[...attended].map((slot) => slot.slice(0, 10))].sort()[0];
+  const horizon = [today, ...[...attended].map((slot) => slot.slice(0, 10))].sort().at(-1)!;
   if (first) {
     const start = course.startDate && course.startDate > first ? course.startDate : first;
-    const end = course.endDate && course.endDate < current.slice(0, 10) ? course.endDate : current.slice(0, 10);
+    // Recompute coverage through today; unused credits remain available for future classes.
+    const end = course.endDate && course.endDate < horizon ? course.endDate : horizon;
     const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     for (const date = new Date(start + "T12:00:00Z"); date.toISOString().slice(0, 10) <= end; date.setUTCDate(date.getUTCDate() + 1)) {
       for (const schedule of schedules) if (schedule.day === weekdays[date.getUTCDay()]) slots.set(`${date.toISOString().slice(0, 10)}T${schedule.startTime}`, true);
     }
   }
-  // Persisted occurrences override recurrence, including cancellations and old schedules.
   for (const slot of occurrences) slots.set(`${slot.classDate}T${slot.startTime}`, !slot.cancelled);
-  const attended = new Set(attendance.map((a) => a.attendedAt.slice(0, 16)));
-  // Include attendance before the first payment, even without a persisted occurrence.
   for (const slot of attended) if (!slots.has(slot)) slots.set(slot, true);
-  let available = 0, paymentIndex = 0, used = 0, unpaidAttendance = 0;
-  function applyPayments(date: string) {
-    while (paymentIndex < ordered.length && ordered[paymentIndex].paidOn <= date) available += ordered[paymentIndex++].allowance;
-    const settled = Math.min(available, unpaidAttendance);
-    available -= settled;
-    unpaidAttendance -= settled;
-    used += settled;
+  // Allocate consecutive classes, including gaps before attendance recorded in advance.
+  // Consumption follows today or the latest recorded attendance, whichever is later.
+  const held = [...slots].filter(([slot, active]) => active && slot.slice(0, 10) <= horizon).map(([slot]) => slot).sort();
+  const covered = new Set<string>();
+  for (const payment of ordered) {
+    const unpaid = held.find((slot) => attended.has(slot) && !covered.has(slot) && slot.slice(0, 10) <= payment.paidOn);
+    const start = unpaid ?? payment.paidOn;
+    let remaining = payment.allowance;
+    const classes: PaymentCoverage["classes"] = [];
+    for (const slot of held) {
+      if (!remaining) break;
+      if (slot < start || covered.has(slot)) continue;
+      covered.add(slot);
+      classes.push({ startsAt: slot, attended: attended.has(slot) });
+      remaining--;
+    }
+    if (payment.paymentId !== undefined) onCoverage?.(payment.paymentId, { classes, remaining });
   }
-  for (const [slot, held] of [...slots].sort(([a], [b]) => a.localeCompare(b))) {
-    // Recorded attendance counts immediately, even before the scheduled start.
-    // Unrecorded future classes must not consume credits.
-    if (slot > current && !attended.has(slot)) continue;
-    applyPayments(slot.slice(0, 10) < current.slice(0, 10) ? slot.slice(0, 10) : current.slice(0, 10));
-    if (!held) continue;
-    if (available > 0) { available--; used++; }
-    else if (attended.has(slot)) unpaidAttendance++;
-  }
-  // A payment settles debt immediately, even before another class takes place.
-  applyPayments(current.slice(0, 10));
-  const paidAllowance = ordered.reduce((sum, p) => sum + p.allowance, 0);
-  return { courseId: course.courseId, courseName: course.courseName, attendanceCount: attendance.length, paidAllowance, remainingAllowance: paidAllowance - used,
-    excessAttendance: unpaidAttendance };
+  // Later recorded attendance establishes that earlier covered classes have been passed.
+  const attendanceCutoff = [current, ...attended].sort().at(-1)!;
+  const used = [...covered].filter((slot) => slot <= attendanceCutoff).length;
+  const missedClasses = [...covered].filter((slot) => slot <= attendanceCutoff && !attended.has(slot)).length;
+  const unpaidAttendance = held.filter((slot) => attended.has(slot) && !covered.has(slot)).length;
+  return { courseId: course.courseId, courseName: course.courseName, attendanceCount: attendance.length, paidAllowance,
+    remainingAllowance: paidAllowance - used, missedClasses, excessAttendance: unpaidAttendance };
 }

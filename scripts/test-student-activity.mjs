@@ -129,3 +129,12 @@ assert.ok(combinedLogs.filter(row=>row.kind==='payment').every(row=>row.allocati
 console.log('PASS: combined chronological logs paginate without omissions or duplicates and remain student-scoped.');
 
 assert.equal((await api.POST(request(attendance()),context())).status,400,'Student-scoped attendance recording is retired');
+
+const coverageLogs = await read();
+for (const log of coverageLogs.logs.filter(row => row.kind === 'payment')) {
+  for (const allocation of log.allocations) {
+    assert.ok(allocation.coverage, 'payment logs include coverage even when other logs are on another page');
+    assert.equal(allocation.coverage.classes.length + allocation.coverage.remaining, allocation.allowance);
+  }
+}
+console.log('PASS: paginated payment logs include per-course coverage.');

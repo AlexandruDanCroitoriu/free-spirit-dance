@@ -130,27 +130,45 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
     if (submitted.current) setReload((value) => value + 1);
   }
   const locked = busy || submitted.current !== null;
+  const connections = (data?.logs ?? []).flatMap((payment, paymentIndex) => {
+    if (payment.kind !== "payment") return [];
+    const attendanceRows = (data?.logs ?? []).flatMap((entry, index) =>
+      entry.kind === "attendance" && payment.allocations.some((allocation) =>
+        allocation.courseId === entry.courseId && allocation.coverage?.classes.some((slot) =>
+          slot.attended && slot.startsAt === entry.eventDate.slice(0, 16))) ? [index] : []);
+    if (!attendanceRows.length) return [];
+    const rows = [paymentIndex, ...attendanceRows];
+    return [{ paymentId: payment.id, rows, first: Math.min(...rows), last: Math.max(...rows) }];
+  });
+  const connectorWidth = connections.length ? 12 + connections.length * 10 : 0;
+
   return <section aria-labelledby="student-activity-title" className="mt-6 space-y-5 rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="student-activity-title" className="m-0 text-xl font-normal">Attendance & payments</h2><div className="flex flex-wrap gap-2"><button type="button" className={primary} disabled={loading || !data || !data.courses.length} onClick={() => open("payment")}>Record payment</button></div></div>
     {notice && <p role="status" className="font-sans text-sm text-lime-700">{notice}</p>}
     {error && <div role="alert" className="font-sans text-sm text-red-700">{error} <button type="button" className={button} onClick={() => setReload((value) => value + 1)}>Retry loading</button></div>}
     {loading && <p className="font-sans text-sm text-slate-500">Loading attendance and payments…</p>}
     {data && <>
-      <div className="grid gap-3 font-sans sm:grid-cols-3">
-        {[{ label: "Classes attended", value: data.summary.attendanceCount }, { label: "Paid class allowance", value: data.summary.paidAllowance }, { label: "Attendances without credit", value: data.summary.excessAttendance }].map(({ label, value }) => <div key={label} className={`rounded-lg border p-4 ${label === "Attendances without credit" && value > 0 ? "border-red-200 bg-red-50 text-red-800" : "border-stone-200 bg-stone-50"}`}><p className="m-0 text-xs text-slate-600">{label}</p><p className="mb-0 mt-2 text-2xl font-semibold">{value}</p></div>)}
+      <div className="grid grid-cols-2 gap-3 font-sans lg:grid-cols-4">
+        {[{ label: "Classes attended", value: data.summary.attendanceCount }, { label: "Class allowance", value: data.summary.paidAllowance }, { label: "Missed classes", value: data.summary.missedClasses ?? 0 }, { label: "Attendances without credit", value: data.summary.excessAttendance }].map(({ label, value }) => <div key={label} className={`rounded-lg border p-4 ${label === "Attendances without credit" && value > 0 ? "border-red-200 bg-red-50 text-red-800" : "border-stone-200 bg-stone-50"}`}><p className="m-0 text-xs text-slate-600">{label}</p><p className="mb-0 mt-2 text-2xl font-semibold">{value}</p></div>)}
       </div>
       {!data.courses.length && <p className="font-sans text-sm text-slate-500">Create a course from the Courses page before recording payments or attendance.</p>}
       <div className="border-t border-stone-200 pt-5">
         <h3 className="m-0 text-lg font-normal">Activity log</h3>
         <div className="overflow-x-auto rounded-lg border border-stone-200">
           <table className="w-full text-left font-sans text-sm">
-            <caption className="sr-only">Student activity log, newest events first</caption>
+            <caption className="sr-only">Student activity log, newest events first. Green lines connect payments to covered attendance on this page.</caption>
             <thead className="bg-stone-50 text-xs text-slate-500">
               <tr>{["Type", "Date", "Class", "Attendances added", "Recorded by", "Actions"].map((label) => <th key={label} scope="col" className="px-3 py-3 font-semibold">{label}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
-              {data.logs.map((row) => <tr key={`${row.kind}-${row.id}`} className="align-top">
-                <td className="px-3 py-4"><span className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${row.kind === "payment" ? "bg-lime-50 text-lime-800" : "bg-blue-50 text-blue-800"}`}>{row.kind === "payment" ? "Payment" : "Attendance"}</span></td>
+              {data.logs.map((row, rowIndex) => <tr key={`${row.kind}-${row.id}`} className="align-top">
+                <td className="relative px-3 py-4" style={{ paddingLeft: 12 + connectorWidth }}>
+                  {connections.map((connection, lane) => rowIndex >= connection.first && rowIndex <= connection.last && <span key={connection.paymentId} aria-hidden="true">
+                    <span className="pointer-events-none absolute border-l-2 border-lime-600" style={{ left: 10 + lane * 10, top: rowIndex === connection.first ? 28 : -1, bottom: rowIndex === connection.last ? "calc(100% - 28px)" : -1 }} />
+                    {connection.rows.includes(rowIndex) && <span className="pointer-events-none absolute top-7 border-t-2 border-lime-600" style={{ left: 10 + lane * 10, width: connectorWidth - lane * 10 }} />}
+                  </span>)}
+                  {row.kind === "attendance" && connections.filter((connection) => connection.rows.includes(rowIndex)).map((connection) => <span key={connection.paymentId} className="sr-only">Covered by payment #{connection.paymentId}. </span>)}
+                  <span className={`relative inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${row.kind === "payment" ? "bg-lime-50 text-lime-800" : "bg-blue-50 text-blue-800"}`}>{row.kind === "payment" ? "Payment" : "Attendance"}</span></td>
                 <td className="whitespace-nowrap px-3 py-4 text-xs text-slate-500"><time dateTime={row.eventDate.slice(0, 10)}>{formatLogDate(row.eventDate.slice(0, 10))}</time></td>
                 <td className="px-3 py-4">{row.kind === "payment" ? row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1">{allocation.courseName}</p>) : row.courseName}</td>
                 <td className="px-3 py-4">{row.kind === "payment" ? row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1 whitespace-nowrap">Next {allocation.allowance} classes</p>) : "1 attended"}</td>

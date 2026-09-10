@@ -133,7 +133,11 @@ export default function StudentPanel({ id, onClose, onUpdate, onDelete }: { id: 
     finally { setSaving(false); }
   }
 
-  return <dialog ref={dialog} aria-label={student ? `${student.firstName} ${student.lastName}` : "Student details"} aria-modal="true" className="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-full max-w-3xl overflow-y-auto border-0 bg-stone-50 p-0 text-slate-800 shadow-2xl backdrop:bg-slate-950/60" onCancel={(event) => { event.preventDefault(); closePanel(); }}>
+  return <dialog ref={dialog} aria-label={student ? `${student.firstName} ${student.lastName}` : "Student details"} aria-modal="true" className="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-full max-w-3xl overflow-y-auto border-0 bg-stone-50 p-0 text-slate-800 shadow-2xl backdrop:bg-slate-950/60" onCancel={(event) => { event.preventDefault(); closePanel(); }} onClick={(event) => {
+    if (event.target !== event.currentTarget) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closePanel();
+  }}>
     <button autoFocus type="button" aria-label="Close student panel" disabled={saving || savingPhoto || savingField !== null} onClick={closePanel} className="fixed right-4 top-4 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white font-sans text-xl text-slate-600 shadow-sm hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-lime-600 disabled:opacity-50">×</button>
     <div className="px-5 pb-6">
     {loading ? <p role="status" className="font-sans text-sm text-slate-500">Loading student…</p> : !student ? <p role="alert" className="font-sans text-sm text-red-700">{error || "Student not found."}</p> : <>

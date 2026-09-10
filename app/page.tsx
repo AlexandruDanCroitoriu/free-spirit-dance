@@ -59,9 +59,9 @@ export default function HomePage() {
   const monthLabel = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(visibleMonth);
   function changeMonth(amount: number) { setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1)); }
 
-  return <main className="flex-1 bg-stone-50 px-4 py-6 text-slate-800 md:px-12"><div className="mx-auto grid max-w-5xl gap-5 lg:grid-cols-3">
+  return <main className="flex-1 bg-stone-50 px-4 py-6 text-slate-800 md:px-12"><div className="mx-auto grid max-w-5xl grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(17rem,1fr)] lg:gap-5">
     {selectedClass && <ClassAttendancePanel courseName={selectedClass.course.name} slot={{ courseId: selectedClass.slot.courseId, classDate: `${selectedClass.date.getFullYear()}-${String(selectedClass.date.getMonth() + 1).padStart(2, "0")}-${String(selectedClass.date.getDate()).padStart(2, "0")}`, startTime: selectedClass.slot.startTime }} onClose={() => setSelectedClass(null)} />}
-    <section className="min-w-0 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm lg:col-span-2" aria-labelledby="calendar-title">
+    <section className="min-w-0 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm" aria-labelledby="calendar-title">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 px-4 py-3">
         <h2 className="m-0 text-lg font-normal" id="calendar-title">Course calendar</h2>
         <div className="flex items-center gap-1.5 font-sans"><button aria-label="Previous month" className="flex h-8 w-8 items-center justify-center rounded-md border border-stone-300 bg-white text-slate-600 hover:bg-stone-50" onClick={() => changeMonth(-1)}>‹</button><span className="min-w-28 px-1 text-center text-xs font-semibold text-slate-700" aria-live="polite">{monthLabel}</span><button aria-label="Next month" className="flex h-8 w-8 items-center justify-center rounded-md border border-stone-300 bg-white text-slate-600 hover:bg-stone-50" onClick={() => changeMonth(1)}>›</button></div>

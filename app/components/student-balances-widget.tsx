@@ -63,7 +63,7 @@ export default function StudentBalancesWidget() {
   }, []);
   const validRemaining = /^\d+$/.test(remaining) && Number.isSafeInteger(Number(remaining));
   const matches = students.map((student) => ({ ...student, balances: student.balances.filter((balance) => (courseId === "all" || String(balance.courseId) === courseId) && (filter === "unpaid" ? balance.excessAttendance > 0 : validRemaining && balance.remainingAllowance === Number(remaining))) })).filter((student) => student.balances.length > 0);
-  return <section aria-labelledby="student-balances-title" className="min-w-0 self-start overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
+  return <section aria-labelledby="student-balances-title" className="min-w-0 self-start overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
     <div className="border-b border-stone-200 p-4">
       <h2 id="student-balances-title" className="m-0 text-lg font-normal">Student balances</h2>
       <label className="mt-3 block font-sans text-xs font-semibold text-slate-600">Course
@@ -85,7 +85,7 @@ export default function StudentBalancesWidget() {
     {error ? <div role="alert" className="p-4 font-sans text-sm text-red-700">{error}<button type="button" onClick={refresh} className="ml-2 underline">Retry</button></div> : loading ? <p role="status" className="p-4 font-sans text-sm text-slate-500">Loading balances…</p> : <>
       <p role="status" className="m-0 px-4 py-3 font-sans text-xs text-slate-500">{matches.length} {matches.length === 1 ? "student" : "students"}</p>
       {!matches.length && <p className="m-0 px-4 pb-4 font-sans text-sm text-slate-500">{filter === "unpaid" ? courseId === "all" ? "No students have unpaid attendance." : "No students have unpaid attendance in this course." : "No students match this credit balance."}</p>}
-      <ul className="m-0 max-h-[32rem] list-none divide-y divide-stone-100 overflow-y-auto p-0">{matches.map((student) => <li key={student.id}>
+      <ul className="m-0 max-h-80 list-none divide-y divide-stone-100 overflow-y-auto p-0">{matches.map((student) => <li key={student.id}>
         <button type="button" aria-haspopup="dialog" onClick={() => setSelectedId(student.id)} className="block w-full border-0 bg-white p-4 text-left hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-lime-600">
           <span className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-200 font-sans text-sm font-bold text-slate-800">
