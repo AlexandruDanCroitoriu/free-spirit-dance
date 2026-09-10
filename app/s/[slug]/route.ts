@@ -5,7 +5,7 @@ export async function GET(_request: Request, context: { params: Promise<{ slug: 
   if (!/^[a-f0-9]{16}$/.test(slug)) return new Response("QR code not found.", { status: 404, headers: { "Cache-Control": "no-store" } });
 
   try {
-    const row = await (env as unknown as CloudflareEnv).DB.prepare("SELECT destination_url FROM qr_codes WHERE slug = ? AND active = 1").bind(slug).first<{ destination_url: string }>();
+    const row = await env.DB.prepare("SELECT destination_url FROM qr_codes WHERE slug = ? AND active = 1").bind(slug).first<{ destination_url: string }>();
     if (!row) return new Response("QR code not found.", { status: 404, headers: { "Cache-Control": "no-store" } });
     const destination = new URL(row.destination_url);
     if (!['http:', 'https:'].includes(destination.protocol) || destination.username || destination.password) throw new Error("Stored destination URL is invalid.");

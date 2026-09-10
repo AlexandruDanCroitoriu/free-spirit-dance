@@ -1,5 +1,6 @@
 "use client";
 
+import { readJson } from "../lib/http";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 
@@ -9,14 +10,12 @@ type EyeShape = "square" | "rounded" | "circle";
 type LogoShape = "square" | "rounded" | "circle";
 type AdvancedStyle = { eyeColor: string };
 type QrStyle = { moduleShape: ModuleShape; foregroundColor: string; eyeShape: EyeShape; logoSize: number; logoShape: LogoShape; advancedStyle: AdvancedStyle };
-type QrCode = { id: number; slug: string; name: string; destinationUrl: string; redirectUrl: string; active: boolean; imageMode: ImageMode; imageUrl: string | null; createdAt: string; updatedAt: string } & QrStyle;
+type QrCode = { id: number; slug: string; name: string; destinationUrl: string; redirectUrl: string; active: boolean; imageMode: ImageMode; imageUrl: string | null } & QrStyle;
 type FormState = { name: string; destinationUrl: string; active: boolean; imageMode: ImageMode } & QrStyle;
 type ApiError = { error?: string };
 const defaultAdvancedStyle: AdvancedStyle = { eyeColor: "#1e293b" };
 const defaultStyle: QrStyle = { moduleShape: "square", foregroundColor: "#1e293b", eyeShape: "square", logoSize: 25, logoShape: "square", advancedStyle: defaultAdvancedStyle };
 const emptyForm: FormState = { name: "", destinationUrl: "https://", active: true, imageMode: "none", ...defaultStyle };
-
-async function readJson<T>(response: Response): Promise<T> { const text = await response.text(); try { return text ? JSON.parse(text) as T : {} as T; } catch { return {} as T; } }
 
 async function compressImage(file: File) {
   if (!file.type.startsWith("image/")) throw new Error("Choose an image file.");

@@ -10,7 +10,7 @@ export async function POST(request: Request) {
 
   try {
     const key = `admin-${crypto.randomUUID()}.jpg`;
-    await (env as unknown as CloudflareEnv).STUDENT_IMAGES.put(key, file.stream(), { httpMetadata: { contentType: "image/jpeg", cacheControl: "private, max-age=3600" } });
+    await env.STUDENT_IMAGES.put(key, file.stream(), { httpMetadata: { contentType: "image/jpeg", cacheControl: "private, max-age=3600" } });
     return Response.json({ picture: `/api/student-images/${encodeURIComponent(key)}` }, { status: 201 });
   } catch (error) {
     console.error("Could not upload administrator image", error);

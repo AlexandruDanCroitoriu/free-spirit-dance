@@ -18,7 +18,7 @@ function imageKey(picture: string | null) {
 export async function GET(request: Request) {
   const email = authenticatedEmail(request);
   try {
-    const profile = await (env as unknown as CloudflareEnv).DB.prepare("SELECT email, name, picture FROM admin_profiles WHERE email = ?").bind(email).first<AdminProfileRow>();
+    const profile = await env.DB.prepare("SELECT email, name, picture FROM admin_profiles WHERE email = ?").bind(email).first<AdminProfileRow>();
     return Response.json(profile ?? { email, name: "", picture: null });
   } catch (error) {
     console.error("Could not load administrator profile", error);
@@ -35,10 +35,10 @@ export async function PATCH(request: Request) {
   if (typeof input.picture === "string" && !imageKey(input.picture)) return Response.json({ error: "Invalid administrator image." }, { status: 400 });
 
   try {
-    const bindings = env as unknown as CloudflareEnv;
+    const bindings = env;
     const existing = await bindings.DB.prepare("SELECT picture FROM admin_profiles WHERE email = ?").bind(email).first<{ picture: string | null }>();
     const picture = typeof input.picture === "string" ? input.picture : null;
-    const profile = await bindings.DB.prepare("INSERT INTO admin_profiles (email, name, picture) VALUES (?, ?, ?) ON CONFLICT(email) DO UPDATE SET name = excluded.name, picture = excluded.picture, updated_at = CURRENT_TIMESTAMP RETURNING email, name, picture").bind(email, input.name.trim(), picture).first<AdminProfileRow>();
+    const profile = await bindings.DB.prepare("INSERT INTO admin_profiles (email, name, picture) VALUES (?, ?, ?) ON CONFLICT(email) DO UPDATE SET name = excluded.name, picture = excluded.picture RETURNING email, name, picture").bind(email, input.name.trim(), picture).first<AdminProfileRow>();
     const previousKey = imageKey(existing?.picture ?? null);
     if (previousKey && existing?.picture !== picture) await bindings.STUDENT_IMAGES.delete(previousKey);
     return Response.json(profile);

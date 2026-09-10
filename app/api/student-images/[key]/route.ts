@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 export async function GET(_request: Request, context: { params: Promise<{ key: string }> }) {
   const key = decodeURIComponent((await context.params).key);
   try {
-    const object = await (env as unknown as CloudflareEnv).STUDENT_IMAGES.get(key);
+    const object = await env.STUDENT_IMAGES.get(key);
     if (!object) return new Response("Not found", { status: 404 });
     const headers = new Headers();
     object.writeHttpMetadata(headers);

@@ -20,7 +20,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const id = Number((await context.params).id);
   if (!Number.isInteger(id) || id < 1) return Response.json({ error: "Invalid student id." }, { status: 400 });
   try {
-    const db = (env as unknown as CloudflareEnv).DB;
+    const db = env.DB;
     const result = await db.prepare("SELECT id, first_name, last_name, email, phone, picture, active FROM students WHERE id = ?").bind(id).first<StudentRow>();
     if (!result) return Response.json({ error: "Student not found." }, { status: 404 });
     return Response.json(serialize(result));
@@ -38,12 +38,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const student = input as Record<string, unknown>;
   if (typeof student.firstName !== "string" || !student.firstName.trim()) return Response.json({ error: "First name is required." }, { status: 400 });
   if (typeof student.lastName !== "string" || !student.lastName.trim()) return Response.json({ error: "Last name is required." }, { status: 400 });
-  if (typeof student.email !== "string" || !student.email.trim() || !student.email.includes("@")) return Response.json({ error: "A valid email is required." }, { status: 400 });
+  if (typeof student.email !== "string" || (student.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(student.email.trim()))) return Response.json({ error: "Enter a valid email or leave it empty." }, { status: 400 });
   if (typeof student.phone !== "string" || typeof student.active !== "boolean") return Response.json({ error: "Phone and active state are required." }, { status: 400 });
   if (student.phone.trim() && !/^\d{10,}$/.test(student.phone.trim())) return Response.json({ error: "Phone must contain only numbers and be at least 10 digits." }, { status: 400 });
   if (student.picture !== null && typeof student.picture !== "string") return Response.json({ error: "Picture must be a URL or empty." }, { status: 400 });
   try {
-    const db = (env as unknown as CloudflareEnv).DB;
+    const db = env.DB;
     const existing = await db.prepare("SELECT picture FROM students WHERE id = ?").bind(id).first<{ picture: string | null }>();
     if (!existing) return Response.json({ error: "Student not found." }, { status: 404 });
     const phone = student.phone.trim();
@@ -51,12 +51,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       const duplicatePhone = await db.prepare("SELECT id FROM students WHERE id <> ? AND trim(phone) = ? LIMIT 1").bind(id, phone).first<{ id: number }>();
       if (duplicatePhone) return Response.json({ error: "A student with this phone number already exists." }, { status: 409 });
     }
-    const result = await db.prepare("UPDATE students SET first_name = ?, last_name = ?, email = ?, phone = ?, picture = ?, active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, first_name, last_name, email, phone, picture, active").bind(
+    const result = await db.prepare("UPDATE students SET first_name = ?, last_name = ?, email = ?, phone = ?, picture = ?, active = ? WHERE id = ? RETURNING id, first_name, last_name, email, phone, picture, active").bind(
       student.firstName.trim(), student.lastName.trim(), student.email.trim(), phone, typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active ? 1 : 0, id,
     ).first<StudentRow>();
     if (!result) return Response.json({ error: "Student not found." }, { status: 404 });
     const previousImageKey = imageKey(existing.picture);
-    if (previousImageKey && existing.picture !== result.picture) await (env as unknown as CloudflareEnv).STUDENT_IMAGES.delete(previousImageKey);
+    if (previousImageKey && existing.picture !== result.picture) await env.STUDENT_IMAGES.delete(previousImageKey);
     return Response.json({ id: result.id, firstName: result.first_name, lastName: result.last_name, email: result.email, phone: result.phone, picture: result.picture, active: result.active === 1 });
   } catch (error) {
     if (isPhoneConstraintError(error)) return Response.json({ error: "A student with this phone number already exists." }, { status: 409 });
@@ -69,15 +69,16 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   const id = Number((await context.params).id);
   if (!Number.isInteger(id) || id < 1) return Response.json({ error: "Invalid student id." }, { status: 400 });
   try {
-    const db = (env as unknown as CloudflareEnv).DB;
+    const db = env.DB;
     const student = await db.prepare("SELECT picture FROM students WHERE id = ?").bind(id).first<{ picture: string | null }>();
     if (!student) return Response.json({ error: "Student not found." }, { status: 404 });
     const result = await db.prepare("DELETE FROM students WHERE id = ?").bind(id).run();
     if (result.meta.changes === 0) return Response.json({ error: "Student not found." }, { status: 404 });
     const studentImageKey = imageKey(student.picture);
-    if (studentImageKey) await (env as unknown as CloudflareEnv).STUDENT_IMAGES.delete(studentImageKey);
+    if (studentImageKey) await env.STUDENT_IMAGES.delete(studentImageKey);
     return new Response(null, { status: 204 });
   } catch (error) {
+    if (String(error).includes("FOREIGN KEY")) return Response.json({ error: "This student has attendance or payment history. Mark the student inactive to preserve their records." }, { status: 409 });
     console.error("Could not delete student", error);
     return Response.json({ error: "Could not delete student. Check the Cloudflare Access service token." }, { status: 500 });
   }

@@ -1,16 +1,11 @@
 "use client";
 
+import { readJson } from "../lib/http";
 import { useEffect, useState } from "react";
 
-type Administrator = { email: string; dashboard: boolean; students: boolean; courses: boolean; qrCodes: boolean };
+type Administrator = { email: string; dashboard: boolean; students: boolean; courses: boolean; payments: boolean; qrCodes: boolean };
 type ApiError = { error?: string };
-const permissionFields = [["dashboard", "Dashboard"], ["students", "Students"], ["courses", "Courses"], ["qrCodes", "QR Codes"]] as const;
-
-async function readJson<T>(response: Response): Promise<T> {
-  const body = await response.text();
-  if (!body) return {} as T;
-  try { return JSON.parse(body) as T; } catch { return {} as T; }
-}
+const permissionFields = [["dashboard", "Dashboard"], ["students", "Students"], ["courses", "Courses"], ["payments", "Payments"], ["qrCodes", "QR Codes"]] as const;
 
 export default function AdministratorsPage() {
   const [administrators, setAdministrators] = useState<Administrator[]>([]);
@@ -26,7 +21,7 @@ export default function AdministratorsPage() {
     }).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load administrators.")).finally(() => setLoading(false));
   }, []);
 
-  async function setPermission(administrator: Administrator, field: "dashboard" | "students" | "courses" | "qrCodes", value: boolean) {
+  async function setPermission(administrator: Administrator, field: "dashboard" | "students" | "courses" | "payments" | "qrCodes", value: boolean) {
     const updated = { ...administrator, [field]: value };
     setSavingEmail(administrator.email); setError("");
     const response = await fetch(`/api/administrators/${encodeURIComponent(administrator.email)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updated) });

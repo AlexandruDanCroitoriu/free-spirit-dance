@@ -5,12 +5,13 @@ import { useEffect, useState, type ReactNode } from "react";
 
 type IconName = "book" | "home" | "qr-code" | "shield" | "users";
 type AdminProfile = { email: string; name: string; picture: string | null };
-type Permissions = { dashboard: boolean; students: boolean; courses: boolean; qrCodes: boolean; administrators: boolean };
+type Permissions = { dashboard: boolean; students: boolean; courses: boolean; payments: boolean; qrCodes: boolean; administrators: boolean };
 
 const navigation: Array<{ label: string; href: string; icon: IconName; permission: keyof Permissions | null }> = [
   { label: "Dashboard", href: "/", icon: "home", permission: "dashboard" },
   { label: "Students", href: "/students", icon: "users", permission: "students" },
   { label: "Courses", href: "/courses", icon: "book", permission: "courses" },
+  { label: "Payments", href: "/payments", icon: "book", permission: "payments" },
   { label: "QR Codes", href: "/qr-codes", icon: "qr-code", permission: "qrCodes" },
   { label: "Administrators", href: "/administrators", icon: "shield", permission: "administrators" },
 ];
@@ -50,10 +51,10 @@ function Sidebar({ close, pathname, permissions, profile }: { close?: () => void
 export default function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profile, setProfile] = useState<AdminProfile>({ email: "", name: "Loading account...", picture: null });
-  const [permissions, setPermissions] = useState<Permissions>({ dashboard: false, students: false, courses: false, qrCodes: false, administrators: false });
+  const [permissions, setPermissions] = useState<Permissions>({ dashboard: false, students: false, courses: false, payments: false, qrCodes: false, administrators: false });
   const pathname = usePathname();
   const studentDetailPage = pathname.startsWith("/students/");
-  const pageTitle = pathname === "/" ? "Dashboard" : pathname === "/students" ? "Students" : studentDetailPage ? "Student details" : pathname.startsWith("/courses") ? "Courses" : pathname.startsWith("/administrators") ? "Administrators" : pathname.startsWith("/qr-codes") ? "QR Codes" : pathname.startsWith("/settings") ? "Settings" : "Free Spirit Dance";
+  const pageTitle = pathname === "/" ? "Dashboard" : pathname === "/students" ? "Students" : studentDetailPage ? "Student details" : pathname.startsWith("/courses") ? "Courses" : pathname.startsWith("/payments") ? "Payments" : pathname.startsWith("/administrators") ? "Administrators" : pathname.startsWith("/qr-codes") ? "QR Codes" : pathname.startsWith("/settings") ? "Settings" : "Free Spirit Dance";
 
   useEffect(() => {
     const loadProfile = () => fetch("/api/admin-profile")
@@ -62,7 +63,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       .catch(() => setProfile({ email: "", name: "Profile", picture: null }));
     const updateProfile = (event: Event) => setProfile((event as CustomEvent<AdminProfile>).detail);
     void loadProfile();
-    void fetch("/api/access-permissions").then((response) => response.ok ? response.json() as Promise<Permissions> : Promise.reject()).then(setPermissions).catch(() => setPermissions({ dashboard: false, students: false, courses: false, qrCodes: false, administrators: false }));
+    void fetch("/api/access-permissions").then((response) => response.ok ? response.json() as Promise<Permissions> : Promise.reject()).then(setPermissions).catch(() => setPermissions({ dashboard: false, students: false, courses: false, payments: false, qrCodes: false, administrators: false }));
     window.addEventListener("admin-profile-updated", updateProfile);
     return () => window.removeEventListener("admin-profile-updated", updateProfile);
   }, []);

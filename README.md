@@ -1,81 +1,79 @@
-# vinext app
+# Free Spirit Dance
 
-This project was created with create-vinext-app.
+An admin-only student management app for a Brazilian Zouk school, built with Vinext, React, TypeScript, and Cloudflare Workers. Student records live in D1; profile images live in private R2 storage and are compressed in the browser before upload.
 
-## Scripts
+## Development
 
-- `pnpm run dev` starts the vinext dev server.
-- `pnpm run build` builds the Cloudflare Worker output.
-- `pnpm run start` starts the built Worker locally with Wrangler.
-- `pnpm run deploy` deploys the Cloudflare Worker.
-
-## Database migrations 
-
-Apply pending migrations to the production D1 database before deploying code that depends on them:
+Use Node.js 24 (`nvm use`), npm, Python 3 for schema tests, and an authenticated `cloudflared` installation.
 
 ```sh
-npx wrangler d1 migrations apply free-spirit-dance-db --remote
-```
-
-The QR redirect feature also expects `go.alexandru-croitoriu.dev` to point to this Worker. Cloudflare Access must protect the complete hostname while a more-specific application bypasses authentication only for `go.alexandru-croitoriu.dev/s/*`.
-
-## Development on a new machine
-
-### Prerequisites
-
-Install Git, Node.js, npm, and `cloudflared`. On Ubuntu or Debian, install `cloudflared` with:
-
-```sh
-sudo mkdir -p --mode=0755 /usr/share/keyrings
-curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
-echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
-sudo apt-get update && sudo apt-get install cloudflared
-```
-
-### Run the app
-
-Clone the repository and install its dependencies:
-
-```sh
-git clone https://github.com/AlexandruDanCroitoriu/free-spirit-dance.git
-cd free-spirit-dance
-npm install
-```
-
-The development command starts both the Vinext server and the named Cloudflare Tunnel:
-
-```sh
+npm ci
 npm run dev
 ```
 
-Open the authenticated local app at:
+`npm run dev` starts Vinext on port 3000 and the named tunnel `free-spirit-dance-local`. Open https://dev-free-spirit-dance.alexandru-croitoriu.dev and authenticate through Cloudflare Access with Google.
 
-```text
-https://dev-free-spirit-dance.alexandru-croitoriu.dev
-```
+The current Wrangler configuration uses **remote D1 and R2 bindings**, including during development. Changes made in the development app affect those configured resources. The automated tests use isolated SQLite databases and synthetic records.
 
-### Tunnel setup
-
-Cloudflare Access and Google OAuth are configured remotely and do not need to be recreated. The new machine does need access to the tunnel credentials.
-
-Authenticate `cloudflared`:
-
-```sh
-cloudflared tunnel login
-```
-
-Then securely copy the existing tunnel credentials JSON to `~/.cloudflared/` and create `~/.cloudflared/config.yml`:
+On a new machine, run `cloudflared tunnel login`, securely transfer the tunnel credentials, and create `~/.cloudflared/config.yml` outside this repository:
 
 ```yaml
 tunnel: YOUR_TUNNEL_UUID
 credentials-file: /home/YOUR_USER/.cloudflared/YOUR_TUNNEL_UUID.json
 
 ingress:
-	- hostname: dev-free-spirit-dance.alexandru-croitoriu.dev
-		service: http://localhost:3000
-	- service: http_status:404
+  - hostname: dev-free-spirit-dance.alexandru-croitoriu.dev
+    service: http://localhost:3000
+  - service: http_status:404
 ```
 
-Replace `YOUR_TUNNEL_UUID` and `YOUR_USER` with the appropriate values. Never commit the tunnel credentials, `config.yml`, or Google OAuth secrets to the repository.
+Use `.env.example` for local Access service-token variable names. Keep actual secrets in the ignored `.env` file. Never commit OAuth secrets, tunnel credentials/configuration, or database backups.
 
-If the existing tunnel credentials cannot be transferred, create a new named tunnel and update the hostname route and `config.yml` accordingly.
+## Verification
+
+```sh
+npm run verify
+```
+
+This runs TypeScript (including unused-code checks), API/permission/rendering tests, SQLite migration and diagram checks, and the production build. Individual commands are `npm run typecheck`, `npm test`, and `npm run build`. The test runner reports failures with a nonzero exit code.
+
+`npm run start` serves the built Worker with Wrangler. `npm run cf-typegen` regenerates binding types after configuration changes.
+
+## Production deployment
+
+Cloudflare Workers Builds handles deployment from the connected GitHub repository. Configure the production branch in the Cloudflare dashboard with:
+
+- Build command: `npm run verify` (Node.js 24 and Python 3 required).
+- Deploy command: `npm run deploy`.
+- Dependency installation: `npm ci` using the committed `package-lock.json`.
+
+The GitHub connection, production branch, Access applications, and secrets are configured remotely; local build success does not verify those settings. Pushing to the connected production branch triggers deployment.
+
+Before pushing schema-dependent changes, review pending D1 migrations and apply them in order:
+
+```sh
+npx wrangler d1 migrations list free-spirit-dance-db --remote
+npx wrangler d1 migrations apply free-spirit-dance-db --remote
+```
+
+**Review migrations against a private backup before applying them.** Existing migration `0025` deletes retired subscriptions, purchases, and their payments; `0028` deletes historical entry grants. These historical migrations are retained for upgrades and must not be rewritten or applied blindly. The current schema requires migrations through `0033_add_payments_permission.sql`. The local checks verify synthetic-data preservation and schema parity, not the contents or migration state of production.
+
+The schema is documented in [docs/database.drawio](docs/database.drawio). `python3 scripts/validate-schema.py` checks migration/diagram parity. Its optional SQL-backup argument expects the pre-0020 schema; keep backups outside Git.
+
+## Authentication
+
+Cloudflare Access must protect the complete production and development hostnames using a self-hosted application with an empty path, Google identity provider, and an Allow policy listing administrators' exact email addresses. Worker permissions further restrict Dashboard, Students, Courses, Payments, QR Codes, and administrator management.
+
+The sidebar and Settings use `/cdn-cgi/access/get-identity` for identity, with a fallback on plain localhost. Cloudflare provides that endpoint.
+
+The public QR hostname, `go.alexandru-croitoriu.dev`, routes to this Worker. Protect the complete hostname with Access and use a more-specific bypass application only for `/s/*`. The Worker rejects other routes on this hostname.
+
+## Application behavior
+
+- Students: manage profiles, optional email, unique nonempty phone numbers, active status, images, and course assignments. Existing `/students/:id` links open the same student panel. Students with history cannot be deleted; mark them inactive instead.
+- Courses: maintain one to five weekly classes, a required start date when saving, and an optional inclusive end date. Stored class occurrences preserve recorded classes when schedules change. Courses with linked records cannot be deleted.
+- Attendance: open a calendar class to select attendance changes. Ordinary administrators can change attendance on the class date; the main administrator can edit other dates. Submission is atomic, supports additions/removals, and avoids duplicates. Cancelled classes reject attendance; remove attendance before cancellation.
+- Payments: record amounts in integer bani (RON), allocate class credits per course, and retain administrator attribution. Payment presets fill a draft; later preset changes do not change recorded payments. Payments can be edited or deleted from student logs.
+- Balances: credits first settle unpaid attendance, then cover consecutive non-cancelled classes. Credits are tracked independently per course. The dashboard filters unpaid attendance or an exact remaining credit count and remembers the filter in browser storage.
+
+Calendar attendance requires both Dashboard and Students permissions. Student activity, course assignments, and balances use Students permission. Payments page access and preset changes require the independent Payments permission, managed on the Administrators page. Students permission also permits reading presets when recording a student payment. Migration `0033` preserves existing Payments access for administrators who already have Students access; new administrators start with Payments disabled. The calendar schedule requires Dashboard permission.

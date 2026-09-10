@@ -16,7 +16,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (!(file instanceof File) || !extension) return Response.json({ error: "Upload a JPEG, PNG, or WebP image." }, { status: 400 });
   if (file.size > maxImageBytes) return Response.json({ error: "The compressed image is too large." }, { status: 400 });
 
-  const bindings = env as unknown as CloudflareEnv;
+  const bindings = env;
   const existing = await bindings.DB.prepare("SELECT image_path FROM qr_codes WHERE id = ?").bind(id).first<{ image_path: string | null }>();
   if (!existing) return Response.json({ error: "QR code not found." }, { status: 404 });
   const key = `qr-${id}-${crypto.randomUUID()}.${extension}`;
@@ -24,7 +24,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   try {
     await bindings.STUDENT_IMAGES.put(key, file.stream(), { httpMetadata: { contentType: file.type, cacheControl: "private, max-age=3600" } });
-    const row = await bindings.DB.prepare("UPDATE qr_codes SET image_mode = 'custom', image_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, slug, name, destination_url, active, image_mode, image_path, module_shape, foreground_color, eye_shape, eye_color, logo_size, logo_shape, created_at, updated_at")
+    const row = await bindings.DB.prepare("UPDATE qr_codes SET image_mode = 'custom', image_path = ? WHERE id = ? RETURNING id, slug, name, destination_url, active, image_mode, image_path, module_shape, foreground_color, eye_shape, eye_color, logo_size, logo_shape")
       .bind(imagePath, id).first<Record<string, unknown>>();
     if (!row) {
       await bindings.STUDENT_IMAGES.delete(key);
@@ -42,7 +42,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       eyeShape: row.eye_shape, logoSize: row.logo_size,
       logoShape: row.logo_shape,
       advancedStyle: { eyeColor: row.eye_color },
-      createdAt: row.created_at, updatedAt: row.updated_at,
+
     });
   } catch (error) {
     await bindings.STUDENT_IMAGES.delete(key).catch(() => undefined);
