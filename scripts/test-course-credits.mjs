@@ -37,3 +37,24 @@ assert.equal(balance.excessAttendance, 0);
 assert.equal(run('2026-01-09T10:00:00Z', [], [], renewal).remainingAllowance, 4, 'absence before payment creates no debt');
 assert.equal(run('2026-01-09T10:00:00Z', [], prior, []).excessAttendance, 1);
 console.log('PASS: retroactive attendance credit, immediate and partial settlement, multiple payments, cancellations and prior absences.');
+
+const recordedEarly = [
+  { attendedAt: '2026-09-03T19:00:00' },
+  { attendedAt: '2026-09-10T19:00:00' },
+];
+const beforeClass = new Date('2026-09-10T11:45:00Z');
+const earlyBalance = (attendance, credits = [], now = beforeClass) => courseCreditBalance(
+  course, [{ day: 'Thursday', startTime: '19:00' }], [], credits, attendance, now,
+);
+balance = earlyBalance(recordedEarly);
+assert.equal(balance.attendanceCount, 2);
+assert.equal(balance.paidAllowance, 0);
+assert.equal(balance.excessAttendance, 2, 'both saved attendances count before today’s class starts');
+const todayPayment = [{ paidOn: '2026-09-10', allowance: 2 }];
+balance = earlyBalance(recordedEarly, todayPayment);
+assert.equal(balance.excessAttendance, 0);
+assert.equal(balance.remainingAllowance, 0, 'early attendance consumes credit immediately');
+assert.deepEqual(earlyBalance(recordedEarly, todayPayment, new Date('2026-09-10T18:00:00Z')), balance, 'class start must not charge recorded attendance twice');
+assert.equal(earlyBalance(recordedEarly.slice(0, 1), todayPayment).remainingAllowance, 1, 'unrecorded future class preserves credit');
+assert.equal(earlyBalance([], todayPayment).remainingAllowance, 2);
+console.log('PASS: early recorded attendance counts immediately without consuming unrecorded future classes or double charging.');

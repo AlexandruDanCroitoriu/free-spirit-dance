@@ -80,8 +80,10 @@ export function courseCreditBalance(
     used += settled;
   }
   for (const [slot, held] of [...slots].sort(([a], [b]) => a.localeCompare(b))) {
-    if (slot > current) continue;
-    applyPayments(slot.slice(0, 10));
+    // Recorded attendance counts immediately, even before the scheduled start.
+    // Unrecorded future classes must not consume credits.
+    if (slot > current && !attended.has(slot)) continue;
+    applyPayments(slot.slice(0, 10) < current.slice(0, 10) ? slot.slice(0, 10) : current.slice(0, 10));
     if (!held) continue;
     if (available > 0) { available--; used++; }
     else if (attended.has(slot)) unpaidAttendance++;
