@@ -23,9 +23,9 @@ export async function GET(request: Request) {
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   try {
     const results = await env.DB.batch([
-      env.DB.prepare(`SELECT p.id, p.student_id AS studentId, s.first_name AS firstName, s.last_name AS lastName, s.email AS studentEmail, s.picture AS studentPicture, a.name AS administratorName, a.picture AS administratorPicture, p.paid_on AS paidOn, p.amount_minor AS amountMinor, p.recorded_by AS recordedBy, p.given_to_school AS givenToSchool FROM student_payments p JOIN students s ON s.id = p.student_id LEFT JOIN admin_profiles a ON a.email = p.recorded_by ${where} ORDER BY p.paid_on DESC, p.id DESC LIMIT 10 OFFSET ?`).bind(...values, (page - 1) * 10),
-      env.DB.prepare(`SELECT COUNT(*) AS count FROM student_payments p ${where}`).bind(...values),
-      env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN given_to_school = 0 THEN amount_minor ELSE 0 END), 0) AS pendingMinor, COALESCE(SUM(CASE WHEN given_to_school = 1 THEN amount_minor ELSE 0 END), 0) AS givenMinor FROM student_payments p ${where}`).bind(...values),
+      env.DB.prepare(`SELECT p.id, p.purpose, p.practice_id AS practiceId, p.practice_description AS practiceDescription, p.student_id AS studentId, s.first_name AS firstName, s.last_name AS lastName, s.email AS studentEmail, s.picture AS studentPicture, a.name AS administratorName, a.picture AS administratorPicture, p.paid_on AS paidOn, p.amount_minor AS amountMinor, p.recorded_by AS recordedBy, p.given_to_school AS givenToSchool FROM school_payment_records p JOIN students s ON s.id = p.student_id LEFT JOIN admin_profiles a ON a.email = p.recorded_by ${where} ORDER BY p.paid_on DESC, p.purpose, p.id DESC LIMIT 10 OFFSET ?`).bind(...values, (page - 1) * 10),
+      env.DB.prepare(`SELECT COUNT(*) AS count FROM school_payment_records p ${where}`).bind(...values),
+      env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN given_to_school = 0 THEN amount_minor ELSE 0 END), 0) AS pendingMinor, COALESCE(SUM(CASE WHEN given_to_school = 1 THEN amount_minor ELSE 0 END), 0) AS givenMinor FROM school_payment_records p ${where}`).bind(...values),
     ]);
     return json({ payments: results[0].results, count: (results[1].results[0] as { count: number }).count, totals: results[2].results[0] });
   } catch (error) {

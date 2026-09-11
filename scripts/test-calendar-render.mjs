@@ -19,11 +19,11 @@ const courses = [
   { id: 4, name: "Unscheduled course", schedules: [] },
 ];
 try {
-  const source = (await readFile("app/page.tsx", "utf8"))
+  const source = (await readFile("app/components/course-calendar-widget.tsx", "utf8"))
     .replace("useState<Course[]>([])", `useState<Course[]>(${JSON.stringify(courses)})`)
     .replace("[loading, setLoading] = useState(true)", "[loading, setLoading] = useState(false)");
   const outfile = resolve(directory, "page.mjs");
-  await build({ stdin: { contents: source, resolveDir: resolve("app"), loader: "tsx" }, outfile,
+  await build({ stdin: { contents: source, resolveDir: resolve("app/components"), loader: "tsx" }, outfile,
     bundle: true, format: "esm", platform: "node", jsx: "automatic", external: ["react", "react/jsx-runtime"] });
   const { default: Page } = await import(pathToFileURL(outfile).href);
   const html = renderToString(createElement(Page));

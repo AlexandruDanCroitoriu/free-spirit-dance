@@ -7,13 +7,13 @@ import { useEffect, useState, type ReactNode } from "react";
 
 type IconName = "book" | "home" | "qr-code" | "shield" | "users";
 type AdminProfile = { email: string; name: string; picture: string | null };
-type Permissions = { dashboard: boolean; students: boolean; courses: boolean; payments: boolean; qrCodes: boolean; administrators: boolean };
+type Permissions = { dashboard: boolean; students: boolean; courses: boolean; practiceParties: boolean; qrCodes: boolean; administrators: boolean };
 
 const navigation: Array<{ label: string; href: string; icon: IconName; permission: keyof Permissions | null }> = [
   { label: "Dashboard", href: "/", icon: "home", permission: "dashboard" },
   { label: "Students", href: "/students", icon: "users", permission: "students" },
   { label: "Courses", href: "/courses", icon: "book", permission: "courses" },
-  { label: "Payments", href: "/payments", icon: "book", permission: "payments" },
+  { label: "Practice Parties", href: "/practice-parties", icon: "book", permission: "practiceParties" },
   { label: "QR Codes", href: "/qr-codes", icon: "qr-code", permission: "qrCodes" },
   { label: "Administrators", href: "/administrators", icon: "shield", permission: "administrators" },
 ];
@@ -54,10 +54,10 @@ function Sidebar({ close, pathname, permissions, profile }: { close?: () => void
 export default function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profile, setProfile] = useState<AdminProfile>({ email: "", name: "Loading account...", picture: null });
-  const [permissions, setPermissions] = useState<Permissions>({ dashboard: false, students: false, courses: false, payments: false, qrCodes: false, administrators: false });
+  const [permissions, setPermissions] = useState<Permissions>({ dashboard: false, students: false, courses: false, practiceParties: false, qrCodes: false, administrators: false });
   const pathname = usePathname();
   const studentDetailPage = pathname.startsWith("/students/");
-  const pageTitle = pathname === "/" ? "Dashboard" : pathname === "/students" ? "Students" : studentDetailPage ? "Student details" : pathname.startsWith("/courses") ? "Courses" : pathname.startsWith("/payments") ? "Payments" : pathname.startsWith("/administrators") ? "Administrators" : pathname.startsWith("/qr-codes") ? "QR Codes" : pathname.startsWith("/settings") ? "Settings" : "Free Spirit Dance";
+  const pageTitle = pathname === "/" ? "Dashboard" : pathname === "/students" ? "Students" : studentDetailPage ? "Student details" : pathname.startsWith("/courses") ? "Courses" : pathname.startsWith("/practice-parties") ? "Practice Parties" : pathname.startsWith("/administrators") ? "Administrators" : pathname.startsWith("/qr-codes") ? "QR Codes" : pathname.startsWith("/settings") ? "Settings" : "Free Spirit Dance";
 
   useEffect(() => {
     const loadProfile = () => fetch("/api/admin-profile")
@@ -66,12 +66,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
       .catch(() => setProfile({ email: "", name: "Profile", picture: null }));
     const updateProfile = (event: Event) => setProfile((event as CustomEvent<AdminProfile>).detail);
     void loadProfile();
-    void fetch("/api/access-permissions").then((response) => response.ok ? response.json() as Promise<Permissions> : Promise.reject()).then(setPermissions).catch(() => setPermissions({ dashboard: false, students: false, courses: false, payments: false, qrCodes: false, administrators: false }));
+    void fetch("/api/access-permissions").then((response) => response.ok ? response.json() as Promise<Permissions> : Promise.reject()).then(setPermissions).catch(() => setPermissions({ dashboard: false, students: false, courses: false, practiceParties: false, qrCodes: false, administrators: false }));
     window.addEventListener("admin-profile-updated", updateProfile);
     return () => window.removeEventListener("admin-profile-updated", updateProfile);
   }, []);
 
   return <DashboardWidgetsProvider><div className="min-h-screen bg-stone-50"><div className="fixed inset-y-0 left-0 z-10 hidden w-64 md:block"><Sidebar pathname={pathname} permissions={permissions} profile={profile} /></div>{sidebarOpen && <button aria-label="Close menu" className="fixed inset-0 z-40 border-0 bg-slate-950/70 md:hidden" onClick={() => setSidebarOpen(false)} />}<div className={`fixed inset-y-0 left-0 z-50 block w-72 max-w-full transition-transform duration-200 md:hidden ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}><Sidebar close={() => setSidebarOpen(false)} pathname={pathname} permissions={permissions} profile={profile} /></div>
-    <div className="flex min-h-screen flex-col md:ml-64"><header className="shrink-0 border-b border-stone-200 bg-white px-5 md:px-12"><div className={`mx-auto flex h-16 items-center gap-3 ${studentDetailPage ? "max-w-3xl" : "max-w-5xl"}`}><button aria-label="Open menu" className="flex w-8 shrink-0 flex-col gap-1 border-0 bg-transparent p-1 md:hidden" onClick={() => setSidebarOpen(true)}><span className="h-px w-4 bg-slate-600" /><span className="h-px w-4 bg-slate-600" /><span className="h-px w-4 bg-slate-600" /></button>{studentDetailPage && <a aria-label="Back to students" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-stone-100 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-lime-600" href="/students"><svg aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></a>}<h1 className="m-0 min-w-0 flex-1 truncate text-2xl font-normal text-slate-800">{pageTitle}</h1>{pathname === "/" && <DashboardSettings />}{pathname === "/students" && <button onClick={() => window.dispatchEvent(new Event("open-add-student"))} className="shrink-0 rounded-lg border-0 bg-slate-800 px-4 py-2.5 font-sans text-xs font-bold text-stone-100">+ Add student</button>}{pathname === "/courses" && <button onClick={() => window.dispatchEvent(new Event("open-add-course"))} className="shrink-0 rounded-lg border-0 bg-slate-800 px-4 py-2.5 font-sans text-xs font-bold text-stone-100">+ Add course</button>}{pathname === "/qr-codes" && <button onClick={() => window.dispatchEvent(new Event("open-add-qr-code"))} className="shrink-0 rounded-lg border-0 bg-slate-800 px-4 py-2.5 font-sans text-xs font-bold text-stone-100">+ Create QR code</button>}</div></header>{children}</div>
+    <div className="flex min-h-screen flex-col md:ml-64"><header className="shrink-0 border-b border-stone-200 bg-white px-5 md:px-12"><div className={`mx-auto flex h-16 items-center gap-3 ${studentDetailPage ? "max-w-3xl" : "max-w-5xl"}`}><button aria-label="Open menu" className="flex w-8 shrink-0 flex-col gap-1 border-0 bg-transparent p-1 md:hidden" onClick={() => setSidebarOpen(true)}><span className="h-px w-4 bg-slate-600" /><span className="h-px w-4 bg-slate-600" /><span className="h-px w-4 bg-slate-600" /></button>{studentDetailPage && <a aria-label="Back to students" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-stone-100 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-lime-600" href="/students"><svg aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></a>}<h1 className="m-0 min-w-0 flex-1 truncate text-2xl font-normal text-slate-800">{pageTitle}</h1>{pathname === "/" && <DashboardSettings />}{pathname === "/students" && <button onClick={() => window.dispatchEvent(new Event("open-add-student"))} className="shrink-0 rounded-lg border-0 bg-slate-800 px-4 py-2.5 font-sans text-xs font-bold text-stone-100">+ Add student</button>}{pathname === "/courses" && <button onClick={() => window.dispatchEvent(new Event("open-add-course"))} className="shrink-0 rounded-lg border-0 bg-slate-800 px-4 py-2.5 font-sans text-xs font-bold text-stone-100">+ Add course</button>}{pathname === "/practice-parties" && <button onClick={() => window.dispatchEvent(new Event("open-add-practice-party"))} className="shrink-0 rounded-lg border-0 bg-slate-800 px-4 py-2.5 font-sans text-xs font-bold text-stone-100">+ Add practice party</button>}{pathname === "/qr-codes" && <button onClick={() => window.dispatchEvent(new Event("open-add-qr-code"))} className="shrink-0 rounded-lg border-0 bg-slate-800 px-4 py-2.5 font-sans text-xs font-bold text-stone-100">+ Create QR code</button>}</div></header>{children}</div>
   </div></DashboardWidgetsProvider>;
 }

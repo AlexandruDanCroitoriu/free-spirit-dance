@@ -222,11 +222,6 @@ export default function ClassAttendancePanel({
           <button type="button" className={button + " text-red-700"} disabled={busy || loading || selected.length > 0 || (!data.cancelled && data.students.some((student) => student.attended))} onClick={() => void changeCancellation()}>{data.cancelled ? "Restore class" : "Cancel class"}</button>
           {!data.cancelled && data.students.some((student) => student.attended) && <p className="font-sans text-xs text-slate-500">Remove recorded attendance before cancelling this class.</p>}
         </div>}
-        {data && !editable && !data.cancelled && (
-          <p className="rounded-lg bg-amber-50 p-3 font-sans text-sm text-amber-800">
-            Attendance can only be changed on the class date. Only the main administrator can edit other dates.
-          </p>
-        )}
         {error && (
           <div role="alert" className="font-sans text-sm text-red-700">
             {error}{" "}

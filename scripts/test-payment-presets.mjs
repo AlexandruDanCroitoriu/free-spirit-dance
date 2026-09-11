@@ -66,10 +66,9 @@ assert.equal((await item.DELETE(request({}),context('bad'))).status,400);
 const workerSource=readFileSync('worker.ts','utf8').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();').replace('import vinextHandler from "vinext/server/fetch-handler";','const vinextHandler = { fetch: () => new Response("allowed") };');
 const {default:worker}=await import(moduleUrl(workerSource));
 sqlite.exec("INSERT INTO administrator_permissions (email,can_students,can_courses) VALUES ('students@example.test',1,0),('courses@example.test',0,1)");
-sqlite.exec("INSERT INTO administrator_permissions (email,can_payments) VALUES ('payments@example.test',1)");
-for(const path of ['/payments','/api/payment-presets','/api/payment-presets/1']) for(const method of ['GET','POST','PATCH','DELETE']) {
+for(const path of ['/api/payment-presets','/api/payment-presets/1']) for(const method of ['GET','POST','PATCH','DELETE']) {
  const fetchAs=(email)=>worker.fetch(new Request('https://school.example.test'+path,{method,headers:email?{'cf-access-authenticated-user-email':email}:{}}),{DB:db,PUBLIC_QR_BASE_URL:'https://go.example.test'},{});
- assert.equal((await fetchAs(null)).status,403);assert.equal((await fetchAs('courses@example.test')).status,403);assert.equal((await fetchAs('students@example.test')).status,path === '/api/payment-presets' && method === 'GET' ? 200 : 403);assert.equal((await fetchAs('payments@example.test')).status,200);
+ assert.equal((await fetchAs(null)).status,403);assert.equal((await fetchAs('courses@example.test')).status,200);assert.equal((await fetchAs('students@example.test')).status,path === '/api/payment-presets' && method === 'GET' ? 200 : 403);
 }
 assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 console.log('PASS: preset create/edit/delete, validation, rollback, exact amounts, popup defaults, payment history preservation, and permissions.');
@@ -80,16 +79,8 @@ const admins = await import(adminUrl);
 const adminItem = await import(moduleUrl(readFileSync('app/api/administrators/[email]/route.ts', 'utf8').replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/, 'const env = globalThis.presetTestEnv;').replace('"../route"', JSON.stringify(adminUrl))));
 const identity = await route('app/api/access-permissions/route.ts');
 const adminContext = { params: Promise.resolve({ email: 'students@example.test' }) };
-const permissions = { dashboard: false, students: true, courses: false, qrCodes: false, payments: true };
-assert.equal((await adminItem.PATCH(request({ ...permissions, payments: 'true' }), adminContext)).status, 400);
-for (const payments of [true, false]) {
-  const response = await adminItem.PATCH(request({ ...permissions, payments }), adminContext);
-  assert.equal(response.status, 200);
-  assert.equal((await response.json()).payments, payments);
-  const rows = await (await admins.GET()).json();
-  assert.equal(rows.find(row => row.email === 'students@example.test').payments, payments);
-  const current = await (await identity.GET(new Request('https://school.example.test/api/access-permissions', { headers: { 'cf-access-authenticated-user-email': 'students@example.test' } }))).json();
-  assert.equal(current.payments, payments);
-  assert.equal(current.students, true);
-}
-console.log('PASS: Payments can be granted and revoked independently through administrator APIs.');
+const permissions = { dashboard: false, students: true, courses: false, practiceParties: true, qrCodes: false };
+const response = await adminItem.PATCH(request(permissions), adminContext);
+assert.equal(response.status, 200);
+assert.equal((await response.json()).practiceParties, true);
+console.log('PASS: Practice Parties access is managed independently through administrator APIs.');

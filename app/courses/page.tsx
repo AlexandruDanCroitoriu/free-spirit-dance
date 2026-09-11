@@ -4,6 +4,7 @@ import { requestJson } from "../lib/http";
 import { useEffect, useRef, useState } from "react";
 import TimeSelector from "../components/time-selector";
 import OperationNotification from "../components/operation-notification";
+import PaymentPresets from "../components/payment-presets";
 import { weekdays, parseCourse, type Course, type CourseInput, type Schedule } from "../lib/courses";
 
 const dayLabels: Record<string, string> = { Monday: "Luni", Tuesday: "Marți", Wednesday: "Miercuri", Thursday: "Joi", Friday: "Vineri", Saturday: "Sâmbătă", Sunday: "Duminică" };
@@ -15,6 +16,7 @@ const primaryClass = "rounded-md bg-slate-800 px-4 py-3 font-sans text-xs font-b
 
 export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
+  const [tab, setTab] = useState<"courses" | "payment-presets">("courses");
   const [form, setForm] = useState<CourseInput>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -72,6 +74,7 @@ export default function CoursesPage() {
     window.addEventListener("open-add-course", open);
     return () => window.removeEventListener("open-add-course", open);
   }, [busy]);
+  useEffect(() => { if (window.location.hash === "#payment-presets") setTab("payment-presets"); }, []);
   useEffect(() => {
     if (!formOpen) return;
     const dialog = panel.current;
@@ -194,7 +197,8 @@ export default function CoursesPage() {
         <button type="button" className="rounded-md bg-red-700 px-4 py-3 font-sans text-xs font-bold text-white hover:bg-red-800 disabled:opacity-50" disabled={busy || !canDelete} onClick={() => void remove(deleteTarget)}>{busy ? "Deleting…" : "Delete course"}</button>
       </div>
     </dialog>}
-    <section className="overflow-hidden rounded-xl border border-stone-200 bg-white">
+    <div className="border-b border-stone-200"><nav aria-label="Courses sections" className="flex gap-5"><button type="button" aria-current={tab === "courses" ? "page" : undefined} className={`border-b-2 px-1 py-3 font-sans text-sm font-semibold ${tab === "courses" ? "border-lime-600 text-slate-800" : "border-transparent text-slate-500 hover:text-slate-800"}`} onClick={() => setTab("courses")}>Courses</button><button id="payment-presets" type="button" aria-current={tab === "payment-presets" ? "page" : undefined} className={`border-b-2 px-1 py-3 font-sans text-sm font-semibold ${tab === "payment-presets" ? "border-lime-600 text-slate-800" : "border-transparent text-slate-500 hover:text-slate-800"}`} onClick={() => setTab("payment-presets")}>Payment presets</button></nav></div>
+    {tab === "payment-presets" ? <div className="pt-5"><PaymentPresets /></div> : <section className="overflow-hidden rounded-xl border border-stone-200 bg-white">
       {loading ? <p className="p-8 text-center font-sans text-sm text-slate-500">Loading courses…</p> : !loaded ? <p className="p-8 text-center font-sans text-sm">Courses could not be loaded.</p> : courses.length === 0 ? <div className="p-10 text-center"><h2 className="text-xl font-normal">No courses yet</h2><button className={primaryClass} onClick={() => window.dispatchEvent(new Event("open-add-course"))}>+ Add course</button></div> : <div className="overflow-x-auto"><table className="w-full text-left font-sans text-sm">
         <thead className="bg-stone-50 text-xs uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">Course name</th><th className="px-5 py-3">Weekly schedule</th><th className="px-5 py-3"><span className="sr-only">Actions</span></th></tr></thead>
         <tbody className="divide-y divide-stone-200">{courses.map((course) => <tr key={course.id} className="hover:bg-stone-50">
@@ -203,6 +207,6 @@ export default function CoursesPage() {
           <td className="px-5 py-4 text-right align-top"><div className="flex justify-end gap-2"><button className={buttonClass} disabled={busy} onClick={() => edit(course)}>Edit<span className="sr-only"> {course.name}</span></button></div></td>
         </tr>)}</tbody>
       </table></div>}
-    </section>
+    </section>}
   </div></main>;
 }

@@ -61,9 +61,9 @@ assert.equal(sqlite.prepare('SELECT course_name FROM attendance LIMIT 1').get().
 assert.equal(sqlite.prepare('SELECT recorded_by FROM attendance LIMIT 1').get().recorded_by,'croitoriu.alexandru.code@gmail.com');
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM student_courses WHERE student_id=2 AND course_id=1').get().n,0,'Attendance does not silently enroll a student');
 
-// Ordinary administrators can change only today's classes; owner can change any date.
+// Administrators can change attendance on any scheduled past or future date.
 for (const classDate of ['2000-01-05', '2099-01-07']) {
-  assert.equal((await api.POST(request({classDate, studentIds:[1]}, 'admin@example.test'))).status,403);
+  assert.equal((await api.POST(request({classDate, studentIds:[1]}, 'admin@example.test'))).status,200);
   assert.equal((await api.POST(request({classDate, studentIds:[1]}))).status,200);
   assert.equal((await api.POST(request({classDate, studentIds:[], removeStudentIds:[1]}))).status,200);
 }

@@ -1,7 +1,9 @@
 "use client";
 
+import { type PracticeSession, sessionEnd } from "../lib/practice-parties";
 import { readJson } from "../lib/http";
 import { useEffect, useMemo, useState } from "react";
+import PracticePartyPanel from "./practice-party-panel";
 import ClassAttendancePanel from "./class-attendance-panel";
 import { schoolToday } from "../lib/student-activity";
 import { weekdays, type Course } from "../lib/courses";
@@ -28,6 +30,10 @@ function displayTime(time: string) {
 }
 
 export default function CourseCalendarWidget() {
+  const [selectedPractice, setSelectedPractice] = useState<number | null>(null);
+  const [eventSessions, setEventSessions] = useState<PracticeSession[]>([]);
+  const [canOpenEvents, setCanOpenEvents] = useState(false);
+  const [eventError, setEventError] = useState("");
   const [courses, setCourses] = useState<Course[]>([]);
   const [calendarReload, setCalendarReload] = useState(0);
   const [visibleMonth, setVisibleMonth] = useState(() => { const date = new Date(schoolToday() + "T12:00:00"); return new Date(date.getFullYear(), date.getMonth(), 1); });
@@ -54,6 +60,17 @@ export default function CourseCalendarWidget() {
   const firstDayOffset = (visibleMonth.getDay() + 6) % 7;
   const gridStart = addDays(visibleMonth, -firstDayOffset);
   const calendarDates = Array.from({ length: 42 }, (_, index) => addDays(gridStart, index));
+  const from = calendarDates[0].getFullYear() + '-' + String(calendarDates[0].getMonth() + 1).padStart(2, '0') + '-' + String(calendarDates[0].getDate()).padStart(2, '0');
+  const last = calendarDates[41];
+  const to = last.getFullYear() + '-' + String(last.getMonth() + 1).padStart(2, '0') + '-' + String(last.getDate()).padStart(2, '0');
+  useEffect(() => {
+    const controller = new AbortController(); setEventError('');
+    fetch(`/api/practice-calendar?from=${from}&to=${to}`, { signal: controller.signal }).then(async response => {
+      const body = await response.json() as { sessions: PracticeSession[]; canOpen: boolean; error?: string }; if (!response.ok) throw new Error(body.error ?? 'Could not load events.');
+      if (!controller.signal.aborted) { setEventSessions(body.sessions); setCanOpenEvents(body.canOpen); }
+    }).catch(e => { if (!controller.signal.aborted) setEventError(e.message); });
+    return () => controller.abort();
+  }, [from, to, calendarReload]);
   const slots = courses.flatMap<ClassSlot>((course) =>
     course.schedules.map((schedule) => ({ courseId: course.id, courseName: course.name, startDate: course.startDate, endDate: course.endDate, ...schedule }))
   ).sort((first, second) => first.startTime.localeCompare(second.startTime) || first.courseName.localeCompare(second.courseName));
@@ -61,13 +78,15 @@ export default function CourseCalendarWidget() {
   function changeMonth(amount: number) { setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1)); }
 
   return <>
+    {selectedPractice !== null && <PracticePartyPanel id={selectedPractice} onClose={() => { setSelectedPractice(null); setCalendarReload(v => v + 1); }} />}
     {selectedClass && <ClassAttendancePanel courseName={selectedClass.course.name} slot={{ courseId: selectedClass.slot.courseId, classDate: `${selectedClass.date.getFullYear()}-${String(selectedClass.date.getMonth() + 1).padStart(2, "0")}-${String(selectedClass.date.getDate()).padStart(2, "0")}`, startTime: selectedClass.slot.startTime }} onClose={() => setSelectedClass(null)} />}
     <section className="min-w-0 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm" aria-labelledby="calendar-title">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 px-4 py-3">
-        <h2 className="m-0 text-lg font-normal" id="calendar-title">Course calendar</h2>
+        <h2 className="m-0 text-lg font-normal" id="calendar-title">Classes & practices</h2>
         <div className="flex items-center gap-1.5 font-sans"><button aria-label="Previous month" className="flex h-8 w-8 items-center justify-center rounded-md border border-stone-300 bg-white text-slate-600 hover:bg-stone-50" onClick={() => changeMonth(-1)}>‹</button><span className="min-w-28 px-1 text-center text-xs font-semibold text-slate-700" aria-live="polite">{monthLabel}</span><button aria-label="Next month" className="flex h-8 w-8 items-center justify-center rounded-md border border-stone-300 bg-white text-slate-600 hover:bg-stone-50" onClick={() => changeMonth(1)}>›</button></div>
       </div>
-      {loading ? <p className="p-8 text-center font-sans text-xs text-slate-400">Loading calendar...</p> : error ? <p className="m-4 rounded-lg border border-red-200 bg-red-50 p-3 font-sans text-xs text-red-700" role="alert">{error}</p> : courses.length === 0 ? <div className="p-8 text-center"><h3 className="m-0 text-base font-normal">No courses scheduled</h3><p className="mt-2 font-sans text-xs text-slate-400">Add a course to see it on the calendar.</p><a className="mt-3 inline-block rounded-lg bg-slate-800 px-3 py-2 font-sans text-xs font-bold text-stone-100" href="/courses">Go to courses</a></div> : <div className="min-w-0"><div className="calendar-widget-body">
+      {eventError && <p role="alert" className="p-3 text-sm text-red-700">{eventError} <button onClick={() => setCalendarReload(v => v + 1)}>Retry</button></p>}
+      {loading ? <p className="p-8 text-center font-sans text-xs text-slate-400">Loading calendar...</p> : error ? <p className="m-4 rounded-lg border border-red-200 bg-red-50 p-3 font-sans text-xs text-red-700" role="alert">{error}</p> : <div className="min-w-0"><div className="calendar-widget-body">
         <div className="calendar-grid border-b border-stone-200 bg-stone-50">{weekdays.map((day) => <div className="px-1 py-2 text-center font-sans text-[10px] font-bold uppercase tracking-wider text-slate-400" key={day}>{dayLabels[day].slice(0, 3)}</div>)}</div>
         <div className="calendar-grid border-l border-stone-200">{calendarDates.map((date) => { const day = weekdays[(date.getDay() + 6) % 7]; const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; const daySlots = slots.filter((slot) => slot.day === day && (!slot.startDate || dateKey >= slot.startDate) && (!slot.endDate || dateKey <= slot.endDate)); for (const course of courses) for (const occurrence of course.occurrences ?? []) {
           if (occurrence.classDate !== dateKey) continue;
@@ -78,7 +97,7 @@ export default function CourseCalendarWidget() {
         daySlots.sort((a, b) => a.startTime.localeCompare(b.startTime) || a.courseName.localeCompare(b.courseName));
         const current = sameDate(date, today); const inMonth = date.getMonth() === visibleMonth.getMonth(); return <section className={`calendar-widget-day border-b border-r border-stone-200 p-0.5 sm:p-1.5 ${current ? "bg-lime-50/70" : inMonth ? "bg-white" : "bg-stone-50/70"}`} key={date.toISOString()} aria-label={date.toLocaleDateString()}>
           <p className={`mb-1 flex h-5 w-5 items-center justify-center rounded-full font-sans text-[10px] font-semibold ${current ? "bg-lime-600 text-white" : inMonth ? "text-slate-700" : "text-slate-300"}`}>{date.getDate()}</p>
-          <div className="space-y-1">{daySlots.map((slot, index) => { const cancelled = courses.find((course) => course.id === slot.courseId)?.cancellations?.some((item) => item.classDate === dateKey && item.startTime === slot.startTime); return <button className={`block w-full min-w-0 rounded border px-0.5 py-1 sm:px-1.5 text-left focus:outline-none focus:ring-2 ${cancelled ? "border-stone-300 bg-stone-100 hover:border-stone-400 focus:ring-stone-500" : "hover:border-lime-400 focus:ring-lime-600"} ${cancelled ? (inMonth ? "" : "opacity-60") : inMonth ? "border-lime-200 bg-lime-50" : "border-stone-200 bg-white/60 opacity-60"}`} key={`${date.toISOString()}-${slot.courseId}-${slot.startTime}-${index}`} onClick={() => { const course = courses.find(({ id }) => id === slot.courseId); if (course) setSelectedClass({ course, date, slot }); }} title={`${slot.courseName} · ${displayTime(slot.startTime)}–${displayTime(slot.endTime)}`} type="button"><span className="block truncate font-sans text-[9px] font-bold leading-3 text-slate-800">{slot.courseName}{cancelled ? " · Cancelled" : ""}</span><span className={`block truncate font-sans text-[8px] font-semibold leading-3 ${cancelled ? "text-stone-500" : "text-lime-700"}`}>{displayTime(slot.startTime)}–{displayTime(slot.endTime)}</span></button>; })}</div>
+          <div className="space-y-1">{eventSessions.filter(s => s.startsAt.slice(0, 10) === dateKey).map(s => <button type="button" key={`practice-${s.id}`} disabled={!canOpenEvents} onClick={() => setSelectedPractice(s.id)} className={`block w-full rounded border border-purple-200 bg-purple-50 p-1 text-left font-sans text-[9px] ${s.cancelled ? 'opacity-50' : ''}`} title={`Practice party · ${s.startsAt.slice(11)}–${sessionEnd(s).slice(11)}`}><span className="block truncate font-bold">Practice party{s.cancelled ? ' · Cancelled' : ''}</span><span>{s.startsAt.slice(11)}</span></button>)}{daySlots.map((slot, index) => { const cancelled = courses.find((course) => course.id === slot.courseId)?.cancellations?.some((item) => item.classDate === dateKey && item.startTime === slot.startTime); return <button className={`block w-full min-w-0 rounded border px-0.5 py-1 sm:px-1.5 text-left focus:outline-none focus:ring-2 ${cancelled ? "border-stone-300 bg-stone-100 hover:border-stone-400 focus:ring-stone-500" : "hover:border-lime-400 focus:ring-lime-600"} ${cancelled ? (inMonth ? "" : "opacity-60") : inMonth ? "border-lime-200 bg-lime-50" : "border-stone-200 bg-white/60 opacity-60"}`} key={`${date.toISOString()}-${slot.courseId}-${slot.startTime}-${index}`} onClick={() => { const course = courses.find(({ id }) => id === slot.courseId); if (course) setSelectedClass({ course, date, slot }); }} title={`${slot.courseName} · ${displayTime(slot.startTime)}–${displayTime(slot.endTime)}`} type="button"><span className="block truncate font-sans text-[9px] font-bold leading-3 text-slate-800">{slot.courseName}{cancelled ? " · Cancelled" : ""}</span><span className={`block truncate font-sans text-[8px] font-semibold leading-3 ${cancelled ? "text-stone-500" : "text-lime-700"}`}>{displayTime(slot.startTime)}–{displayTime(slot.endTime)}</span></button>; })}</div>
         </section>; })}</div>
       </div></div>}
     </section>

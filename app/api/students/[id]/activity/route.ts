@@ -39,6 +39,16 @@ export async function GET(request: Request, context: Context) {
         FROM student_payments p WHERE student_id = ?
       ) ORDER BY eventDate DESC, eventTime DESC, recordedAt DESC, kind DESC, id DESC LIMIT ? OFFSET ?`).bind(id, id, logsPage * logsPageSize, 0),
     ]);
+    const eventRows = await db.prepare(`SELECT * FROM (
+      SELECT a.id, 'practice_attendance' AS kind, s.id AS practiceId, s.starts_at AS eventDate,
+      'Practice party' AS courseName, NULL AS amountMinor, a.notes || CASE WHEN a.voided_at IS NULL THEN '' ELSE ' · Corrected: ' || a.void_reason END AS notes,
+      a.recorded_by AS recordedBy, a.recorded_at AS recordedAt, a.voided_at AS voidedAt
+      FROM practice_attendance a JOIN practice_parties s ON s.id = a.practice_id WHERE a.student_id = ?
+      UNION ALL SELECT p.id, 'practice_donation', p.practice_id, p.paid_on, 'Practice party · ' || s.starts_at, p.amount_minor,
+      p.notes, p.recorded_by, p.recorded_at, NULL
+      FROM practice_donations p JOIN practice_parties s ON s.id = p.practice_id WHERE p.student_id = ?
+    ) ORDER BY eventDate DESC, recordedAt DESC, kind DESC, id DESC`).bind(id, id).all<Omit<StudentActivity["logs"][number], "allocations">>();
+    const eventLogs: StudentActivity["logs"] = eventRows.results.map(row => ({ ...row, complimentary: row.kind === 'practice_attendance' ? 1 : 0, allocations: [] }));
     const creditData = await db.batch([
       db.prepare("SELECT course_id AS courseId, day_of_week AS day, start_time AS startTime FROM course_schedule"),
       db.prepare("SELECT course_id AS courseId, class_date AS classDate, start_time AS startTime, cancelled FROM classes"),
@@ -60,16 +70,19 @@ export async function GET(request: Request, context: Context) {
       (startsAt) => calculatedLogs.push({ id: course.courseId, kind: "missed", courseId: course.courseId, courseName: course.courseName, eventDate: `${startsAt}:00`, amountMinor: null, notes: "", recordedBy: "Automatic", recordedAt: null, allocations: [] }),
       (startsAt) => calculatedLogs.push({ id: course.courseId, kind: "cancelled", courseId: course.courseId, courseName: course.courseName, eventDate: `${startsAt}:00`, amountMinor: null, notes: "", recordedBy: "—", recordedAt: null, allocations: [] }),
     )).sort((a, b) => a.courseName.localeCompare(b.courseName));
-    const summary = balances.reduce((sum, b) => ({ ...sum, missedClasses: sum.missedClasses + b.missedClasses, attendanceCount: sum.attendanceCount + b.attendanceCount, paidAllowance: sum.paidAllowance + b.paidAllowance, remainingAllowance: sum.remainingAllowance + b.remainingAllowance, excessAttendance: sum.excessAttendance + b.excessAttendance }), { missedClasses: 0, attendanceCount: 0, paidAllowance: 0, remainingAllowance: 0, excessAttendance: 0, ...results[4].results[0] as { paymentCount: number; totalPaidMinor: number } });
+    const summary: StudentActivity["summary"] = balances.reduce((sum, b) => ({ ...sum, missedClasses: sum.missedClasses + b.missedClasses, attendanceCount: sum.attendanceCount + b.attendanceCount, paidAllowance: sum.paidAllowance + b.paidAllowance, remainingAllowance: sum.remainingAllowance + b.remainingAllowance, excessAttendance: sum.excessAttendance + b.excessAttendance }), { missedClasses: 0, attendanceCount: 0, paidAllowance: 0, remainingAllowance: 0, excessAttendance: 0, ...results[4].results[0] as { paymentCount: number; totalPaidMinor: number } });
     summary.missedClasses = calculatedLogs.filter((row) => row.kind === "missed").length;
     const allocations = results[3].results as { paymentId: number; courseId: number; courseName: string; allowance: number }[];
     const payments = (results[2].results as Omit<StudentActivity["payments"][number], "allocations">[]).map((p) => ({ ...p, allocations: allocations.filter((a) => a.paymentId === p.id).map(({ courseId, courseName, allowance }) => ({ courseId, courseName, allowance })) }));
     const recordedLogs: StudentActivity["logs"] = (results[6].results as (Omit<StudentActivity["logs"][number], "allocations"> & { allocations: string; eventTime: string })[]).map((row) => ({ ...row, eventDate: row.eventTime, allocations: (JSON.parse(row.allocations) as StudentActivity["logs"][number]["allocations"]).map((allocation) => ({ ...allocation, coverage: coverage.get(`${row.id}:${allocation.courseId}`) })) }));
+    summary.eventAttendanceCount = eventLogs.filter(r => r.kind === 'practice_attendance' && !r.voidedAt).length;
+    summary.donationsMinor = eventLogs.filter(r => r.kind === 'practice_donation' && !r.voidedAt).reduce((sum, r) => sum + (r.amountMinor ?? 0), 0);
+    summary.totalPaidMinor += summary.donationsMinor;
     // Merge calculated absences before pagination so no entries are skipped between pages.
-    const logs = [...recordedLogs, ...calculatedLogs].sort((a, b) =>
+    const logs = [...recordedLogs, ...calculatedLogs, ...eventLogs].sort((a, b) =>
       b.eventDate.localeCompare(a.eventDate) || (b.recordedAt ?? "").localeCompare(a.recordedAt ?? "") || b.kind.localeCompare(a.kind) || b.id - a.id,
     ).slice((logsPage - 1) * logsPageSize, logsPage * logsPageSize);
-    return json({ canRecordFuturePayments: canRecordFuturePayments(actor(request)), logs, logsPage, logsPageSize, logsCount: summary.attendanceCount + summary.paymentCount + calculatedLogs.length, summary, balances, payments, attendance: results[1].results as StudentActivity["attendance"], courses: results[5].results as StudentActivity["courses"], attendancePage, paymentsPage } satisfies StudentActivity);
+    return json({ canRecordFuturePayments: canRecordFuturePayments(actor(request)), logs, logsPage, logsPageSize, logsCount: summary.attendanceCount + summary.paymentCount + calculatedLogs.length + eventLogs.length, summary, balances, payments, attendance: results[1].results as StudentActivity["attendance"], courses: results[5].results as StudentActivity["courses"], attendancePage, paymentsPage } satisfies StudentActivity);
   } catch (error) {
     console.error("Could not load student activity", error);
     return json({ error: "Could not load attendance and payments." }, 500);

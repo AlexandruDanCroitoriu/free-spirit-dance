@@ -1,12 +1,11 @@
 import { env } from "../../lib/storage";
 import { parseClass, classWeekday, type CalendarClass, type ClassStudent } from "../../lib/class-attendance";
-import { schoolToday } from "../../lib/student-activity";
 const json = (data: unknown, status = 200) => Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 function actor(request: Request) {
   return request.headers.get("cf-access-authenticated-user-email")?.trim().toLowerCase() || (["localhost", "127.0.0.1", "[::1]"].includes(new URL(request.url).hostname) ? "administrator@local" : null);
 }
-function canEdit(request: Request, slot: CalendarClass) {
-  return Boolean(actor(request)) && (actor(request) === "croitoriu.alexandru.code@gmail.com" || slot.classDate === schoolToday());
+function canEdit(request: Request) {
+  return Boolean(actor(request));
 }
 async function scheduledClass(db: D1Database, slot: CalendarClass) {
   const recorded = await db.prepare("SELECT c.name AS courseName, cl.end_time AS endTime FROM classes cl JOIN courses c ON c.id = cl.course_id WHERE cl.course_id = ? AND cl.class_date = ? AND cl.start_time = ?").bind(slot.courseId, slot.classDate, slot.startTime).first<{ courseName: string; endTime: string | null }>();
@@ -26,7 +25,7 @@ export async function GET(request: Request) {
       EXISTS (SELECT 1 FROM attendance a WHERE a.student_id = s.id AND a.course_id = ? AND a.attended_at = ? AND a.complimentary = 1) AS complimentary
       FROM students s ORDER BY s.last_name COLLATE NOCASE, s.first_name COLLATE NOCASE, s.id`).bind(slot.courseId, slot.courseId, `${slot.classDate}T${slot.startTime}:00`, slot.courseId, `${slot.classDate}T${slot.startTime}:00`).all<ClassStudent>();
     const cancelled = Boolean(await db.prepare("SELECT 1 FROM classes WHERE course_id = ? AND class_date = ? AND start_time = ? AND cancelled = 1").bind(slot.courseId, slot.classDate, slot.startTime).first());
-    return json({ ...scheduled, cancelled, canManageClass: Boolean(actor(request)), canEdit: !cancelled && canEdit(request, slot), students: rows.results });
+    return json({ ...scheduled, cancelled, canManageClass: Boolean(actor(request)), canEdit: !cancelled && canEdit(request), students: rows.results });
   } catch (error) { console.error("Could not load class roster", error); return json({ error: "Could not load the class students." }, 500); }
 }
 export async function POST(request: Request) {
@@ -44,7 +43,6 @@ export async function POST(request: Request) {
   const complimentary = input?.complimentaryStudentIds ?? [];
   const reason = input?.complimentaryReason ?? "";
   if (!validIds(complimentary) || new Set(complimentary).size !== complimentary.length || complimentary.some((id) => !additions.includes(id)) || typeof reason !== "string" || reason.trim().length > 500) return json({ error: "Choose complimentary students from the new attendance and enter a reason of up to 500 characters." }, 400);
-  if (!canEdit(request, slot)) return json({ error: "Attendance can only be changed on the class date. Only the main administrator can edit other dates." }, 403);
   try {
     const db = env.DB;
     const scheduled = await scheduledClass(db, slot);
