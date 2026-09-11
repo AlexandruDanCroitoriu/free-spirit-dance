@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { readJson } from "../lib/http";
 
-export default function PaymentTransferCheckbox({ paymentId, studentId, checked, disabled = false }: { paymentId: number; studentId: number; checked: boolean; disabled?: boolean }) {
+export default function PaymentTransferCheckbox({ paymentId, studentId, checked, disabled = false, purpose, practiceId }: { paymentId: number; studentId: number; checked: boolean; disabled?: boolean; purpose?: "practice_donation"; practiceId?: number }) {
   const saving = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -11,7 +11,7 @@ export default function PaymentTransferCheckbox({ paymentId, studentId, checked,
     if (saving.current) return;
     saving.current = true; setBusy(true); setError("");
     try {
-      const response = await fetch("/api/students/payments", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paymentId, studentId, givenToSchool }) });
+      const response = await fetch("/api/students/payments", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paymentId, studentId, givenToSchool, purpose, practiceId }) });
       const body = await readJson<{ error?: string }>(response);
       if (!response.ok) throw new Error(body.error ?? "Could not save transfer status.");
       window.dispatchEvent(new Event("payment-transfer-updated"));

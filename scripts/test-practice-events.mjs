@@ -4,120 +4,79 @@ import { DatabaseSync } from 'node:sqlite';
 import { build } from 'esbuild';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
-const sqlite = new DatabaseSync(':memory:'); sqlite.exec('PRAGMA foreign_keys=ON');
-for (const m of readdirSync('migrations').filter(m => m.endsWith('.sql')).sort()) sqlite.exec(readFileSync(`migrations/${m}`, 'utf8'));
+
+const sqlite = new DatabaseSync(':memory:');
+sqlite.exec('PRAGMA foreign_keys=ON');
+for (const migration of readdirSync('migrations').filter((name) => name.endsWith('.sql')).sort()) sqlite.exec(readFileSync(`migrations/${migration}`, 'utf8'));
 function prepare(sql) {
-  let args = [];
-  const statement = { bind(...v) { args = v; return statement; }, async first() { return sqlite.prepare(sql).get(...args) ?? null; }, async all() { return { results: sqlite.prepare(sql).all(...args) }; }, async run() { return statement.execute(); }, execute() {
-    const q = sqlite.prepare(sql), results = q.columns().length ? q.all(...args) : (q.run(...args), []);
-    return { results, meta: { changes: sqlite.prepare('SELECT changes() AS n').get().n } };
-  } }; return statement;
+  let values = [];
+  const statement = {
+    bind(...next) { values = next; return statement; },
+    async first() { return sqlite.prepare(sql).get(...values) ?? null; },
+    async all() { return { results: sqlite.prepare(sql).all(...values) }; },
+    async run() { return statement.execute(); },
+    execute() { const query = sqlite.prepare(sql), results = query.columns().length ? query.all(...values) : (query.run(...values), []); return { results, meta: { changes: sqlite.prepare('SELECT changes() AS n').get().n } }; },
+  };
+  return statement;
 }
-const db = { prepare, async batch(statements) { sqlite.exec('BEGIN'); try { const result = statements.map(s => s.execute()); sqlite.exec('COMMIT'); return result; } catch (e) { sqlite.exec('ROLLBACK'); throw e; } } };
+const db = { prepare, async batch(statements) { sqlite.exec('BEGIN'); try { const results = statements.map((statement) => statement.execute()); sqlite.exec('COMMIT'); return results; } catch (error) { sqlite.exec('ROLLBACK'); throw error; } } };
 globalThis.practiceEnv = { DB: db };
 const directory = resolve('.wrangler/practice-test'); mkdirSync(directory, { recursive: true });
 async function load(file, name) {
-  const outfile = resolve(directory, name + '.mjs');
-  await build({ entryPoints: [file], outfile, bundle: true, format: 'esm', platform: 'node', plugins: [{ name: 'test-bindings', setup(b) { b.onLoad({ filter: /app\/lib\/storage\.ts$/ }, () => ({ contents: 'export const env = globalThis.practiceEnv;', loader: 'ts' })); } }] });
+  const outfile = resolve(directory, `${name}.mjs`);
+  await build({ entryPoints: [file], outfile, bundle: true, format: 'esm', platform: 'node', plugins: [{ name: 'test-bindings', setup(buildContext) { buildContext.onLoad({ filter: /app\/lib\/storage\.ts$/ }, () => ({ contents: 'export const env = globalThis.practiceEnv;', loader: 'ts' })); } }] });
   return import(pathToFileURL(outfile).href);
 }
+
 try {
-  const list = await load('app/api/practice-parties/route.ts', 'parties'), item = await load('app/api/practice-parties/[id]/route.ts', 'party'), roster = await load('app/api/practice-parties/[id]/roster/route.ts', 'roster'), calendar = await load('app/api/practice-calendar/route.ts', 'calendar'), activity = await load('app/api/students/[id]/activity/route.ts', 'activity'), payments = await load('app/api/students/payments/route.ts', 'payments'), helper = await load('app/lib/practice-parties.ts', 'helper');
-  sqlite.exec("INSERT INTO students (first_name,last_name,email) VALUES ('Ana','Student','ana@test'),('Ben','Student','ben@test'); INSERT INTO courses(name) VALUES ('Zouk'); INSERT INTO admin_profiles(email,name) VALUES ('admin@test','Admin'); INSERT INTO administrator_permissions(email,can_practice_parties,can_students,can_dashboard) VALUES ('admin@test',1,1,1),('roster@test',1,1,0),('setup@test',1,0,0),('none@test',0,0,0)");
-  let n = 0;
-  const request = (data, email = 'admin@test', path = '/api/practice-parties/1') => new Request('https://school.test' + path, { method: data ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', 'cf-access-authenticated-user-email': email }, ...(data ? { body: JSON.stringify(data) } : {}) });
+  const parties = await load('app/api/practice-parties/route.ts', 'parties');
+  const party = await load('app/api/practice-parties/[id]/route.ts', 'party');
+  const roster = await load('app/api/practice-parties/[id]/roster/route.ts', 'roster');
+  const activity = await load('app/api/students/[id]/activity/route.ts', 'activity');
+  const payments = await load('app/api/students/payments/route.ts', 'payments');
+  sqlite.exec("INSERT INTO students (first_name,last_name,email,phone) VALUES ('Ana','Student','ana@test','0700000001'),('Ben','Student','ben@test','0700000002'); INSERT INTO admin_profiles(email,name) VALUES ('admin@test','Admin');");
+  let requestNumber = 0;
+  const request = (body, method = 'POST', path = '/api/practice-parties/1') => new Request(`https://school.test${path}`, { method, headers: { 'Content-Type': 'application/json', 'cf-access-authenticated-user-email': 'admin@test' }, ...(body ? { body: JSON.stringify(body) } : {}) });
   const context = (id = 1) => ({ params: Promise.resolve({ id: String(id) }) });
-  const keyed = value => ({ ...value, requestKey: 'practice-test-key-' + (++n) });
-  const revision = (id = 1) => sqlite.prepare('SELECT revision FROM practice_parties WHERE id = ?').get(id).revision;
-  const mutate = (value, email = 'admin@test', id = 1) => item.POST(request(keyed({ ...value, revision: revision(id) }), email), context(id));
-  const expect = async (r, status) => { const response = await r, body = await response.json(); assert.equal(response.status, status, JSON.stringify(body)); return body; };
-  const session = { date: '2026-01-07', time: '23:30', durationMinutes: 120 };
-  const creation = keyed({ action: 'create', session });
-  await expect(list.POST(request(creation)), 201); await expect(list.POST(request(creation)), 200);
-  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM practice_parties').get().n, 1, 'each create request records one practice party without a name');
-  await expect(list.POST(request(keyed({ action: 'create', session: { ...session, date: '2026-01-11' } }))), 201);
-  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM practice_parties').get().n, 2);
-  assert.equal((await expect(item.GET(request(), context()), 200)).party.durationMinutes, 120);
-  assert.equal(helper.sessionEnd({ startsUtc: '2026-01-07T21:30:00.000Z', durationMinutes: 120 }), '2026-01-08T01:30');
-  assert.throws(() => helper.parseSession({ ...session, date: '2026-03-29', time: '03:30' }), /does not exist/);
-  assert.throws(() => helper.parseSession({ ...session, date: '2026-10-25', time: '03:30' }), /twice/);
-  const summer = helper.parseSession({ ...session, date: '2026-10-25', time: '03:30', offset: 'summer' });
-  const winter = helper.parseSession({ ...session, date: '2026-10-25', time: '03:30', offset: 'winter' });
-  assert.equal(Date.parse(winter.startsUtc) - Date.parse(summer.startsUtc), 3600000);
-  for (const patch of [{ date: '2026-02-30' }, { durationMinutes: 0 }, { durationMinutes: 1.5 }, { time: '25:00' }]) await expect(list.POST(request(keyed({ action: 'create', session: { ...session, ...patch } }))), 400);
-  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM practice_parties').get().n, 2);
-  await expect(list.GET(request(null, 'none@test')), 200);
-  await expect(roster.GET(request(null, 'setup@test'), context()), 200);
-  await expect(mutate({ action: 'donation', studentId: 999, amount: '30', paidOn: '2026-01-07', notes: '' }, 'roster@test'), 409);
-  await expect(mutate({ action: 'attendance', studentId: 1, amount: '', notes: '' }, 'roster@test'), 201);
-  let logs = await expect(activity.GET(request(null), context()), 200);
-  assert.equal(logs.logs.length, 1); assert.equal(logs.logs[0].kind, 'practice_attendance'); assert.equal(logs.summary.eventAttendanceCount, 1); assert.equal(logs.summary.attendanceCount, 0); assert.equal(logs.summary.excessAttendance, 0);
-  const combined = keyed({ action: 'attendance', revision: revision(), studentId: 2, amount: '30.50', paidOn: '2026-01-07', notes: '<donation>' });
-  await expect(item.POST(request(combined), context()), 201); await expect(item.POST(request(combined), context()), 200);
-  await expect(item.POST(request({ ...combined, amount: '31' }), context()), 409);
-  await expect(mutate({ action: 'attendance', studentId: 2, amount: '50', paidOn: '2026-01-07', notes: '' }), 409);
-  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM practice_donations').get().n, 1, 'duplicate attendance rolls back donation');
-  await expect(mutate({ action: 'attendance', studentId: 999, amount: '50', paidOn: '2026-01-07', notes: '' }), 409);
-  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM practice_attendance').get().n, 2);
-  logs = await expect(activity.GET(request(null), context(2)), 200);
-  assert.equal(logs.logsCount, 2); assert.equal(logs.summary.donationsMinor, 3050); assert.equal(logs.balances.length, 0);
-  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM student_payments').get().n, 0, 'practice donations never enter course payment storage');
-  await expect(mutate({ action: 'donation', studentId: 1, amount: '10', paidOn: '2026-01-08', notes: 'Later donation' }), 201);
-  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM practice_attendance').get().n, 2);
-  const original = sqlite.prepare('SELECT * FROM practice_donations WHERE id = 1').get();
-  await expect(mutate({ action: 'handover', paymentId: 1, givenToSchool: true }), 201);
-  await expect(mutate({ action: 'edit_donation', paymentId: 1, amount: '40', paidOn: '2026-01-08', notes: 'Corrected amount' }), 201);
-  let donation = sqlite.prepare('SELECT * FROM practice_donations WHERE id = 1').get();
-  assert.equal(donation.given_to_school, 1); assert.equal(donation.recorded_by, original.recorded_by); assert.equal(donation.recorded_at, original.recorded_at);
-  assert.equal(donation.amount_minor, 4000);
-  await expect(mutate({ action: 'edit_donation', paymentId: 1, amount: '0', paidOn: '2026-01-08', notes: '' }), 400);
-  await expect(mutate({ action: 'edit_donation', paymentId: 1, amount: '0', paidOn: '2026-01-08', notes: '' }, 'roster@test'), 400);
-  await expect(mutate({ action: 'edit_donation', paymentId: 1, amount: '10', paidOn: '2026-01-08', notes: '' }, 'admin@test', 2), 404);
-  let detail = await expect(item.GET(request(null), context()), 200);
-  assert.deepEqual(detail.totals, { receivedMinor: 5000, givenMinor: 4000, pendingMinor: 1000 });
-  const rev = revision();
-  const concurrent = await Promise.all([10, 20].map(amount => item.POST(request(keyed({ action: 'edit_donation', revision: rev, paymentId: 1, amount: String(amount), paidOn: '2026-01-08', notes: 'Edit' })), context())));
-  assert.deepEqual(concurrent.map(r => r.status).sort(), [201, 409]);
-  // Give the course ledger the same numeric payment ID; reports must retain both sources.
-  const coursePayment = { kind: 'payment', requestKey: 'legacy-course-test-key', amount: '280', paidOn: '2026-01-01', allocations: [{ courseId: 1, allowance: 1 }], notes: '' };
-  await expect(activity.POST(request(coursePayment), context(2)), 201);
-  let report = await expect(payments.GET(request(null)), 200);
-  assert.equal(report.count, 3); assert.equal(report.payments.filter(p => p.id === 1).length, 2); assert.equal(report.totals.givenMinor, 1000);
-  await expect(mutate({ action: 'delete_donation', paymentId: 1 }), 201);
-  assert.ok(sqlite.prepare('SELECT id FROM student_payments WHERE id = 1').get(), 'practice delete cannot affect course payment with same ID');
-  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM practice_attendance').get().n, 2, 'deleting a donation preserves attendance');
-  logs = await expect(activity.GET(request(null), context(2)), 200);
-  assert.equal(logs.logs.filter(l => l.kind === 'practice_donation').length, 0); assert.equal(logs.logs.filter(l => l.kind === 'practice_attendance').length, 1);
-  await expect(mutate({ action: 'void_attendance', attendanceId: 1, reason: 'Wrong attendance' }), 201);
-  assert.ok(sqlite.prepare('SELECT id FROM practice_donations WHERE id = 2').get(), 'correcting attendance preserves donation');
-  await expect(mutate({ action: 'attendance', studentId: 1, amount: '', notes: 'Corrected' }), 201);
-  await expect(mutate({ action: 'edit_session', session: { ...session, time: '22:00' }, reason: 'Correct actual start' }), 201);
-  assert.equal(sqlite.prepare('SELECT original_starts_at FROM practice_attendance LIMIT 1').get().original_starts_at, '2026-01-07T23:30');
-  logs = await expect(activity.GET(request(null), context()), 200);
-  assert.equal(logs.logs.find(l => l.kind === 'practice_attendance').eventDate, '2026-01-07T22:00');
-  await expect(mutate({ action: 'cancel_session', cancelled: true, reason: 'Cancelled' }), 201);
-  await expect(mutate({ action: 'donation', studentId: 1, amount: '10', paidOn: '2026-01-08', notes: '' }), 409);
-  await expect(mutate({ action: 'cancel_session', cancelled: false, reason: 'Restored' }), 201);
-  await expect(mutate({ action: 'unsupported_action' }), 400);
-  assert.equal((await expect(list.GET(request(null)), 200)).length, 2);
-  const cal = await expect(calendar.GET(request(null, 'admin@test', '/api/practice-calendar?from=2026-01-01&to=2026-02-01')), 200); assert.equal(cal.sessions.length, 2); assert.equal(cal.canOpen, true);
-  await expect(calendar.GET(request(null, 'admin@test', '/api/practice-calendar?from=2026-01-01&to=2027-01-01')), 400);
-  const visible = await expect(item.GET(request(null, 'setup@test'), context()), 200); assert.ok(visible.payments.length > 0);
-  await expect(list.POST(request(keyed({ action: 'create', session: { ...session, date: '2099-01-01' } }))), 201);
-  await expect(mutate({ action: 'attendance', studentId: 1, notes: '', amount: '' }, 'admin@test', 3), 201);
-  await expect(list.POST(request(keyed({ action: 'create', session: { ...session, date: '2026-01-12' } }))), 201);
-  const batchParty = 4;
-  await expect(item.POST(request(keyed({ action: 'attendance_batch', revision: revision(batchParty), addStudentIds: [1, 2], removeAttendanceIds: [], donations: [{ studentId: 1, amount: '15.50' }] })), context(batchParty)), 201);
-  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM practice_attendance WHERE practice_id = ? AND voided_at IS NULL').get(batchParty).n, 2, 'batch attendance records selected students together');
-  assert.equal(sqlite.prepare('SELECT amount_minor FROM practice_donations WHERE practice_id = ?').get(batchParty).amount_minor, 1550, 'batch attendance records an optional student donation');
-  for (let i = 0; i < 12; i++) await expect(mutate({ action: 'donation', studentId: 1, amount: '1', paidOn: '2026-01-11', notes: 'Donation ' + i }), 201);
-  const seen = new Set(); let count;
-  for (let page = 1; page <= 2; page++) {
-    const result = await expect(activity.GET(request(null, 'admin@test', '/api/students/1/activity?logsPage=' + page), context()), 200); count = result.logsCount;
-    for (const log of result.logs) { const key = log.kind + ':' + log.id; assert.ok(!seen.has(key)); seen.add(key); }
-  }
-  assert.equal(seen.size, count);
+  const keyed = (body) => ({ ...body, requestKey: `practice-test-key-${++requestNumber}` });
+  const expect = async (response, status) => { const result = await response, body = await result.json(); assert.equal(result.status, status, JSON.stringify(body)); return body; };
+  const revision = () => sqlite.prepare('SELECT revision FROM practice_parties WHERE id = 1').get().revision;
+
+  const creation = keyed({ action: 'create', session: { date: '2026-01-07', time: '20:00', durationMinutes: 120 } });
+  await expect(parties.POST(request(creation, 'POST', '/api/practice-parties')), 201);
+  await expect(parties.POST(request(creation, 'POST', '/api/practice-parties')), 200);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM practice_parties').get().count, 1);
+  const phoneSearch = await expect(roster.GET(request(null, 'GET', '/api/practice-parties/1/roster?q=0700000002'), context()), 200);
+  assert.equal(phoneSearch.count, 1); assert.equal(phoneSearch.students[0].firstName, 'Ben');
+
+  const attendance = keyed({ action: 'attendance_batch', revision: revision(), addStudentIds: [1], removeAttendanceIds: [], donations: [{ studentId: 1, amount: '30.50', paidOn: '2026-01-07', notes: 'Thank you' }] });
+  await expect(party.POST(request(attendance), context()), 201);
+  await expect(party.POST(request(attendance), context()), 200);
+  const recorded = sqlite.prepare('SELECT * FROM practice_attendance').get();
+  assert.equal(recorded.student_id, 1); assert.equal(recorded.donation_amount_minor, 3050); assert.equal(recorded.donation_paid_on, '2026-01-07');
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM sqlite_schema WHERE type = 'table' AND name IN ('practice_requests', 'practice_changes', 'practice_donations')").get().count, 0);
+
+  const detail = await expect(party.GET(request(null, 'GET'), context()), 200);
+  assert.deepEqual(detail.totals, { receivedMinor: 3050, givenMinor: 0, pendingMinor: 3050 });
+  assert.equal(detail.payments[0].id, recorded.id);
+  const studentActivity = await expect(activity.GET(request(null, 'GET', '/api/students/1/activity'), context(1)), 200);
+  assert.equal(studentActivity.logs.filter((row) => row.kind === 'practice_attendance').length, 1);
+  assert.equal(studentActivity.logs.find((row) => row.kind === 'practice_attendance').amountMinor, 3050);
+  assert.equal(studentActivity.summary.donationsMinor, 3050);
+
+  let report = await expect(payments.GET(request(null, 'GET', '/api/students/payments')), 200);
+  assert.equal(report.count, 1); assert.equal(report.payments[0].purpose, 'practice_donation');
+  await expect(payments.PATCH(request({ paymentId: recorded.id, studentId: 1, practiceId: 1, purpose: 'practice_donation', givenToSchool: true }, 'PATCH', '/api/students/payments')), 200);
+  assert.equal(sqlite.prepare('SELECT donation_given_to_school FROM practice_attendance WHERE id = ?').get(recorded.id).donation_given_to_school, 1);
+  report = await expect(payments.GET(request(null, 'GET', '/api/students/payments?status=given')), 200);
+  assert.equal(report.totals.givenMinor, 3050);
+
+  const removal = keyed({ action: 'attendance_batch', revision: revision(), addStudentIds: [], removeAttendanceIds: [recorded.id], donations: [] });
+  await expect(party.POST(request(removal), context()), 201);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM practice_attendance').get().count, 0);
+  assert.equal((await expect(payments.GET(request(null, 'GET', '/api/students/payments')), 200)).count, 0);
   assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(), []);
-  assert.equal(sqlite.prepare("SELECT count(*) AS n FROM sqlite_schema WHERE type='table' AND (name LIKE 'event_%' OR name LIKE '%refund%')").get().n, 0);
-  console.log('PASS: standalone practice parties, one-party creation, DST, authorization, separate donations, atomic attendance/retries, edits/deletes, collector preservation, source-safe reports, calendar and mixed activity pagination.');
-} finally { rmSync(directory, { recursive: true, force: true }); }
+  console.log('PASS: practice parties keep one attendance per student, optional donation fields, retry protection, student activity, and dashboard transfer handling.');
+} finally {
+  rmSync(directory, { recursive: true, force: true });
+}

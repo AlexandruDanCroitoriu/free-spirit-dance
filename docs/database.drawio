@@ -1,549 +1,574 @@
-<mxfile host="65bd71144e">
+<mxfile host="app.diagrams.net">
     <diagram id="Database-overview" name="Complete database">
-        <mxGraphModel dx="2740" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2260" pageHeight="1800" math="0" shadow="0">
+        <mxGraphModel grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3640" pageHeight="2000" math="0" shadow="0">
             <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="courses-preset-defaults" value="" style="html=0;edgeStyle=orthogonalEdgeStyle;rounded=1;startArrow=ERone;endArrow=ERmany;strokeColor=#16a34a;exitX=1;exitY=0.8;entryX=0.85;entryY=1;" parent="1" source="courses" target="payment_preset_courses" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="2220" y="258.4"/>
-                            <mxPoint x="2220" y="1520"/>
-                            <mxPoint x="977" y="1520"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="presets-course-defaults" value="" style="html=0;edgeStyle=orthogonalEdgeStyle;rounded=1;startArrow=ERone;endArrow=ERmany;strokeColor=#16a34a;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="payment_presets" target="payment_preset_courses" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="students-assignments" value="" style="html=0;fontFamily=Helvetica;edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=0;strokeWidth=1.5;strokeColor=#64748b;startArrow=ERone;endArrow=ERmany;exitX=1;exitY=0.25;entryX=0;entryY=0.65;fontSize=11;labelBackgroundColor=#ffffff;" parent="1" source="students" target="student_courses" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="1100" y="239.5"/>
-                            <mxPoint x="1100" y="243.7"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="courses-assignments" value="" style="html=0;fontFamily=Helvetica;edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=0;strokeWidth=1.5;strokeColor=#64748b;startArrow=ERone;endArrow=ERmany;exitX=0;exitY=0.5;entryX=1;entryY=0.5;fontSize=11;labelBackgroundColor=#ffffff;" parent="1" source="courses" target="student_courses" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="courses-schedule" value="" style="html=0;fontFamily=Helvetica;edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=0;strokeWidth=1.5;strokeColor=#16a34a;startArrow=ERone;endArrow=ERmany;exitX=0.5;exitY=1;entryX=0.5;entryY=0;fontSize=11;labelBackgroundColor=#ffffff;" parent="1" source="courses" target="course_schedule" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="students-payments" value="" style="html=0;fontFamily=Helvetica;edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=0;strokeWidth=1.5;strokeColor=#2563eb;startArrow=ERone;endArrow=ERmany;exitX=0.25;exitY=1;entryX=0.25;entryY=0;fontSize=11;labelBackgroundColor=#ffffff;" parent="1" source="students" target="student_payments" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="students-attendance" value="" style="html=0;fontFamily=Helvetica;edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=0;strokeWidth=1.5;strokeColor=#2563eb;startArrow=ERone;endArrow=ERmany;exitX=1;exitY=0.7;entryX=0;entryY=0.15;fontSize=11;labelBackgroundColor=#ffffff;" parent="1" source="students" target="attendance" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="1080" y="346.6"/>
-                            <mxPoint x="1080" y="668.3"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="courses-attendance" value="" style="html=0;fontFamily=Helvetica;edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=0;strokeWidth=1.5;strokeColor=#16a34a;startArrow=ERone;endArrow=ERmany;exitX=0;exitY=0.8;entryX=1;entryY=0.2;fontSize=11;labelBackgroundColor=#ffffff;" parent="1" source="courses" target="attendance" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="1660" y="258.4"/>
-                            <mxPoint x="1660" y="684.4"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="courses-payment-allowances" value="" style="html=0;fontFamily=Helvetica;edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=0;strokeWidth=1.5;strokeColor=#16a34a;startArrow=ERone;endArrow=ERmany;exitX=1;exitY=0.5;entryX=1;entryY=0.3;fontSize=11;labelBackgroundColor=#ffffff;" parent="1" source="courses" target="payment_course_allowances" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="2190" y="229"/>
-                            <mxPoint x="2190" y="856.2"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="payments-allowances" value="" style="html=0;fontFamily=Helvetica;edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=0;strokeWidth=1.5;strokeColor=#16a34a;startArrow=ERone;endArrow=ERmany;exitX=1;exitY=0.65;entryX=0.5;entryY=1;fontSize=11;labelBackgroundColor=#ffffff;" parent="1" source="student_payments" target="payment_course_allowances" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="1130" y="811.1"/>
-                            <mxPoint x="1130" y="1040"/>
-                            <mxPoint x="1950" y="1040"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="admin-permissions" value="Same email · logical only" style="html=0;fontFamily=Helvetica;edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=0;strokeWidth=1.5;strokeColor=#a78bfa;startArrow=none;endArrow=open;exitX=0.5;exitY=1;entryX=0.5;entryY=0;fontSize=11;labelBackgroundColor=#ffffff;dashed=1;" parent="1" source="admin_profiles" target="administrator_permissions" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="admin-payments" value="" style="html=0;fontFamily=Helvetica;edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=0;strokeWidth=1.5;strokeColor=#a78bfa;startArrow=ERone;endArrow=ERmany;exitX=1;exitY=0.5;entryX=0.65;entryY=0;fontSize=11;labelBackgroundColor=#ffffff;" parent="1" source="admin_profiles" target="student_payments" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="530" y="243"/>
-                            <mxPoint x="530" y="550"/>
-                            <mxPoint x="893" y="550"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="admin-attendance" value="" style="html=0;fontFamily=Helvetica;edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=0;strokeWidth=1.5;strokeColor=#a78bfa;startArrow=ERone;endArrow=ERmany;exitX=1;exitY=0.75;entryX=0.5;entryY=0;fontSize=11;labelBackgroundColor=#ffffff;" parent="1" source="admin_profiles" target="attendance" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="560" y="274.5"/>
-                            <mxPoint x="560" y="510"/>
-                            <mxPoint x="1390" y="510"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="attendance-balances" value="" style="html=0;fontFamily=Helvetica;edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=0;strokeWidth=1.5;strokeColor=#a78bfa;startArrow=none;endArrow=open;exitX=0.5;exitY=1;entryX=0.5;entryY=0;fontSize=11;labelBackgroundColor=#ffffff;dashed=1;" parent="1" source="attendance" target="student_course_balances" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="allowances-balances" value="" style="html=0;fontFamily=Helvetica;edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=0;strokeWidth=1.5;strokeColor=#a78bfa;startArrow=none;endArrow=open;exitX=0.75;exitY=1;entryX=1;entryY=0.5;fontSize=11;labelBackgroundColor=#ffffff;dashed=1;" parent="1" source="payment_course_allowances" target="student_course_balances" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="2055" y="1235"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="assignments-balances" value="" style="html=0;fontFamily=Helvetica;edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=0;strokeWidth=1.5;strokeColor=#a78bfa;startArrow=none;endArrow=open;exitX=1;exitY=0.5;entryX=0.85;entryY=0;fontSize=11;labelBackgroundColor=#ffffff;dashed=1;" parent="1" source="student_courses" target="student_course_balances" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="1630" y="229"/>
-                            <mxPoint x="1630" y="1080"/>
-                            <mxPoint x="1537" y="1080"/>
-                        </Array>
-                    </mxGeometry>
+                <mxCell id="0" />
+                <mxCell id="1" parent="0" />
+                <mxCell id="dependency-practice_parties-school_payment_records" value="" edge="1" parent="1" source="practice_parties" target="school_payment_records" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;dashed=1;startArrow=none;endArrow=open;strokeWidth=1;strokeColor=#94a3b8;jettySize=35;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="title" value="Free Spirit Dance · Complete database" style="html=0;fontFamily=Helvetica;text;align=left;fontSize=30;fontStyle=1;fontColor=#0f172a;" parent="1" vertex="1">
-                    <mxGeometry x="60" y="30" width="2100" height="50" as="geometry"/>
+                <mxCell id="dependency-practice_attendance-school_payment_records" value="" edge="1" parent="1" source="practice_attendance" target="school_payment_records" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;dashed=1;startArrow=none;endArrow=open;strokeWidth=1;strokeColor=#94a3b8;jettySize=35;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="subtitle" value="Students, courses, attendance and payments — all tables and relationships on one page" style="html=0;fontFamily=Helvetica;text;align=left;fontSize=16;fontColor=#64748b;" parent="1" vertex="1">
-                    <mxGeometry x="60" y="90" width="2100" height="35" as="geometry"/>
+                <mxCell id="dependency-student_payments-school_payment_records" value="" edge="1" parent="1" source="student_payments" target="school_payment_records" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;dashed=1;startArrow=none;endArrow=open;strokeWidth=1;strokeColor=#94a3b8;jettySize=35;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="group-admin" value="ADMINISTRATION" style="html=0;fontFamily=Helvetica;text;align=left;fontSize=14;fontStyle=1;fontColor=#64748b;" parent="1" vertex="1">
-                    <mxGeometry x="60" y="140" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-practice_attendance-student_id" value="" edge="1" parent="1" source="practice_attendance-student_id" target="students-id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#ea580c;" tooltip="practice_attendance.student_id → students.id">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="group-student" value="STUDENTS &amp; PAYMENTS" style="html=0;fontFamily=Helvetica;text;align=left;fontSize=14;fontStyle=1;fontColor=#64748b;" parent="1" vertex="1">
-                    <mxGeometry x="620" y="140" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-practice_attendance-practice_id" value="" edge="1" parent="1" source="practice_attendance-practice_id" target="practice_parties-id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#ea580c;" tooltip="practice_attendance.practice_id → practice_parties.id">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="group-activity" value="ASSIGNMENTS &amp; ATTENDANCE" style="html=0;fontFamily=Helvetica;text;align=left;fontSize=14;fontStyle=1;fontColor=#64748b;" parent="1" vertex="1">
-                    <mxGeometry x="1180" y="140" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-practice_attendance-recorded_by" value="" edge="1" parent="1" source="practice_attendance-recorded_by" target="admin_profiles-email" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#ea580c;" tooltip="practice_attendance.recorded_by → admin_profiles.email">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="group-course" value="COURSES &amp; ALLOWANCES" style="html=0;fontFamily=Helvetica;text;align=left;fontSize=14;fontStyle=1;fontColor=#64748b;" parent="1" vertex="1">
-                    <mxGeometry x="1740" y="140" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-practice_attendance-donation_recorded_by" value="" edge="1" parent="1" source="practice_attendance-donation_recorded_by" target="admin_profiles-email" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#ea580c;" tooltip="practice_attendance.donation_recorded_by → admin_profiles.email">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="admin_profiles" value="admin_profiles" style="html=0;fontFamily=Helvetica;swimlane;startSize=42;horizontal=1;rounded=1;arcSize=8;collapsible=0;fontSize=18;fontStyle=1;fillColor=#f5f3ff;strokeColor=#a78bfa;" parent="1" vertex="1">
-                    <mxGeometry x="60" y="180" width="420" height="126" as="geometry"/>
+                <mxCell id="fk-practice_parties-recorded_by" value="" edge="1" parent="1" source="practice_parties-recorded_by" target="admin_profiles-email" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#ea580c;" tooltip="practice_parties.recorded_by → admin_profiles.email">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="admin_profiles-email" value="email : TEXT  [PK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="admin_profiles" vertex="1">
-                    <mxGeometry y="42" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-course_schedule-course_id" value="" parent="1" edge="1" source="course_schedule-course_id" target="courses-id" tooltip="course_schedule.course_id → courses.id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#3b82f6;exitX=1;exitY=0.5;entryX=1;entryY=0.5;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="admin_profiles-name" value="name : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f5f3ff;" parent="admin_profiles" vertex="1">
-                    <mxGeometry y="70" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-student_courses-course_id" value="" parent="1" edge="1" source="student_courses-course_id" target="courses-id" tooltip="student_courses.course_id → courses.id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#3b82f6;exitX=1;exitY=0.5;entryX=1;entryY=0.5;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="admin_profiles-picture" value="picture : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="admin_profiles" vertex="1">
-                    <mxGeometry y="98" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-student_courses-student_id" value="" parent="1" edge="1" source="student_courses-student_id" target="students-id" tooltip="student_courses.student_id → students.id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#3b82f6;exitX=0;exitY=0.5;entryX=1;entryY=0.5;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="administrator_permissions" value="administrator_permissions" style="html=0;fontFamily=Helvetica;swimlane;startSize=42;horizontal=1;rounded=1;arcSize=8;collapsible=0;fontSize=18;fontStyle=1;fillColor=#f5f3ff;strokeColor=#a78bfa;" parent="1" vertex="1">
-                    <mxGeometry x="60" y="430" width="420" height="210" as="geometry"/>
+                <mxCell id="fk-classes-cancelled_by" value="" parent="1" edge="1" source="classes-cancelled_by" target="admin_profiles-email" tooltip="classes.cancelled_by → admin_profiles.email" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#8b5cf6;exitX=0;exitY=0.5;entryX=1;entryY=0.5;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="administrator_permissions-email" value="email : TEXT  [PK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="administrator_permissions" vertex="1">
-                    <mxGeometry y="42" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-classes-course_id" value="" parent="1" edge="1" source="classes-course_id" target="courses-id" tooltip="classes.course_id → courses.id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#3b82f6;exitX=1;exitY=0.5;entryX=1;entryY=0.5;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="administrator_permissions-can_dashboard" value="can_dashboard : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f5f3ff;" parent="administrator_permissions" vertex="1">
-                    <mxGeometry y="70" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-student_payments-recorded_by" value="" parent="1" edge="1" source="student_payments-recorded_by" target="admin_profiles-email" tooltip="student_payments.recorded_by → admin_profiles.email" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#8b5cf6;exitX=0;exitY=0.5;entryX=1;entryY=0.5;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="administrator_permissions-can_students" value="can_students : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="administrator_permissions" vertex="1">
-                    <mxGeometry y="98" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-student_payments-student_id" value="" parent="1" edge="1" source="student_payments-student_id" target="students-id" tooltip="student_payments.student_id → students.id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#3b82f6;exitX=0;exitY=0.5;entryX=1;entryY=0.5;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="administrator_permissions-can_courses" value="can_courses : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f5f3ff;" parent="administrator_permissions" vertex="1">
-                    <mxGeometry y="126" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-payment_course_allowances-course_id" value="" parent="1" edge="1" source="payment_course_allowances-course_id" target="courses-id" tooltip="payment_course_allowances.course_id → courses.id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#3b82f6;exitX=0;exitY=0.5;entryX=1;entryY=0.5;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="administrator_permissions-can_qr_codes" value="can_qr_codes : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="administrator_permissions" vertex="1">
-                    <mxGeometry y="154" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-payment_course_allowances-payment_id" value="" parent="1" edge="1" source="payment_course_allowances-payment_id" target="student_payments-id" tooltip="payment_course_allowances.payment_id → student_payments.id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#16a34a;exitX=1;exitY=0.5;entryX=1;entryY=0.5;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="qr_codes" value="qr_codes" style="html=0;fontFamily=Helvetica;swimlane;startSize=42;horizontal=1;rounded=1;arcSize=8;collapsible=0;fontSize=18;fontStyle=1;fillColor=#f8fafc;strokeColor=#94a3b8;" parent="1" vertex="1">
-                    <mxGeometry x="60" y="810" width="420" height="406" as="geometry"/>
+                <mxCell id="fk-payment_preset_courses-course_id" value="" parent="1" edge="1" source="payment_preset_courses-course_id" target="courses-id" tooltip="payment_preset_courses.course_id → courses.id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#3b82f6;exitX=0;exitY=0.5;entryX=1;entryY=0.5;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="qr_codes-id" value="id : INTEGER  [PK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="qr_codes" vertex="1">
-                    <mxGeometry y="42" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-payment_preset_courses-preset_id" value="" parent="1" edge="1" source="payment_preset_courses-preset_id" target="payment_presets-id" tooltip="payment_preset_courses.preset_id → payment_presets.id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#16a34a;exitX=1;exitY=0.5;entryX=1;entryY=0.5;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="qr_codes-slug" value="slug : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f8fafc;" parent="qr_codes" vertex="1">
-                    <mxGeometry y="70" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-attendance-class_id" value="" parent="1" edge="1" source="attendance-class_id" target="classes-id" tooltip="attendance.class_id → classes.id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#3b82f6;exitX=0;exitY=0.5;entryX=1;entryY=0.5;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="qr_codes-name" value="name : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="qr_codes" vertex="1">
-                    <mxGeometry y="98" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-attendance-recorded_by" value="" parent="1" edge="1" source="attendance-recorded_by" target="admin_profiles-email" tooltip="attendance.recorded_by → admin_profiles.email" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#8b5cf6;exitX=0;exitY=0.5;entryX=1;entryY=0.5;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="qr_codes-destination_url" value="destination_url : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f8fafc;" parent="qr_codes" vertex="1">
-                    <mxGeometry y="126" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-attendance-course_id" value="" parent="1" edge="1" source="attendance-course_id" target="courses-id" tooltip="attendance.course_id → courses.id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#3b82f6;exitX=0;exitY=0.5;entryX=1;entryY=0.5;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="qr_codes-active" value="active : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="qr_codes" vertex="1">
-                    <mxGeometry y="154" width="420" height="28" as="geometry"/>
+                <mxCell id="fk-attendance-student_id" value="" parent="1" edge="1" source="attendance-student_id" target="students-id" tooltip="attendance.student_id → students.id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;jettySize=35;startArrow=ERmany;endArrow=ERone;strokeWidth=1.2;strokeColor=#3b82f6;exitX=0;exitY=0.5;entryX=1;entryY=0.5;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="qr_codes-image_mode" value="image_mode : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f8fafc;" parent="qr_codes" vertex="1">
-                    <mxGeometry y="182" width="420" height="28" as="geometry"/>
+                <mxCell id="dependency-student_courses-student_course_balances" value="" parent="1" edge="1" source="student_courses" target="student_course_balances" tooltip="student_course_balances reads student_courses" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;dashed=1;startArrow=none;endArrow=open;strokeWidth=1;strokeColor=#94a3b8;jettySize=35;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="qr_codes-image_path" value="image_path : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="qr_codes" vertex="1">
-                    <mxGeometry y="210" width="420" height="28" as="geometry"/>
+                <mxCell id="dependency-attendance-student_course_balances" value="" parent="1" edge="1" source="attendance" target="student_course_balances" tooltip="student_course_balances reads attendance" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;dashed=1;startArrow=none;endArrow=open;strokeWidth=1;strokeColor=#94a3b8;jettySize=35;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="qr_codes-module_shape" value="module_shape : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f8fafc;" parent="qr_codes" vertex="1">
-                    <mxGeometry y="238" width="420" height="28" as="geometry"/>
+                <mxCell id="dependency-payment_course_allowances-student_course_balances" value="" parent="1" edge="1" source="payment_course_allowances" target="student_course_balances" tooltip="student_course_balances reads payment_course_allowances" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;dashed=1;startArrow=none;endArrow=open;strokeWidth=1;strokeColor=#94a3b8;jettySize=35;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="qr_codes-foreground_color" value="foreground_color : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="qr_codes" vertex="1">
-                    <mxGeometry y="266" width="420" height="28" as="geometry"/>
+                <mxCell id="dependency-student_payments-student_course_balances" value="" parent="1" edge="1" source="student_payments" target="student_course_balances" tooltip="student_course_balances reads student_payments" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;dashed=1;startArrow=none;endArrow=open;strokeWidth=1;strokeColor=#94a3b8;jettySize=35;">
+                    <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="qr_codes-eye_shape" value="eye_shape : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f8fafc;" parent="qr_codes" vertex="1">
-                    <mxGeometry y="294" width="420" height="28" as="geometry"/>
+                <mxCell id="title" value="Free Spirit Dance · Complete database" style="text;html=0;align=left;verticalAlign=middle;fontFamily=Helvetica;fontSize=28;fontColor=#0f172a;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="25" width="3520" height="36" as="geometry" />
                 </mxCell>
-                <mxCell id="qr_codes-eye_color" value="eye_color : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="qr_codes" vertex="1">
-                    <mxGeometry y="322" width="420" height="28" as="geometry"/>
+                <mxCell id="subtitle" value="15 tables + 2 views · One attendance per student and practice party, with one optional donation · Complete application schema" style="text;html=0;align=left;verticalAlign=middle;fontFamily=Helvetica;fontSize=16;fontColor=#475569;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="72" width="3520" height="36" as="geometry" />
                 </mxCell>
-                <mxCell id="qr_codes-logo_size" value="logo_size : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f8fafc;" parent="qr_codes" vertex="1">
-                    <mxGeometry y="350" width="420" height="28" as="geometry"/>
+                <mxCell id="group-0" value="DIRECTORY &amp; ACCESS" style="text;html=0;align=left;verticalAlign=middle;fontFamily=Helvetica;fontSize=16;fontColor=#475569;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="120" width="560" height="36" as="geometry" />
                 </mxCell>
-                <mxCell id="qr_codes-logo_shape" value="logo_shape : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="qr_codes" vertex="1">
-                    <mxGeometry y="378" width="420" height="28" as="geometry"/>
+                <mxCell id="students" value="students" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#eff6ff;strokeColor=#3b82f6;" parent="1" vertex="1" tooltip="CREATE TABLE students (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  first_name TEXT NOT NULL,&#10;  last_name TEXT NOT NULL,&#10;  email TEXT NOT NULL,&#10;  phone TEXT NOT NULL DEFAULT '',&#10;  picture TEXT,&#10;  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1))&#10;);&#10;CREATE INDEX students_name_idx ON students (last_name, first_name);&#10;CREATE UNIQUE INDEX students_phone_unique_idx&#10;ON students (trim(phone))&#10;WHERE trim(phone) &lt;&gt; '';">
+                    <mxGeometry x="40" y="170" width="560" height="240" as="geometry" />
                 </mxCell>
-                <mxCell id="students" value="students" style="html=0;fontFamily=Helvetica;swimlane;startSize=42;horizontal=1;rounded=1;arcSize=8;collapsible=0;fontSize=18;fontStyle=1;fillColor=#eff6ff;strokeColor=#60a5fa;" parent="1" vertex="1">
-                    <mxGeometry x="620" y="180" width="420" height="238" as="geometry"/>
+                <mxCell id="students-id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="students" vertex="1" tooltip="id: INTEGER; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="students-id" value="id : INTEGER  [PK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="students" vertex="1">
-                    <mxGeometry y="42" width="420" height="28" as="geometry"/>
+                <mxCell id="students-first_name" value="first_name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="students" vertex="1" tooltip="first_name: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="students-first_name" value="first_name : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#eff6ff;" parent="students" vertex="1">
-                    <mxGeometry y="70" width="420" height="28" as="geometry"/>
+                <mxCell id="students-last_name" value="last_name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="students" vertex="1" tooltip="last_name: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="students-last_name" value="last_name : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="students" vertex="1">
-                    <mxGeometry y="98" width="420" height="28" as="geometry"/>
+                <mxCell id="students-email" value="email : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="students" vertex="1" tooltip="email: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="128" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="students-email" value="email : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#eff6ff;" parent="students" vertex="1">
-                    <mxGeometry y="126" width="420" height="28" as="geometry"/>
+                <mxCell id="students-phone" value="phone : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="students" vertex="1" tooltip="phone: TEXT; NOT NULL; DEFAULT ''">
+                    <mxGeometry x="0" y="156" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="students-phone" value="phone : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="students" vertex="1">
-                    <mxGeometry y="154" width="420" height="28" as="geometry"/>
+                <mxCell id="students-picture" value="picture : TEXT" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="students" vertex="1" tooltip="picture: TEXT; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="184" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="students-picture" value="picture : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#eff6ff;" parent="students" vertex="1">
-                    <mxGeometry y="182" width="420" height="28" as="geometry"/>
+                <mxCell id="students-active" value="active : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="students" vertex="1" tooltip="active: INTEGER; NOT NULL; DEFAULT 1">
+                    <mxGeometry x="0" y="212" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="students-active" value="active : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="students" vertex="1">
-                    <mxGeometry y="210" width="420" height="28" as="geometry"/>
+                <mxCell id="admin_profiles" value="admin_profiles" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#f5f3ff;strokeColor=#8b5cf6;" parent="1" vertex="1" tooltip="CREATE TABLE admin_profiles (&#10;  email TEXT PRIMARY KEY COLLATE NOCASE,&#10;  name TEXT NOT NULL,&#10;  picture TEXT&#10;);">
+                    <mxGeometry x="40" y="440" width="560" height="128" as="geometry" />
                 </mxCell>
-                <mxCell id="student_payments" value="student_payments" style="html=0;fontFamily=Helvetica;swimlane;startSize=42;horizontal=1;rounded=1;arcSize=8;collapsible=0;fontSize=18;fontStyle=1;fillColor=#f0fdf4;strokeColor=#4ade80;" parent="1" vertex="1">
-                    <mxGeometry x="620" y="620" width="420" height="322" as="geometry"/>
+                <mxCell id="admin_profiles-email" value="email : TEXT  [PK]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="admin_profiles" vertex="1" tooltip="email: TEXT; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_payments-id" value="id : INTEGER  [PK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="student_payments" vertex="1">
-                    <mxGeometry y="42" width="420" height="28" as="geometry"/>
+                <mxCell id="admin_profiles-name" value="name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f5f3ff;overflow=hidden;" parent="admin_profiles" vertex="1" tooltip="name: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_payments-student_id" value="student_id : INTEGER  [FK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f0fdf4;" parent="student_payments" vertex="1">
-                    <mxGeometry y="70" width="420" height="28" as="geometry"/>
+                <mxCell id="admin_profiles-picture" value="picture : TEXT" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="admin_profiles" vertex="1" tooltip="picture: TEXT; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_payments-paid_on" value="paid_on : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="student_payments" vertex="1">
-                    <mxGeometry y="98" width="420" height="28" as="geometry"/>
+                <mxCell id="administrator_permissions" value="administrator_permissions" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#f5f3ff;strokeColor=#8b5cf6;" parent="1" vertex="1" tooltip="CREATE TABLE administrator_permissions (&#10;  email TEXT PRIMARY KEY COLLATE NOCASE,&#10;  can_dashboard INTEGER NOT NULL DEFAULT 0 CHECK (can_dashboard IN (0, 1)),&#10;  can_students INTEGER NOT NULL DEFAULT 0 CHECK (can_students IN (0, 1)),&#10;  can_courses INTEGER NOT NULL DEFAULT 0 CHECK (can_courses IN (0, 1)),&#10;  can_qr_codes INTEGER NOT NULL DEFAULT 0 CHECK (can_qr_codes IN (0, 1)),&#10;  can_practice_parties INTEGER NOT NULL DEFAULT 0 CHECK (can_practice_parties IN (0, 1)));">
+                    <mxGeometry x="40" y="598" width="560" height="212" as="geometry" />
                 </mxCell>
-                <mxCell id="student_payments-amount_minor" value="amount_minor : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f0fdf4;" parent="student_payments" vertex="1">
-                    <mxGeometry y="126" width="420" height="28" as="geometry"/>
+                <mxCell id="administrator_permissions-email" value="email : TEXT  [PK]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="administrator_permissions" vertex="1" tooltip="email: TEXT; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_payments-notes" value="notes : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="student_payments" vertex="1">
-                    <mxGeometry y="154" width="420" height="28" as="geometry"/>
+                <mxCell id="administrator_permissions-can_dashboard" value="can_dashboard : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f5f3ff;overflow=hidden;" parent="administrator_permissions" vertex="1" tooltip="can_dashboard: INTEGER; NOT NULL; DEFAULT 0">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_payments-recorded_by" value="recorded_by : TEXT  [FK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f0fdf4;" parent="student_payments" vertex="1">
-                    <mxGeometry y="182" width="420" height="28" as="geometry"/>
+                <mxCell id="administrator_permissions-can_students" value="can_students : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="administrator_permissions" vertex="1" tooltip="can_students: INTEGER; NOT NULL; DEFAULT 0">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_payments-recorded_at" value="recorded_at : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="student_payments" vertex="1">
-                    <mxGeometry y="210" width="420" height="28" as="geometry"/>
+                <mxCell id="administrator_permissions-can_courses" value="can_courses : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f5f3ff;overflow=hidden;" parent="administrator_permissions" vertex="1" tooltip="can_courses: INTEGER; NOT NULL; DEFAULT 0">
+                    <mxGeometry x="0" y="128" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_payments-request_key" value="request_key : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f0fdf4;" parent="student_payments" vertex="1">
-                    <mxGeometry y="238" width="420" height="28" as="geometry"/>
+                <mxCell id="administrator_permissions-can_qr_codes" value="can_qr_codes : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="administrator_permissions" vertex="1" tooltip="can_qr_codes: INTEGER; NOT NULL; DEFAULT 0">
+                    <mxGeometry x="0" y="156" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_payments-request_payload" value="request_payload : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="student_payments" vertex="1">
-                    <mxGeometry y="266" width="420" height="28" as="geometry"/>
+                <mxCell id="administrator_permissions-can_practice_parties" value="can_practice_parties : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f5f3ff;overflow=hidden;" parent="administrator_permissions" vertex="1" tooltip="can_practice_parties: INTEGER; NOT NULL; DEFAULT 0">
+                    <mxGeometry x="0" y="184" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_payments-given_to_school" value="given_to_school : INTEGER  [0/1, default 0]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f0fdf4;" parent="student_payments" vertex="1">
-                    <mxGeometry y="294" width="420" height="28" as="geometry"/>
+                <mxCell id="qr_codes" value="qr_codes" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#f8fafc;strokeColor=#94a3b8;" parent="1" vertex="1" tooltip="CREATE TABLE &quot;qr_codes&quot; (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  slug TEXT NOT NULL UNIQUE,&#10;  name TEXT NOT NULL,&#10;  destination_url TEXT NOT NULL,&#10;  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),&#10;  image_mode TEXT NOT NULL DEFAULT 'none' CHECK (image_mode IN ('none', 'logo', 'custom')),&#10;  image_path TEXT,&#10;  module_shape TEXT NOT NULL DEFAULT 'square' CHECK (module_shape IN ('square', 'circle')),&#10;  foreground_color TEXT NOT NULL DEFAULT '#1e293b',&#10;  eye_shape TEXT NOT NULL DEFAULT 'square' CHECK (eye_shape IN ('square', 'rounded', 'circle')),&#10;  eye_color TEXT NOT NULL DEFAULT '#1e293b',&#10;  logo_size INTEGER NOT NULL DEFAULT 25 CHECK (logo_size BETWEEN 15 AND 30),&#10;  logo_shape TEXT NOT NULL DEFAULT 'square' CHECK (logo_shape IN ('square', 'rounded', 'circle'))&#10;);">
+                    <mxGeometry x="40" y="840" width="560" height="408" as="geometry" />
                 </mxCell>
-                <mxCell id="student_courses" value="student_courses" style="html=0;fontFamily=Helvetica;swimlane;startSize=42;horizontal=1;rounded=1;arcSize=8;collapsible=0;fontSize=18;fontStyle=1;fillColor=#eff6ff;strokeColor=#60a5fa;" parent="1" vertex="1">
-                    <mxGeometry x="1180" y="180" width="420" height="98" as="geometry"/>
+                <mxCell id="qr_codes-id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="qr_codes" vertex="1" tooltip="id: INTEGER; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_courses-student_id" value="student_id : INTEGER  [PK, FK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="student_courses" vertex="1">
-                    <mxGeometry y="42" width="420" height="28" as="geometry"/>
+                <mxCell id="qr_codes-slug" value="slug : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f8fafc;overflow=hidden;" parent="qr_codes" vertex="1" tooltip="slug: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_courses-course_id" value="course_id : INTEGER  [PK, FK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#eff6ff;" parent="student_courses" vertex="1">
-                    <mxGeometry y="70" width="420" height="28" as="geometry"/>
+                <mxCell id="qr_codes-name" value="name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="qr_codes" vertex="1" tooltip="name: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="attendance" value="attendance" style="html=0;fontFamily=Helvetica;swimlane;startSize=42;horizontal=1;rounded=1;arcSize=8;collapsible=0;fontSize=18;fontStyle=1;fillColor=#eff6ff;strokeColor=#60a5fa;" parent="1" vertex="1">
-                    <mxGeometry x="1180" y="620" width="420" height="434" as="geometry"/>
+                <mxCell id="qr_codes-destination_url" value="destination_url : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f8fafc;overflow=hidden;" parent="qr_codes" vertex="1" tooltip="destination_url: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="128" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="attendance-id" value="id : INTEGER  [PK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="attendance" vertex="1">
-                    <mxGeometry y="42" width="420" height="28" as="geometry"/>
+                <mxCell id="qr_codes-active" value="active : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="qr_codes" vertex="1" tooltip="active: INTEGER; NOT NULL; DEFAULT 1">
+                    <mxGeometry x="0" y="156" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="attendance-student_id" value="student_id : INTEGER  [FK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#eff6ff;" parent="attendance" vertex="1">
-                    <mxGeometry y="70" width="420" height="28" as="geometry"/>
+                <mxCell id="qr_codes-image_mode" value="image_mode : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f8fafc;overflow=hidden;" parent="qr_codes" vertex="1" tooltip="image_mode: TEXT; NOT NULL; DEFAULT 'none'">
+                    <mxGeometry x="0" y="184" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="attendance-course_id" value="course_id : INTEGER  [FK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="attendance" vertex="1">
-                    <mxGeometry y="98" width="420" height="28" as="geometry"/>
+                <mxCell id="qr_codes-image_path" value="image_path : TEXT" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="qr_codes" vertex="1" tooltip="image_path: TEXT; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="212" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="attendance-course_name" value="course_name : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#eff6ff;" parent="attendance" vertex="1">
-                    <mxGeometry y="126" width="420" height="28" as="geometry"/>
+                <mxCell id="qr_codes-module_shape" value="module_shape : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f8fafc;overflow=hidden;" parent="qr_codes" vertex="1" tooltip="module_shape: TEXT; NOT NULL; DEFAULT 'square'">
+                    <mxGeometry x="0" y="240" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="attendance-attended_at" value="attended_at : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="attendance" vertex="1">
-                    <mxGeometry y="154" width="420" height="28" as="geometry"/>
+                <mxCell id="qr_codes-foreground_color" value="foreground_color : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="qr_codes" vertex="1" tooltip="foreground_color: TEXT; NOT NULL; DEFAULT '#1e293b'">
+                    <mxGeometry x="0" y="268" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="attendance-recorded_by" value="recorded_by : TEXT  [FK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#eff6ff;" parent="attendance" vertex="1">
-                    <mxGeometry y="182" width="420" height="28" as="geometry"/>
+                <mxCell id="qr_codes-eye_shape" value="eye_shape : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f8fafc;overflow=hidden;" parent="qr_codes" vertex="1" tooltip="eye_shape: TEXT; NOT NULL; DEFAULT 'square'">
+                    <mxGeometry x="0" y="296" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="attendance-recorded_at" value="recorded_at : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="attendance" vertex="1">
-                    <mxGeometry y="210" width="420" height="28" as="geometry"/>
+                <mxCell id="qr_codes-eye_color" value="eye_color : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="qr_codes" vertex="1" tooltip="eye_color: TEXT; NOT NULL; DEFAULT '#1e293b'">
+                    <mxGeometry x="0" y="324" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="attendance-notes" value="notes : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#eff6ff;" parent="attendance" vertex="1">
-                    <mxGeometry y="238" width="420" height="28" as="geometry"/>
+                <mxCell id="qr_codes-logo_size" value="logo_size : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f8fafc;overflow=hidden;" parent="qr_codes" vertex="1" tooltip="logo_size: INTEGER; NOT NULL; DEFAULT 25">
+                    <mxGeometry x="0" y="352" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="attendance-request_key" value="request_key : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="attendance" vertex="1">
-                    <mxGeometry y="266" width="420" height="28" as="geometry"/>
+                <mxCell id="qr_codes-logo_shape" value="logo_shape : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="qr_codes" vertex="1" tooltip="logo_shape: TEXT; NOT NULL; DEFAULT 'square'">
+                    <mxGeometry x="0" y="380" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="attendance-request_payload" value="request_payload : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#eff6ff;" parent="attendance" vertex="1">
-                    <mxGeometry y="294" width="420" height="28" as="geometry"/>
+                <mxCell id="group-1" value="COURSES &amp; CLASSES" style="text;html=0;align=left;verticalAlign=middle;fontFamily=Helvetica;fontSize=16;fontColor=#475569;" parent="1" vertex="1">
+                    <mxGeometry x="780" y="120" width="560" height="36" as="geometry" />
                 </mxCell>
-                <mxCell id="attendance-class_id" value="class_id : INTEGER [FK → classes]" style="html=0;text;align=left;spacingLeft=12;fontSize=14;" parent="attendance" vertex="1">
-                    <mxGeometry y="322" width="420" height="28" as="geometry"/>
+                <mxCell id="courses" value="courses" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#eff6ff;strokeColor=#3b82f6;" parent="1" vertex="1" tooltip="CREATE TABLE &quot;courses&quot; (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  name TEXT NOT NULL CHECK (length(trim(name)) &gt; 0)&#10;, start_date TEXT, end_date TEXT CHECK (end_date IS NULL OR start_date IS NULL OR end_date &gt;= start_date));&#10;CREATE INDEX courses_name_idx ON courses (name COLLATE NOCASE);">
+                    <mxGeometry x="780" y="170" width="560" height="156" as="geometry" />
                 </mxCell>
-                <mxCell id="attendance-complimentary" value="complimentary : INTEGER [0 or 1]" style="html=0;text;align=left;spacingLeft=12;fontSize=14;fillColor=#eff6ff;" parent="attendance" vertex="1">
-                    <mxGeometry y="350" width="420" height="28" as="geometry"/>
+                <mxCell id="courses-id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="courses" vertex="1" tooltip="id: INTEGER; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="attendance-complimentary_by" value="complimentary_by : TEXT [nullable]" style="html=0;text;align=left;spacingLeft=12;fontSize=14;" parent="attendance" vertex="1">
-                    <mxGeometry y="378" width="420" height="28" as="geometry"/>
+                <mxCell id="courses-name" value="name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="courses" vertex="1" tooltip="name: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="attendance-complimentary_at" value="complimentary_at : TEXT [nullable]" style="html=0;text;align=left;spacingLeft=12;fontSize=14;" parent="attendance" vertex="1">
-                    <mxGeometry y="406" width="420" height="28" as="geometry"/>
+                <mxCell id="courses-start_date" value="start_date : TEXT" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="courses" vertex="1" tooltip="start_date: TEXT; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_course_balances" value="student_course_balances · view" style="html=0;fontFamily=Helvetica;swimlane;startSize=42;horizontal=1;rounded=1;arcSize=8;collapsible=0;fontSize=18;fontStyle=1;fillColor=#f5f3ff;strokeColor=#a78bfa;" parent="1" vertex="1">
-                    <mxGeometry x="1180" y="1130" width="420" height="210" as="geometry"/>
+                <mxCell id="courses-end_date" value="end_date : TEXT" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="courses" vertex="1" tooltip="end_date: TEXT; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="128" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_course_balances-student_id" value="student_id : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="student_course_balances" vertex="1">
-                    <mxGeometry y="42" width="420" height="28" as="geometry"/>
+                <mxCell id="course_schedule" value="course_schedule" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#eff6ff;strokeColor=#3b82f6;" parent="1" vertex="1" tooltip="CREATE TABLE course_schedule (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  course_id INTEGER NOT NULL REFERENCES courses(id),&#10;  day_of_week TEXT NOT NULL CHECK (day_of_week IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')),&#10;  start_time TEXT NOT NULL CHECK (start_time GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(start_time, 1, 2) AS INTEGER) &lt;= 23),&#10;  end_time TEXT NOT NULL CHECK (end_time GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(end_time, 1, 2) AS INTEGER) &lt;= 23),&#10;  CHECK (end_time &gt; start_time),&#10;  UNIQUE (course_id, day_of_week, start_time)&#10;);">
+                    <mxGeometry x="780" y="356" width="560" height="184" as="geometry" />
                 </mxCell>
-                <mxCell id="student_course_balances-course_id" value="course_id : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f5f3ff;" parent="student_course_balances" vertex="1">
-                    <mxGeometry y="70" width="420" height="28" as="geometry"/>
+                <mxCell id="course_schedule-id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="course_schedule" vertex="1" tooltip="id: INTEGER; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_course_balances-attendance_count" value="attendance_count : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="student_course_balances" vertex="1">
-                    <mxGeometry y="98" width="420" height="28" as="geometry"/>
+                <mxCell id="course_schedule-course_id" value="course_id : INTEGER  [FK, NN] → courses.id" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="course_schedule" vertex="1" tooltip="course_id: INTEGER; NOT NULL; REFERENCES courses(id) ON DELETE NO ACTION ON UPDATE NO ACTION">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_course_balances-paid_allowance" value="paid_allowance : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f5f3ff;" parent="student_course_balances" vertex="1">
-                    <mxGeometry y="126" width="420" height="28" as="geometry"/>
+                <mxCell id="course_schedule-day_of_week" value="day_of_week : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="course_schedule" vertex="1" tooltip="day_of_week: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_course_balances-remaining_allowance" value="remaining_allowance : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="student_course_balances" vertex="1">
-                    <mxGeometry y="154" width="420" height="28" as="geometry"/>
+                <mxCell id="course_schedule-start_time" value="start_time : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="course_schedule" vertex="1" tooltip="start_time: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="128" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="student_course_balances-excess_attendance" value="excess_attendance : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f5f3ff;" parent="student_course_balances" vertex="1">
-                    <mxGeometry y="182" width="420" height="28" as="geometry"/>
+                <mxCell id="course_schedule-end_time" value="end_time : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="course_schedule" vertex="1" tooltip="end_time: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="156" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="courses" value="courses" style="html=0;fontFamily=Helvetica;swimlane;startSize=42;horizontal=1;rounded=1;arcSize=8;collapsible=0;fontSize=18;fontStyle=1;fillColor=#f0fdf4;strokeColor=#4ade80;" parent="1" vertex="1">
-                    <mxGeometry x="1740" y="180" width="420" height="154" as="geometry"/>
+                <mxCell id="student_courses" value="student_courses" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#eff6ff;strokeColor=#3b82f6;" parent="1" vertex="1" tooltip="CREATE TABLE student_courses (&#10;  student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,&#10;  course_id INTEGER NOT NULL REFERENCES courses(id),&#10;  PRIMARY KEY (student_id, course_id)&#10;);&#10;CREATE INDEX student_courses_course_idx ON student_courses (course_id);">
+                    <mxGeometry x="780" y="570" width="560" height="100" as="geometry" />
                 </mxCell>
-                <mxCell id="courses-id" value="id : INTEGER  [PK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="courses" vertex="1">
-                    <mxGeometry y="42" width="420" height="28" as="geometry"/>
+                <mxCell id="student_courses-student_id" value="student_id : INTEGER  [PK, FK, NN] → students.id" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="student_courses" vertex="1" tooltip="student_id: INTEGER; NOT NULL; REFERENCES students(id) ON DELETE CASCADE ON UPDATE NO ACTION">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="courses-name" value="name : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f0fdf4;" parent="courses" vertex="1">
-                    <mxGeometry y="70" width="420" height="28" as="geometry"/>
+                <mxCell id="student_courses-course_id" value="course_id : INTEGER  [PK, FK, NN] → courses.id" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="student_courses" vertex="1" tooltip="course_id: INTEGER; NOT NULL; REFERENCES courses(id) ON DELETE NO ACTION ON UPDATE NO ACTION">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="courses-start_date" value="start_date : TEXT [nullable for existing courses]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=12;" parent="courses" vertex="1">
-                    <mxGeometry y="98" width="360" height="28" as="geometry"/>
+                <mxCell id="classes" value="classes" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#eff6ff;strokeColor=#3b82f6;" parent="1" vertex="1" tooltip="CREATE TABLE classes (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  course_id INTEGER NOT NULL REFERENCES courses(id),&#10;  class_date TEXT NOT NULL,&#10;  start_time TEXT NOT NULL,&#10;  end_time TEXT,&#10;  cancelled INTEGER NOT NULL DEFAULT 0 CHECK (cancelled IN (0, 1)),&#10;  cancelled_by TEXT REFERENCES admin_profiles(email),&#10;  cancelled_at TEXT,&#10;  UNIQUE (course_id, class_date, start_time)&#10;);&#10;CREATE TRIGGER cancellation_requires_no_attendance BEFORE UPDATE OF cancelled ON classes&#10;WHEN NEW.cancelled = 1 AND EXISTS (SELECT 1 FROM attendance WHERE class_id = NEW.id)&#10;BEGIN SELECT RAISE(ABORT, 'Class already has attendance'); END;">
+                    <mxGeometry x="780" y="700" width="560" height="268" as="geometry" />
                 </mxCell>
-                <mxCell id="courses-end_date" value="end_date : TEXT [nullable for existing courses]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=12;" parent="courses" vertex="1">
-                    <mxGeometry y="126" width="360" height="28" as="geometry"/>
+                <mxCell id="classes-id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="classes" vertex="1" tooltip="id: INTEGER; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="course_schedule" value="course_schedule" style="html=0;fontFamily=Helvetica;swimlane;startSize=42;horizontal=1;rounded=1;arcSize=8;collapsible=0;fontSize=18;fontStyle=1;fillColor=#f0fdf4;strokeColor=#4ade80;" parent="1" vertex="1">
-                    <mxGeometry x="1740" y="410" width="420" height="182" as="geometry"/>
+                <mxCell id="classes-course_id" value="course_id : INTEGER  [FK, NN] → courses.id" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="classes" vertex="1" tooltip="course_id: INTEGER; NOT NULL; REFERENCES courses(id) ON DELETE NO ACTION ON UPDATE NO ACTION">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="course_schedule-id" value="id : INTEGER  [PK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="course_schedule" vertex="1">
-                    <mxGeometry y="42" width="420" height="28" as="geometry"/>
+                <mxCell id="classes-class_date" value="class_date : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="classes" vertex="1" tooltip="class_date: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="course_schedule-course_id" value="course_id : INTEGER  [FK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f0fdf4;" parent="course_schedule" vertex="1">
-                    <mxGeometry y="70" width="420" height="28" as="geometry"/>
+                <mxCell id="classes-start_time" value="start_time : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="classes" vertex="1" tooltip="start_time: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="128" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="course_schedule-day_of_week" value="day_of_week : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="course_schedule" vertex="1">
-                    <mxGeometry y="98" width="420" height="28" as="geometry"/>
+                <mxCell id="classes-end_time" value="end_time : TEXT" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="classes" vertex="1" tooltip="end_time: TEXT; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="156" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="course_schedule-start_time" value="start_time : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f0fdf4;" parent="course_schedule" vertex="1">
-                    <mxGeometry y="126" width="420" height="28" as="geometry"/>
+                <mxCell id="classes-cancelled" value="cancelled : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="classes" vertex="1" tooltip="cancelled: INTEGER; NOT NULL; DEFAULT 0">
+                    <mxGeometry x="0" y="184" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="course_schedule-end_time" value="end_time : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="course_schedule" vertex="1">
-                    <mxGeometry y="154" width="420" height="28" as="geometry"/>
+                <mxCell id="classes-cancelled_by" value="cancelled_by : TEXT  [FK] → admin_profiles.email" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="classes" vertex="1" tooltip="cancelled_by: TEXT; nullable / SQLite primary-key rules; REFERENCES admin_profiles(email) ON DELETE NO ACTION ON UPDATE NO ACTION">
+                    <mxGeometry x="0" y="212" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="payment_course_allowances" value="payment_course_allowances" style="html=0;fontFamily=Helvetica;swimlane;startSize=42;horizontal=1;rounded=1;arcSize=8;collapsible=0;fontSize=18;fontStyle=1;fillColor=#f0fdf4;strokeColor=#4ade80;" parent="1" vertex="1">
-                    <mxGeometry x="1740" y="810" width="420" height="154" as="geometry"/>
+                <mxCell id="classes-cancelled_at" value="cancelled_at : TEXT" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="classes" vertex="1" tooltip="cancelled_at: TEXT; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="240" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="payment_course_allowances-payment_id" value="payment_id : INTEGER  [PK, FK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="payment_course_allowances" vertex="1">
-                    <mxGeometry y="42" width="420" height="28" as="geometry"/>
+                <mxCell id="group-2" value="PAYMENTS &amp; DEFAULTS" style="text;html=0;align=left;verticalAlign=middle;fontFamily=Helvetica;fontSize=16;fontColor=#475569;" parent="1" vertex="1">
+                    <mxGeometry x="1520" y="120" width="560" height="36" as="geometry" />
                 </mxCell>
-                <mxCell id="payment_course_allowances-course_id" value="course_id : INTEGER  [PK, FK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f0fdf4;" parent="payment_course_allowances" vertex="1">
-                    <mxGeometry y="70" width="420" height="28" as="geometry"/>
+                <mxCell id="student_payments" value="student_payments" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#f0fdf4;strokeColor=#16a34a;" parent="1" vertex="1" tooltip="CREATE TABLE student_payments (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  student_id INTEGER NOT NULL REFERENCES students(id),&#10;  paid_on TEXT NOT NULL,&#10;  amount_minor INTEGER NOT NULL CHECK (typeof(amount_minor) = 'integer' AND amount_minor BETWEEN 1 AND 99999999),&#10;  notes TEXT NOT NULL DEFAULT '',&#10;  recorded_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),&#10;  recorded_at TEXT NOT NULL,&#10;  request_key TEXT NOT NULL UNIQUE,&#10;  request_payload TEXT NOT NULL&#10;, given_to_school INTEGER NOT NULL DEFAULT 0 CHECK (given_to_school IN (0, 1)));&#10;CREATE INDEX student_payments_admin_idx ON student_payments (recorded_by);&#10;CREATE INDEX student_payments_date_idx ON student_payments (paid_on DESC, id DESC);&#10;CREATE INDEX student_payments_student_idx ON student_payments (student_id, paid_on, id);">
+                    <mxGeometry x="1520" y="170" width="560" height="324" as="geometry" />
                 </mxCell>
-                <mxCell id="payment_course_allowances-course_name" value="course_name : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="payment_course_allowances" vertex="1">
-                    <mxGeometry y="98" width="420" height="28" as="geometry"/>
+                <mxCell id="student_payments-id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="student_payments" vertex="1" tooltip="id: INTEGER; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="payment_course_allowances-allowance" value="allowance : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;fillColor=#f0fdf4;" parent="payment_course_allowances" vertex="1">
-                    <mxGeometry y="126" width="420" height="28" as="geometry"/>
+                <mxCell id="student_payments-student_id" value="student_id : INTEGER  [FK, NN] → students.id" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f0fdf4;overflow=hidden;" parent="student_payments" vertex="1" tooltip="student_id: INTEGER; NOT NULL; REFERENCES students(id) ON DELETE NO ACTION ON UPDATE NO ACTION">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="legend" value="PK = primary key    FK = foreign key&#xa;Solid crow’s-foot: one parent → many records&#xa;Dashed: logical relationship or calculated totals" style="html=0;fontFamily=Helvetica;rounded=1;align=left;verticalAlign=top;spacing=14;whiteSpace=wrap;fontSize=14;fillColor=#f8fafc;strokeColor=#cbd5e1;" parent="1" vertex="1">
-                    <mxGeometry x="60" y="1280" width="420" height="120" as="geometry"/>
+                <mxCell id="student_payments-paid_on" value="paid_on : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="student_payments" vertex="1" tooltip="paid_on: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="notes" value="HOW TO READ THE BALANCES&#xa;Attendance counts the classes a student attended. Payments add class allowances separately for each course.&#xa;Remaining allowance = paid allowance − attendance. A surplus in one course never offsets another course’s deficit.&#xa;Payment presets provide reusable defaults. Recorded payments keep independent amounts and allowances." style="html=0;fontFamily=Helvetica;rounded=1;align=left;verticalAlign=top;spacing=16;whiteSpace=wrap;fontSize=16;fillColor=#f8fafc;strokeColor=#cbd5e1;" parent="1" vertex="1">
-                    <mxGeometry x="60" y="1580" width="2100" height="165" as="geometry"/>
+                <mxCell id="student_payments-amount_minor" value="amount_minor : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f0fdf4;overflow=hidden;" parent="student_payments" vertex="1" tooltip="amount_minor: INTEGER; NOT NULL">
+                    <mxGeometry x="0" y="128" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="payment_presets" value="payment_presets" style="html=0;fontFamily=Helvetica;swimlane;startSize=42;horizontal=1;rounded=1;collapsible=0;fontSize=18;fontStyle=1;fillColor=#f0fdf4;strokeColor=#4ade80;" parent="1" vertex="1">
-                    <mxGeometry x="620" y="1130" width="420" height="126" as="geometry"/>
+                <mxCell id="student_payments-notes" value="notes : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="student_payments" vertex="1" tooltip="notes: TEXT; NOT NULL; DEFAULT ''">
+                    <mxGeometry x="0" y="156" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="payment_presets-id" value="id : INTEGER  [PK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;" parent="payment_presets" vertex="1">
-                    <mxGeometry y="42" width="420" height="28" as="geometry"/>
+                <mxCell id="student_payments-recorded_by" value="recorded_by : TEXT  [FK, NN] → admin_profiles.email" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f0fdf4;overflow=hidden;" parent="student_payments" vertex="1" tooltip="recorded_by: TEXT; NOT NULL; REFERENCES admin_profiles(email) ON DELETE NO ACTION ON UPDATE NO ACTION">
+                    <mxGeometry x="0" y="184" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="payment_presets-name" value="name : TEXT" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;" parent="payment_presets" vertex="1">
-                    <mxGeometry y="70" width="420" height="28" as="geometry"/>
+                <mxCell id="student_payments-recorded_at" value="recorded_at : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="student_payments" vertex="1" tooltip="recorded_at: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="212" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="payment_presets-amount_minor" value="amount_minor : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;" parent="payment_presets" vertex="1">
-                    <mxGeometry y="98" width="420" height="28" as="geometry"/>
+                <mxCell id="student_payments-request_key" value="request_key : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f0fdf4;overflow=hidden;" parent="student_payments" vertex="1" tooltip="request_key: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="240" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="payment_preset_courses" value="payment_preset_courses" style="html=0;fontFamily=Helvetica;swimlane;startSize=42;horizontal=1;rounded=1;collapsible=0;fontSize=18;fontStyle=1;fillColor=#f0fdf4;strokeColor=#4ade80;" parent="1" vertex="1">
-                    <mxGeometry x="620" y="1340" width="420" height="126" as="geometry"/>
+                <mxCell id="student_payments-request_payload" value="request_payload : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="student_payments" vertex="1" tooltip="request_payload: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="268" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="payment_preset_courses-preset_id" value="preset_id : INTEGER  [PK, FK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;" parent="payment_preset_courses" vertex="1">
-                    <mxGeometry y="42" width="420" height="28" as="geometry"/>
+                <mxCell id="student_payments-given_to_school" value="given_to_school : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f0fdf4;overflow=hidden;" parent="student_payments" vertex="1" tooltip="given_to_school: INTEGER; NOT NULL; DEFAULT 0">
+                    <mxGeometry x="0" y="296" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="payment_preset_courses-course_id" value="course_id : INTEGER  [PK, FK]" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;" parent="payment_preset_courses" vertex="1">
-                    <mxGeometry y="70" width="420" height="28" as="geometry"/>
+                <mxCell id="payment_course_allowances" value="payment_course_allowances" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#f0fdf4;strokeColor=#16a34a;" parent="1" vertex="1" tooltip="CREATE TABLE payment_course_allowances (&#10;  payment_id INTEGER NOT NULL REFERENCES student_payments(id),&#10;  course_id INTEGER NOT NULL REFERENCES courses(id),&#10;  course_name TEXT NOT NULL,&#10;  allowance INTEGER NOT NULL CHECK (typeof(allowance) = 'integer' AND allowance BETWEEN 1 AND 10000),&#10;  PRIMARY KEY (payment_id, course_id)&#10;);&#10;CREATE INDEX payment_course_allowances_course_idx ON payment_course_allowances (course_id);">
+                    <mxGeometry x="1520" y="524" width="560" height="156" as="geometry" />
                 </mxCell>
-                <mxCell id="payment_preset_courses-allowance" value="allowance : INTEGER" style="html=0;fontFamily=Helvetica;text;align=left;verticalAlign=middle;spacingLeft=12;fontSize=14;" parent="payment_preset_courses" vertex="1">
-                    <mxGeometry y="98" width="420" height="28" as="geometry"/>
+                <mxCell id="payment_course_allowances-payment_id" value="payment_id : INTEGER  [PK, FK, NN] → student_payments.id" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="payment_course_allowances" vertex="1" tooltip="payment_id: INTEGER; NOT NULL; REFERENCES student_payments(id) ON DELETE NO ACTION ON UPDATE NO ACTION">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="classes" value="classes" style="html=0;fontFamily=Helvetica;swimlane;startSize=42;horizontal=1;rounded=1;arcSize=8;collapsible=0;fontSize=18;fontStyle=1;fillColor=#eff6ff;strokeColor=#60a5fa;" parent="1" vertex="1">
-                    <mxGeometry x="1740" y="1130" width="420" height="266" as="geometry"/>
+                <mxCell id="payment_course_allowances-course_id" value="course_id : INTEGER  [PK, FK, NN] → courses.id" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f0fdf4;overflow=hidden;" parent="payment_course_allowances" vertex="1" tooltip="course_id: INTEGER; NOT NULL; REFERENCES courses(id) ON DELETE NO ACTION ON UPDATE NO ACTION">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="classes-id" value="id : INTEGER [PK]" style="html=0;text;align=left;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="classes" vertex="1">
-                    <mxGeometry y="42" width="420" height="28" as="geometry"/>
+                <mxCell id="payment_course_allowances-course_name" value="course_name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="payment_course_allowances" vertex="1" tooltip="course_name: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="classes-course_id" value="course_id : INTEGER [FK]" style="html=0;text;align=left;spacingLeft=12;fontSize=14;fillColor=#eff6ff;" parent="classes" vertex="1">
-                    <mxGeometry y="70" width="420" height="28" as="geometry"/>
+                <mxCell id="payment_course_allowances-allowance" value="allowance : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f0fdf4;overflow=hidden;" parent="payment_course_allowances" vertex="1" tooltip="allowance: INTEGER; NOT NULL">
+                    <mxGeometry x="0" y="128" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="classes-class_date" value="class_date : TEXT" style="html=0;text;align=left;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="classes" vertex="1">
-                    <mxGeometry y="98" width="420" height="28" as="geometry"/>
+                <mxCell id="payment_presets" value="payment_presets" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#f0fdf4;strokeColor=#16a34a;" parent="1" vertex="1" tooltip="CREATE TABLE payment_presets (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  name TEXT NOT NULL CHECK (length(trim(name)) BETWEEN 1 AND 120),&#10;  amount_minor INTEGER NOT NULL CHECK (typeof(amount_minor) = 'integer' AND amount_minor BETWEEN 1 AND 99999999)&#10;);&#10;CREATE UNIQUE INDEX payment_presets_name_idx ON payment_presets (name COLLATE NOCASE);">
+                    <mxGeometry x="1520" y="710" width="560" height="128" as="geometry" />
                 </mxCell>
-                <mxCell id="classes-start_time" value="start_time : TEXT" style="html=0;text;align=left;spacingLeft=12;fontSize=14;fillColor=#eff6ff;" parent="classes" vertex="1">
-                    <mxGeometry y="126" width="420" height="28" as="geometry"/>
+                <mxCell id="payment_presets-id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="payment_presets" vertex="1" tooltip="id: INTEGER; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="classes-end_time" value="end_time : TEXT [nullable]" style="html=0;text;align=left;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="classes" vertex="1">
-                    <mxGeometry y="154" width="420" height="28" as="geometry"/>
+                <mxCell id="payment_presets-name" value="name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f0fdf4;overflow=hidden;" parent="payment_presets" vertex="1" tooltip="name: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="classes-cancelled" value="cancelled : INTEGER [0 / 1]" style="html=0;text;align=left;spacingLeft=12;fontSize=14;fillColor=#eff6ff;" parent="classes" vertex="1">
-                    <mxGeometry y="182" width="420" height="28" as="geometry"/>
+                <mxCell id="payment_presets-amount_minor" value="amount_minor : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="payment_presets" vertex="1" tooltip="amount_minor: INTEGER; NOT NULL">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="classes-cancelled_by" value="cancelled_by : TEXT [FK, nullable]" style="html=0;text;align=left;spacingLeft=12;fontSize=14;fillColor=#ffffff;" parent="classes" vertex="1">
-                    <mxGeometry y="210" width="420" height="28" as="geometry"/>
+                <mxCell id="payment_preset_courses" value="payment_preset_courses" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#f0fdf4;strokeColor=#16a34a;" parent="1" vertex="1" tooltip="CREATE TABLE payment_preset_courses (&#10;  preset_id INTEGER NOT NULL REFERENCES payment_presets(id) ON DELETE CASCADE,&#10;  course_id INTEGER NOT NULL REFERENCES courses(id),&#10;  allowance INTEGER NOT NULL CHECK (typeof(allowance) = 'integer' AND allowance BETWEEN 1 AND 10000),&#10;  PRIMARY KEY (preset_id, course_id)&#10;);&#10;CREATE INDEX payment_preset_courses_course_idx ON payment_preset_courses (course_id);">
+                    <mxGeometry x="1520" y="868" width="560" height="128" as="geometry" />
                 </mxCell>
-                <mxCell id="classes-cancelled_at" value="cancelled_at : TEXT [nullable]" style="html=0;text;align=left;spacingLeft=12;fontSize=14;fillColor=#eff6ff;" parent="classes" vertex="1">
-                    <mxGeometry y="238" width="420" height="28" as="geometry"/>
+                <mxCell id="payment_preset_courses-preset_id" value="preset_id : INTEGER  [PK, FK, NN] → payment_presets.id" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="payment_preset_courses" vertex="1" tooltip="preset_id: INTEGER; NOT NULL; REFERENCES payment_presets(id) ON DELETE CASCADE ON UPDATE NO ACTION">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="course-cancellations" value="" style="html=0;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=1.5;startArrow=ERone;endArrow=ERmany;strokeColor=#16a34a;exitX=1;exitY=0.5;entryX=1;entryY=0.3077;" parent="1" source="courses" target="classes" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="2240" y="257"/>
-                            <mxPoint x="2240" y="1186"/>
-                        </Array>
-                    </mxGeometry>
+                <mxCell id="payment_preset_courses-course_id" value="course_id : INTEGER  [PK, FK, NN] → courses.id" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f0fdf4;overflow=hidden;" parent="payment_preset_courses" vertex="1" tooltip="course_id: INTEGER; NOT NULL; REFERENCES courses(id) ON DELETE NO ACTION ON UPDATE NO ACTION">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="admin-cancellations" value="" style="html=0;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=1.5;startArrow=ERone;endArrow=ERmany;strokeColor=#a78bfa;exitX=0;exitY=0.5;entryX=0;entryY=0.7692;" parent="1" source="admin_profiles" target="classes" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="35" y="243"/>
-                            <mxPoint x="35" y="1520"/>
-                            <mxPoint x="1690" y="1520"/>
-                            <mxPoint x="1690" y="1270"/>
-                        </Array>
-                    </mxGeometry>
+                <mxCell id="payment_preset_courses-allowance" value="allowance : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="payment_preset_courses" vertex="1" tooltip="allowance: INTEGER; NOT NULL">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="classes-attendance" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;startArrow=ERone;endArrow=ERmany;strokeColor=#60a5fa;exitX=0;exitY=0.2;entryX=1;entryY=0.9;" parent="1" source="classes" target="attendance" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="group-3" value="ATTENDANCE &amp; REPORTING" style="text;html=0;align=left;verticalAlign=middle;fontFamily=Helvetica;fontSize=16;fontColor=#475569;" parent="1" vertex="1">
+                    <mxGeometry x="2260" y="120" width="560" height="36" as="geometry" />
                 </mxCell>
-                <mxCell id="sql-reference-layer" value="SQL definitions (reference)" parent="0" visible="0"/>
-                <mxCell id="sql-students" value="CREATE TABLE students (&#xa;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#xa;  first_name TEXT NOT NULL,&#xa;  last_name TEXT NOT NULL,&#xa;  email TEXT NOT NULL,&#xa;  phone TEXT NOT NULL DEFAULT &#39;&#39;,&#xa;  picture TEXT,&#xa;  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1))&#xa;);&#xa;CREATE INDEX students_name_idx ON students (last_name, first_name);&#xa;CREATE UNIQUE INDEX students_phone_unique_idx&#xa;ON students (trim(phone))&#xa;WHERE trim(phone) &lt;&gt; &#39;&#39;;" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
-                    <mxGeometry x="60" y="180" width="2000" height="680" as="geometry"/>
+                <mxCell id="attendance" value="attendance" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#eff6ff;strokeColor=#3b82f6;" parent="1" vertex="1" tooltip="CREATE TABLE attendance (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  student_id INTEGER NOT NULL REFERENCES students(id),&#10;  course_id INTEGER NOT NULL REFERENCES courses(id),&#10;  course_name TEXT NOT NULL,&#10;  attended_at TEXT NOT NULL,&#10;  recorded_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),&#10;  recorded_at TEXT,&#10;  notes TEXT NOT NULL DEFAULT '',&#10;  request_key TEXT UNIQUE,&#10;  request_payload TEXT&#10;, class_id INTEGER REFERENCES classes(id), complimentary INTEGER NOT NULL DEFAULT 0 CHECK (complimentary IN (0, 1)), complimentary_by TEXT, complimentary_at TEXT);&#10;CREATE INDEX attendance_admin_idx ON attendance (recorded_by);&#10;CREATE INDEX attendance_class_idx ON attendance (class_id);&#10;CREATE UNIQUE INDEX attendance_class_unique_idx ON attendance (student_id, course_id, attended_at) WHERE request_key IS NOT NULL;&#10;CREATE INDEX attendance_course_idx ON attendance (course_id, attended_at);&#10;CREATE TRIGGER attendance_requires_active_class BEFORE INSERT ON attendance&#10;WHEN NOT EXISTS (SELECT 1 FROM classes WHERE id = NEW.class_id AND cancelled = 0&#10;AND course_id = NEW.course_id AND class_date = substr(NEW.attended_at, 1, 10) AND start_time = substr(NEW.attended_at, 12, 5))&#10;BEGIN SELECT RAISE(ABORT, 'Class is cancelled or invalid'); END;&#10;CREATE INDEX attendance_student_idx ON attendance (student_id, attended_at, id);">
+                    <mxGeometry x="2260" y="170" width="560" height="436" as="geometry" />
                 </mxCell>
-                <mxCell id="sql-courses" value="CREATE TABLE &quot;courses&quot; (&#xa;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#xa;  name TEXT NOT NULL CHECK (length(trim(name)) &gt; 0)&#xa;, start_date TEXT, end_date TEXT CHECK (end_date IS NULL OR start_date IS NULL OR end_date &gt;= start_date));&#xa;CREATE INDEX courses_name_idx ON courses (name COLLATE NOCASE);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
-                    <mxGeometry x="60" y="880" width="2000" height="680" as="geometry"/>
+                <mxCell id="attendance-id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="attendance" vertex="1" tooltip="id: INTEGER; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="sql-student_courses" value="CREATE TABLE student_courses (&#xa;  student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,&#xa;  course_id INTEGER NOT NULL REFERENCES courses(id),&#xa;  PRIMARY KEY (student_id, course_id)&#xa;);&#xa;CREATE INDEX student_courses_course_idx ON student_courses (course_id);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
-                    <mxGeometry x="60" y="1580" width="2000" height="680" as="geometry"/>
+                <mxCell id="attendance-student_id" value="student_id : INTEGER  [FK, NN] → students.id" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="attendance" vertex="1" tooltip="student_id: INTEGER; NOT NULL; REFERENCES students(id) ON DELETE NO ACTION ON UPDATE NO ACTION">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="sql-course_schedule" value="CREATE TABLE course_schedule (&#xa;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#xa;  course_id INTEGER NOT NULL REFERENCES courses(id),&#xa;  day_of_week TEXT NOT NULL CHECK (day_of_week IN (&#39;Monday&#39;, &#39;Tuesday&#39;, &#39;Wednesday&#39;, &#39;Thursday&#39;, &#39;Friday&#39;, &#39;Saturday&#39;, &#39;Sunday&#39;)),&#xa;  start_time TEXT NOT NULL CHECK (start_time GLOB &#39;[0-2][0-9]:[0-5][0-9]&#39; AND CAST(substr(start_time, 1, 2) AS INTEGER) &lt;= 23),&#xa;  end_time TEXT NOT NULL CHECK (end_time GLOB &#39;[0-2][0-9]:[0-5][0-9]&#39; AND CAST(substr(end_time, 1, 2) AS INTEGER) &lt;= 23),&#xa;  CHECK (end_time &gt; start_time),&#xa;  UNIQUE (course_id, day_of_week, start_time)&#xa;);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
-                    <mxGeometry x="60" y="2280" width="2000" height="680" as="geometry"/>
+                <mxCell id="attendance-course_id" value="course_id : INTEGER  [FK, NN] → courses.id" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="attendance" vertex="1" tooltip="course_id: INTEGER; NOT NULL; REFERENCES courses(id) ON DELETE NO ACTION ON UPDATE NO ACTION">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="sql-attendance" value="CREATE TABLE attendance (&#xa;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#xa;  student_id INTEGER NOT NULL REFERENCES students(id),&#xa;  course_id INTEGER NOT NULL REFERENCES courses(id),&#xa;  course_name TEXT NOT NULL,&#xa;  attended_at TEXT NOT NULL,&#xa;  recorded_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),&#xa;  recorded_at TEXT,&#xa;  notes TEXT NOT NULL DEFAULT &#39;&#39;,&#xa;  request_key TEXT UNIQUE,&#xa;  request_payload TEXT&#xa;, class_id INTEGER REFERENCES classes(id), complimentary INTEGER NOT NULL DEFAULT 0 CHECK (complimentary IN (0, 1)), complimentary_by TEXT, complimentary_at TEXT);&#xa;CREATE INDEX attendance_admin_idx ON attendance (recorded_by);&#xa;CREATE INDEX attendance_class_idx ON attendance (class_id);&#xa;CREATE UNIQUE INDEX attendance_class_unique_idx ON attendance (student_id, course_id, attended_at) WHERE request_key IS NOT NULL;&#xa;CREATE INDEX attendance_course_idx ON attendance (course_id, attended_at);&#xa;CREATE TRIGGER attendance_requires_active_class BEFORE INSERT ON attendance&#xa;WHEN NOT EXISTS (SELECT 1 FROM classes WHERE id = NEW.class_id AND cancelled = 0&#xa;AND course_id = NEW.course_id AND class_date = substr(NEW.attended_at, 1, 10) AND start_time = substr(NEW.attended_at, 12, 5))&#xa;BEGIN SELECT RAISE(ABORT, &#39;Class is cancelled or invalid&#39;); END;&#xa;CREATE INDEX attendance_student_idx ON attendance (student_id, attended_at, id);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
-                    <mxGeometry x="60" y="2980" width="2000" height="680" as="geometry"/>
+                <mxCell id="attendance-course_name" value="course_name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="attendance" vertex="1" tooltip="course_name: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="128" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="sql-student_payments" value="CREATE TABLE student_payments (&#xa;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#xa;  student_id INTEGER NOT NULL REFERENCES students(id),&#xa;  paid_on TEXT NOT NULL,&#xa;  amount_minor INTEGER NOT NULL CHECK (typeof(amount_minor) = &#39;integer&#39; AND amount_minor BETWEEN 1 AND 99999999),&#xa;  notes TEXT NOT NULL DEFAULT &#39;&#39;,&#xa;  recorded_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),&#xa;  recorded_at TEXT NOT NULL,&#xa;  request_key TEXT NOT NULL UNIQUE,&#xa;  request_payload TEXT NOT NULL&#xa;, given_to_school INTEGER NOT NULL DEFAULT 0 CHECK (given_to_school IN (0, 1)));&#xa;CREATE INDEX student_payments_admin_idx ON student_payments (recorded_by);&#xa;CREATE INDEX student_payments_date_idx ON student_payments (paid_on DESC, id DESC);&#xa;CREATE INDEX student_payments_student_idx ON student_payments (student_id, paid_on, id);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
-                    <mxGeometry x="60" y="3680" width="2000" height="680" as="geometry"/>
+                <mxCell id="attendance-attended_at" value="attended_at : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="attendance" vertex="1" tooltip="attended_at: TEXT; NOT NULL">
+                    <mxGeometry x="0" y="156" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="sql-payment_course_allowances" value="CREATE TABLE payment_course_allowances (&#xa;  payment_id INTEGER NOT NULL REFERENCES student_payments(id),&#xa;  course_id INTEGER NOT NULL REFERENCES courses(id),&#xa;  course_name TEXT NOT NULL,&#xa;  allowance INTEGER NOT NULL CHECK (typeof(allowance) = &#39;integer&#39; AND allowance BETWEEN 1 AND 10000),&#xa;  PRIMARY KEY (payment_id, course_id)&#xa;);&#xa;CREATE INDEX payment_course_allowances_course_idx ON payment_course_allowances (course_id);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
-                    <mxGeometry x="60" y="4380" width="2000" height="680" as="geometry"/>
+                <mxCell id="attendance-recorded_by" value="recorded_by : TEXT  [FK, NN] → admin_profiles.email" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="attendance" vertex="1" tooltip="recorded_by: TEXT; NOT NULL; REFERENCES admin_profiles(email) ON DELETE NO ACTION ON UPDATE NO ACTION">
+                    <mxGeometry x="0" y="184" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="sql-student_course_balances" value="CREATE VIEW student_course_balances AS&#xa;WITH pairs AS (&#xa;  SELECT student_id, course_id FROM student_courses&#xa;  UNION SELECT student_id, course_id FROM attendance&#xa;  UNION SELECT p.student_id, a.course_id FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id&#xa;), totals AS (&#xa;  SELECT pairs.student_id, pairs.course_id,&#xa;    (SELECT COUNT(*) FROM attendance a WHERE a.student_id = pairs.student_id AND a.course_id = pairs.course_id) AS attendance_count,&#xa;    (SELECT COALESCE(SUM(a.allowance), 0) FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = pairs.student_id AND a.course_id = pairs.course_id) AS paid_allowance&#xa;  FROM pairs&#xa;)&#xa;SELECT student_id, course_id, attendance_count, paid_allowance,&#xa;  paid_allowance - attendance_count AS remaining_allowance,&#xa;  MAX(attendance_count - paid_allowance, 0) AS excess_attendance FROM totals;" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
-                    <mxGeometry x="60" y="5080" width="2000" height="680" as="geometry"/>
+                <mxCell id="attendance-recorded_at" value="recorded_at : TEXT" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="attendance" vertex="1" tooltip="recorded_at: TEXT; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="212" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="sql-admin_profiles" value="CREATE TABLE admin_profiles (&#xa;  email TEXT PRIMARY KEY COLLATE NOCASE,&#xa;  name TEXT NOT NULL,&#xa;  picture TEXT&#xa;);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
-                    <mxGeometry x="60" y="5780" width="2000" height="680" as="geometry"/>
+                <mxCell id="attendance-notes" value="notes : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="attendance" vertex="1" tooltip="notes: TEXT; NOT NULL; DEFAULT ''">
+                    <mxGeometry x="0" y="240" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="sql-administrator_permissions" value="CREATE TABLE administrator_permissions (&#xa;  email TEXT PRIMARY KEY COLLATE NOCASE,&#xa;  can_dashboard INTEGER NOT NULL DEFAULT 0 CHECK (can_dashboard IN (0, 1)),&#xa;  can_students INTEGER NOT NULL DEFAULT 0 CHECK (can_students IN (0, 1)),&#xa;  can_courses INTEGER NOT NULL DEFAULT 0 CHECK (can_courses IN (0, 1)),&#xa;  can_qr_codes INTEGER NOT NULL DEFAULT 0 CHECK (can_qr_codes IN (0, 1)),&#xa;  can_practice_parties INTEGER NOT NULL DEFAULT 0 CHECK (can_practice_parties IN (0, 1)));" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
-                    <mxGeometry x="60" y="6480" width="2000" height="680" as="geometry"/>
+                <mxCell id="attendance-request_key" value="request_key : TEXT" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="attendance" vertex="1" tooltip="request_key: TEXT; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="268" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="sql-qr_codes" value="CREATE TABLE &quot;qr_codes&quot; (&#xa;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#xa;  slug TEXT NOT NULL UNIQUE,&#xa;  name TEXT NOT NULL,&#xa;  destination_url TEXT NOT NULL,&#xa;  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),&#xa;  image_mode TEXT NOT NULL DEFAULT &#39;none&#39; CHECK (image_mode IN (&#39;none&#39;, &#39;logo&#39;, &#39;custom&#39;)),&#xa;  image_path TEXT,&#xa;  module_shape TEXT NOT NULL DEFAULT &#39;square&#39; CHECK (module_shape IN (&#39;square&#39;, &#39;circle&#39;)),&#xa;  foreground_color TEXT NOT NULL DEFAULT &#39;#1e293b&#39;,&#xa;  eye_shape TEXT NOT NULL DEFAULT &#39;square&#39; CHECK (eye_shape IN (&#39;square&#39;, &#39;rounded&#39;, &#39;circle&#39;)),&#xa;  eye_color TEXT NOT NULL DEFAULT &#39;#1e293b&#39;,&#xa;  logo_size INTEGER NOT NULL DEFAULT 25 CHECK (logo_size BETWEEN 15 AND 30),&#xa;  logo_shape TEXT NOT NULL DEFAULT &#39;square&#39; CHECK (logo_shape IN (&#39;square&#39;, &#39;rounded&#39;, &#39;circle&#39;))&#xa;);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
-                    <mxGeometry x="60" y="7880" width="2000" height="680" as="geometry"/>
+                <mxCell id="attendance-request_payload" value="request_payload : TEXT" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="attendance" vertex="1" tooltip="request_payload: TEXT; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="296" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="sql-payment_presets" value="CREATE TABLE payment_presets (&#xa;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#xa;  name TEXT NOT NULL CHECK (length(trim(name)) BETWEEN 1 AND 120),&#xa;  amount_minor INTEGER NOT NULL CHECK (typeof(amount_minor) = &#39;integer&#39; AND amount_minor BETWEEN 1 AND 99999999)&#xa;);&#xa;CREATE UNIQUE INDEX payment_presets_name_idx ON payment_presets (name COLLATE NOCASE);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
-                    <mxGeometry x="60" y="1130" width="2000" height="500" as="geometry"/>
+                <mxCell id="attendance-class_id" value="class_id : INTEGER  [FK] → classes.id" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="attendance" vertex="1" tooltip="class_id: INTEGER; nullable / SQLite primary-key rules; REFERENCES classes(id) ON DELETE NO ACTION ON UPDATE NO ACTION">
+                    <mxGeometry x="0" y="324" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="sql-payment_preset_courses" value="CREATE TABLE payment_preset_courses (&#xa;  preset_id INTEGER NOT NULL REFERENCES payment_presets(id) ON DELETE CASCADE,&#xa;  course_id INTEGER NOT NULL REFERENCES courses(id),&#xa;  allowance INTEGER NOT NULL CHECK (typeof(allowance) = &#39;integer&#39; AND allowance BETWEEN 1 AND 10000),&#xa;  PRIMARY KEY (preset_id, course_id)&#xa;);&#xa;CREATE INDEX payment_preset_courses_course_idx ON payment_preset_courses (course_id);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
-                    <mxGeometry x="60" y="1340" width="2000" height="500" as="geometry"/>
+                <mxCell id="attendance-complimentary" value="complimentary : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="attendance" vertex="1" tooltip="complimentary: INTEGER; NOT NULL; DEFAULT 0">
+                    <mxGeometry x="0" y="352" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="sql-classes" value="CREATE TABLE classes (&#xa;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#xa;  course_id INTEGER NOT NULL REFERENCES courses(id),&#xa;  class_date TEXT NOT NULL,&#xa;  start_time TEXT NOT NULL,&#xa;  end_time TEXT,&#xa;  cancelled INTEGER NOT NULL DEFAULT 0 CHECK (cancelled IN (0, 1)),&#xa;  cancelled_by TEXT REFERENCES admin_profiles(email),&#xa;  cancelled_at TEXT,&#xa;  UNIQUE (course_id, class_date, start_time)&#xa;);&#xa;CREATE TRIGGER cancellation_requires_no_attendance BEFORE UPDATE OF cancelled ON classes&#xa;WHEN NEW.cancelled = 1 AND EXISTS (SELECT 1 FROM attendance WHERE class_id = NEW.id)&#xa;BEGIN SELECT RAISE(ABORT, &#39;Class already has attendance&#39;); END;" parent="sql-reference-layer" vertex="1"/>
-                <mxCell id="sql-practice_parties" value="CREATE TABLE practice_parties (&#xa;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#xa;  starts_at TEXT NOT NULL,&#xa;  starts_utc TEXT NOT NULL,&#xa;  duration_minutes INTEGER NOT NULL CHECK (duration_minutes BETWEEN 1 AND 1440),&#xa;  cancelled INTEGER NOT NULL DEFAULT 0 CHECK (cancelled IN (0, 1)),&#xa;  revision INTEGER NOT NULL DEFAULT 0,&#xa;  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),&#xa;  recorded_at TEXT NOT NULL,&#xa;  request_key TEXT NOT NULL UNIQUE&#xa;);&#xa;CREATE INDEX practice_parties_date_idx ON practice_parties (starts_at, id);" parent="sql-reference-layer" vertex="1"/>
-                <mxCell id="sql-practice_requests" value="CREATE TABLE practice_requests (&#xa;  request_key TEXT PRIMARY KEY,&#xa;  practice_id INTEGER NOT NULL REFERENCES practice_parties(id),&#xa;  payload TEXT NOT NULL,&#xa;  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),&#xa;  recorded_at TEXT NOT NULL,&#xa;  verified INTEGER NOT NULL DEFAULT 1 CHECK (verified = 1)&#xa;);" parent="sql-reference-layer" vertex="1"/>
-                <mxCell id="sql-practice_attendance" value="CREATE TABLE practice_attendance (&#xa;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#xa;  student_id INTEGER NOT NULL REFERENCES students(id),&#xa;  practice_id INTEGER NOT NULL REFERENCES practice_parties(id),&#xa;  original_starts_at TEXT NOT NULL,&#xa;  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),&#xa;  recorded_at TEXT NOT NULL,&#xa;  notes TEXT NOT NULL DEFAULT &#39;&#39;,&#xa;  voided_at TEXT,&#xa;  voided_by TEXT REFERENCES admin_profiles(email),&#xa;  void_reason TEXT&#xa;);&#xa;CREATE UNIQUE INDEX practice_attendance_active_idx ON practice_attendance (student_id, practice_id) WHERE voided_at IS NULL;&#xa;CREATE INDEX practice_attendance_student_idx ON practice_attendance (student_id, practice_id);" parent="sql-reference-layer" vertex="1"/>
-                <mxCell id="sql-practice_changes" value="CREATE TABLE practice_changes (&#xa;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#xa;  practice_id INTEGER NOT NULL REFERENCES practice_parties(id),&#xa;  before_json TEXT NOT NULL,&#xa;  after_json TEXT NOT NULL,&#xa;  reason TEXT NOT NULL,&#xa;  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),&#xa;  recorded_at TEXT NOT NULL&#xa;);" parent="sql-reference-layer" vertex="1"/>
-                <mxCell id="sql-practice_donations" value="CREATE TABLE practice_donations (&#xa;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#xa;  student_id INTEGER NOT NULL REFERENCES students(id),&#xa;  practice_id INTEGER NOT NULL REFERENCES practice_parties(id),&#xa;  paid_on TEXT NOT NULL,&#xa;  amount_minor INTEGER NOT NULL CHECK (typeof(amount_minor) = &#39;integer&#39; AND amount_minor BETWEEN 1 AND 99999999),&#xa;  notes TEXT NOT NULL DEFAULT &#39;&#39;,&#xa;  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),&#xa;  recorded_at TEXT NOT NULL,&#xa;  request_key TEXT NOT NULL UNIQUE REFERENCES practice_requests(request_key),&#xa;  given_to_school INTEGER NOT NULL DEFAULT 0 CHECK (given_to_school IN (0, 1))&#xa;);&#xa;CREATE INDEX practice_donations_party_idx ON practice_donations (practice_id, id);&#xa;CREATE INDEX practice_donations_student_idx ON practice_donations (student_id, paid_on, id);" parent="sql-reference-layer" vertex="1"/>
-                <mxCell id="sql-school_payment_records" value="CREATE VIEW school_payment_records AS&#xa;SELECT p.id, &#39;course&#39; AS purpose, NULL AS practice_id, NULL AS practice_description,&#xa;  p.student_id, p.paid_on, p.amount_minor, p.recorded_by, p.given_to_school&#xa;FROM student_payments p&#xa;UNION ALL&#xa;SELECT p.id, &#39;practice_donation&#39;, p.practice_id, &#39;Practice party · &#39; || s.starts_at,&#xa;  p.student_id, p.paid_on, p.amount_minor, p.recorded_by, p.given_to_school&#xa;FROM practice_donations p JOIN practice_parties s ON s.id = p.practice_id;" parent="sql-reference-layer" vertex="1"/>
-            </root>
-        </mxGraphModel>
-    </diagram>
-    <diagram id="practice-events" name="Practice parties">
-        <mxGraphModel grid="1" page="1" pageWidth="2200" pageHeight="2000">
-            <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="event-diagram-practice_parties" value="practice_parties&#xa;id : INTEGER [PK]&#xa;starts_at : TEXT&#xa;starts_utc : TEXT&#xa;duration_minutes : INTEGER&#xa;cancelled : INTEGER&#xa;revision : INTEGER&#xa;recorded_by : TEXT&#xa;recorded_at : TEXT&#xa;request_key : TEXT" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontFamily=Helvetica;fontSize=12;fillColor=#f7fee7;strokeColor=#65a30d;">
-                    <mxGeometry x="30" y="30" width="620" height="245" as="geometry"/>
+                <mxCell id="attendance-complimentary_by" value="complimentary_by : TEXT" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="attendance" vertex="1" tooltip="complimentary_by: TEXT; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="380" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="event-diagram-practice_attendance" value="practice_attendance&#xa;id : INTEGER [PK]&#xa;student_id : INTEGER&#xa;practice_id : INTEGER&#xa;original_starts_at : TEXT&#xa;recorded_by : TEXT&#xa;recorded_at : TEXT&#xa;notes : TEXT&#xa;voided_at : TEXT&#xa;voided_by : TEXT&#xa;void_reason : TEXT" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontFamily=Helvetica;fontSize=12;fillColor=#f7fee7;strokeColor=#65a30d;">
-                    <mxGeometry x="720" y="30" width="620" height="245" as="geometry"/>
+                <mxCell id="attendance-complimentary_at" value="complimentary_at : TEXT" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#eff6ff;overflow=hidden;" parent="attendance" vertex="1" tooltip="complimentary_at: TEXT; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="408" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="event-diagram-practice_donations" value="practice_donations&#xa;id : INTEGER [PK]&#xa;student_id : INTEGER&#xa;practice_id : INTEGER&#xa;paid_on : TEXT&#xa;amount_minor : INTEGER&#xa;notes : TEXT&#xa;recorded_by : TEXT&#xa;recorded_at : TEXT&#xa;request_key : TEXT&#xa;given_to_school : INTEGER" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontFamily=Helvetica;fontSize=12;fillColor=#f7fee7;strokeColor=#65a30d;">
-                    <mxGeometry x="1410" y="30" width="620" height="245" as="geometry"/>
+                <mxCell id="student_course_balances" value="student_course_balances · VIEW" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#f5f3ff;strokeColor=#8b5cf6;" parent="1" vertex="1" tooltip="CREATE VIEW student_course_balances AS&#10;WITH pairs AS (&#10;  SELECT student_id, course_id FROM student_courses&#10;  UNION SELECT student_id, course_id FROM attendance&#10;  UNION SELECT p.student_id, a.course_id FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id&#10;), totals AS (&#10;  SELECT pairs.student_id, pairs.course_id,&#10;    (SELECT COUNT(*) FROM attendance a WHERE a.student_id = pairs.student_id AND a.course_id = pairs.course_id) AS attendance_count,&#10;    (SELECT COALESCE(SUM(a.allowance), 0) FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = pairs.student_id AND a.course_id = pairs.course_id) AS paid_allowance&#10;  FROM pairs&#10;)&#10;SELECT student_id, course_id, attendance_count, paid_allowance,&#10;  paid_allowance - attendance_count AS remaining_allowance,&#10;  MAX(attendance_count - paid_allowance, 0) AS excess_attendance FROM totals;">
+                    <mxGeometry x="2260" y="636" width="560" height="212" as="geometry" />
                 </mxCell>
-                <mxCell id="event-diagram-practice_requests" value="practice_requests&#xa;request_key : TEXT [PK]&#xa;practice_id : INTEGER&#xa;payload : TEXT&#xa;recorded_by : TEXT&#xa;recorded_at : TEXT&#xa;verified : INTEGER" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontFamily=Helvetica;fontSize=12;fillColor=#f7fee7;strokeColor=#65a30d;">
-                    <mxGeometry x="30" y="520" width="620" height="169" as="geometry"/>
+                <mxCell id="student_course_balances-student_id" value="student_id : INTEGER" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="student_course_balances" vertex="1" tooltip="student_id: INTEGER; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="event-diagram-practice_changes" value="practice_changes&#xa;id : INTEGER [PK]&#xa;practice_id : INTEGER&#xa;before_json : TEXT&#xa;after_json : TEXT&#xa;reason : TEXT&#xa;recorded_by : TEXT&#xa;recorded_at : TEXT" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontFamily=Helvetica;fontSize=12;fillColor=#f7fee7;strokeColor=#65a30d;">
-                    <mxGeometry x="720" y="520" width="620" height="188" as="geometry"/>
+                <mxCell id="student_course_balances-course_id" value="course_id : INTEGER" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f5f3ff;overflow=hidden;" parent="student_course_balances" vertex="1" tooltip="course_id: INTEGER; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="event-diagram-school_payment_records" value="school_payment_records&#xa;id : INTEGER&#xa;purpose : &#xa;practice_id : INT&#xa;practice_description : &#xa;student_id : INTEGER&#xa;paid_on : TEXT&#xa;amount_minor : INTEGER&#xa;recorded_by : TEXT&#xa;given_to_school : INTEGER" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontFamily=Helvetica;fontSize=12;fillColor=#f7fee7;strokeColor=#65a30d;">
-                    <mxGeometry x="1410" y="520" width="620" height="226" as="geometry"/>
+                <mxCell id="student_course_balances-attendance_count" value="attendance_count : derived" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="student_course_balances" vertex="1" tooltip="attendance_count: derived expression; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="event-diagram-administrator_permissions" value="administrator_permissions&#xa;email : TEXT [PK]&#xa;can_dashboard : INTEGER&#xa;can_students : INTEGER&#xa;can_courses : INTEGER&#xa;can_qr_codes : INTEGER&#xa;can_practice_parties : INTEGER" vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontFamily=Helvetica;fontSize=12;fillColor=#f7fee7;strokeColor=#65a30d;">
-                    <mxGeometry x="30" y="1010" width="620" height="188" as="geometry"/>
+                <mxCell id="student_course_balances-paid_allowance" value="paid_allowance : derived" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f5f3ff;overflow=hidden;" parent="student_course_balances" vertex="1" tooltip="paid_allowance: derived expression; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="128" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="event-edge-practice_attendance-2" value="practice_id" edge="1" parent="1" source="event-diagram-practice_attendance" target="event-diagram-practice_parties" style="edgeStyle=orthogonalEdgeStyle;html=0;endArrow=ERone;startArrow=ERmany;fontSize=10;">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="student_course_balances-remaining_allowance" value="remaining_allowance : derived" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" parent="student_course_balances" vertex="1" tooltip="remaining_allowance: derived expression; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="156" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="event-edge-practice_donations-0" value="request_key" edge="1" parent="1" source="event-diagram-practice_donations" target="event-diagram-practice_requests" style="edgeStyle=orthogonalEdgeStyle;html=0;endArrow=ERone;startArrow=ERmany;fontSize=10;">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="student_course_balances-excess_attendance" value="excess_attendance : derived" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#f5f3ff;overflow=hidden;" parent="student_course_balances" vertex="1" tooltip="excess_attendance: derived expression; nullable / SQLite primary-key rules">
+                    <mxGeometry x="0" y="184" width="560" height="28" as="geometry" />
                 </mxCell>
-                <mxCell id="event-edge-practice_donations-2" value="practice_id" edge="1" parent="1" source="event-diagram-practice_donations" target="event-diagram-practice_parties" style="edgeStyle=orthogonalEdgeStyle;html=0;endArrow=ERone;startArrow=ERmany;fontSize=10;">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="school_payment_records" value="school_payment_records · VIEW" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#f5f3ff;strokeColor=#8b5cf6;" parent="1" vertex="1" tooltip="CREATE VIEW school_payment_records AS&#10;SELECT p.id, 'course' AS purpose, NULL AS practice_id, NULL AS practice_description,&#10;  p.student_id, p.paid_on, p.amount_minor, p.recorded_by, p.given_to_school&#10;FROM student_payments p&#10;UNION ALL&#10;SELECT a.id, 'practice_donation', a.practice_id, 'Practice party · ' || s.starts_at,&#10;  a.student_id, a.donation_paid_on, a.donation_amount_minor, a.donation_recorded_by, a.donation_given_to_school&#10;FROM practice_attendance a JOIN practice_parties s ON s.id = a.practice_id&#10;WHERE a.donation_amount_minor IS NOT NULL;">
+                    <mxGeometry x="2260" y="878" width="560" height="296" as="geometry" />
                 </mxCell>
-                <mxCell id="event-edge-practice_requests-1" value="practice_id" edge="1" parent="1" source="event-diagram-practice_requests" target="event-diagram-practice_parties" style="edgeStyle=orthogonalEdgeStyle;html=0;endArrow=ERone;startArrow=ERmany;fontSize=10;">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="group-4" value="PRACTICE PARTIES" style="text;html=0;align=left;verticalAlign=middle;fontFamily=Helvetica;fontSize=16;fontColor=#475569;" parent="1" vertex="1">
+                    <mxGeometry x="3000" y="120" width="560" height="36" as="geometry" />
                 </mxCell>
-                <mxCell id="event-edge-practice_changes-1" value="practice_id" edge="1" parent="1" source="event-diagram-practice_changes" target="event-diagram-practice_parties" style="edgeStyle=orthogonalEdgeStyle;html=0;endArrow=ERone;startArrow=ERmany;fontSize=10;">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="practice_parties" value="practice_parties" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#fff7ed;strokeColor=#ea580c;" parent="1" vertex="1" tooltip="CREATE TABLE practice_parties (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  starts_at TEXT NOT NULL,&#10;  starts_utc TEXT NOT NULL,&#10;  duration_minutes INTEGER NOT NULL CHECK (duration_minutes BETWEEN 1 AND 1440),&#10;  cancelled INTEGER NOT NULL DEFAULT 0 CHECK (cancelled IN (0, 1)),&#10;  revision INTEGER NOT NULL DEFAULT 0,&#10;  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),&#10;  recorded_at TEXT NOT NULL,&#10;  request_key TEXT NOT NULL UNIQUE&#10;, request_hash TEXT, last_request_key TEXT, last_request_hash TEXT);&#10;CREATE INDEX practice_parties_date_idx ON practice_parties (starts_at, id);&#10;CREATE TRIGGER practice_revision_matches BEFORE UPDATE OF revision ON practice_parties&#10;WHEN NEW.revision != OLD.revision + 1&#10;BEGIN SELECT RAISE(ABORT, 'Practice party changed. Reload before saving.'); END;">
+                    <mxGeometry x="3000" y="170" width="560" height="380" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_attendance" value="practice_attendance" style="swimlane;html=0;startSize=44;horizontal=1;rounded=1;arcSize=6;collapsible=0;fontFamily=Helvetica;fontSize=18;fontStyle=1;align=left;spacingLeft=12;fillColor=#fff7ed;strokeColor=#ea580c;" parent="1" vertex="1" tooltip="CREATE TABLE &quot;practice_attendance&quot; (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  student_id INTEGER NOT NULL REFERENCES students(id),&#10;  practice_id INTEGER NOT NULL REFERENCES practice_parties(id),&#10;  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),&#10;  recorded_at TEXT NOT NULL,&#10;  notes TEXT NOT NULL DEFAULT '',&#10;  donation_amount_minor INTEGER CHECK (donation_amount_minor IS NULL OR (typeof(donation_amount_minor) = 'integer' AND donation_amount_minor BETWEEN 1 AND 99999999)),&#10;  donation_paid_on TEXT,&#10;  donation_notes TEXT NOT NULL DEFAULT '',&#10;  donation_recorded_by TEXT REFERENCES admin_profiles(email),&#10;  donation_recorded_at TEXT,&#10;  donation_given_to_school INTEGER NOT NULL DEFAULT 0 CHECK (donation_given_to_school IN (0, 1)),&#10;  UNIQUE (student_id, practice_id),&#10;  CHECK (&#10;    (donation_amount_minor IS NULL AND donation_paid_on IS NULL AND donation_recorded_by IS NULL AND donation_recorded_at IS NULL AND donation_notes = '' AND donation_given_to_school = 0)&#10;    OR (donation_amount_minor IS NOT NULL AND donation_paid_on IS NOT NULL AND donation_recorded_by IS NOT NULL AND donation_recorded_at IS NOT NULL)&#10;  )&#10;);&#10;CREATE INDEX practice_attendance_donation_date_idx ON practice_attendance (donation_paid_on, id) WHERE donation_amount_minor IS NOT NULL;&#10;CREATE TRIGGER practice_attendance_keeps_donation BEFORE DELETE ON practice_attendance&#10;WHEN OLD.donation_amount_minor IS NOT NULL&#10;BEGIN SELECT RAISE(ABORT, 'Remove the donation before removing attendance.'); END;&#10;CREATE INDEX practice_attendance_party_idx ON practice_attendance (practice_id, id);">
+                    <mxGeometry x="3000" y="620" width="560" height="380" as="geometry" />
+                </mxCell>
+                <mxCell id="legend" value="PK = primary key · FK = foreign key · NN = NOT NULL · Solid crow’s-foot = foreign key · Dashed arrow = view dependency · Hover over tables for complete SQL." style="text;html=0;align=left;verticalAlign=middle;fontFamily=Helvetica;fontSize=15;fontColor=#475569;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="1870" width="3520" height="36" as="geometry" />
+                </mxCell>
+                <mxCell id="notes" value="Practice donations live on attendance and appear in student activity and school payment totals. No practice change history is stored. Hover over tables for full SQL." style="text;html=0;align=left;verticalAlign=middle;fontFamily=Helvetica;fontSize=15;fontColor=#475569;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="1910" width="3520" height="36" as="geometry" />
+                </mxCell>
+                <mxCell id="sql-reference-layer" value="SQL definitions (reference)" parent="0" visible="0" />
+                <mxCell id="sql-students" value="CREATE TABLE students (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  first_name TEXT NOT NULL,&#10;  last_name TEXT NOT NULL,&#10;  email TEXT NOT NULL,&#10;  phone TEXT NOT NULL DEFAULT '',&#10;  picture TEXT,&#10;  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1))&#10;);&#10;CREATE INDEX students_name_idx ON students (last_name, first_name);&#10;CREATE UNIQUE INDEX students_phone_unique_idx&#10;ON students (trim(phone))&#10;WHERE trim(phone) &lt;&gt; '';" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
+                    <mxGeometry x="60" y="180" width="2000" height="680" as="geometry" />
+                </mxCell>
+                <mxCell id="sql-courses" value="CREATE TABLE &quot;courses&quot; (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  name TEXT NOT NULL CHECK (length(trim(name)) &gt; 0)&#10;, start_date TEXT, end_date TEXT CHECK (end_date IS NULL OR start_date IS NULL OR end_date &gt;= start_date));&#10;CREATE INDEX courses_name_idx ON courses (name COLLATE NOCASE);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
+                    <mxGeometry x="60" y="880" width="2000" height="680" as="geometry" />
+                </mxCell>
+                <mxCell id="sql-student_courses" value="CREATE TABLE student_courses (&#10;  student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,&#10;  course_id INTEGER NOT NULL REFERENCES courses(id),&#10;  PRIMARY KEY (student_id, course_id)&#10;);&#10;CREATE INDEX student_courses_course_idx ON student_courses (course_id);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
+                    <mxGeometry x="60" y="1580" width="2000" height="680" as="geometry" />
+                </mxCell>
+                <mxCell id="sql-course_schedule" value="CREATE TABLE course_schedule (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  course_id INTEGER NOT NULL REFERENCES courses(id),&#10;  day_of_week TEXT NOT NULL CHECK (day_of_week IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')),&#10;  start_time TEXT NOT NULL CHECK (start_time GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(start_time, 1, 2) AS INTEGER) &lt;= 23),&#10;  end_time TEXT NOT NULL CHECK (end_time GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(end_time, 1, 2) AS INTEGER) &lt;= 23),&#10;  CHECK (end_time &gt; start_time),&#10;  UNIQUE (course_id, day_of_week, start_time)&#10;);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
+                    <mxGeometry x="60" y="2280" width="2000" height="680" as="geometry" />
+                </mxCell>
+                <mxCell id="sql-attendance" value="CREATE TABLE attendance (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  student_id INTEGER NOT NULL REFERENCES students(id),&#10;  course_id INTEGER NOT NULL REFERENCES courses(id),&#10;  course_name TEXT NOT NULL,&#10;  attended_at TEXT NOT NULL,&#10;  recorded_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),&#10;  recorded_at TEXT,&#10;  notes TEXT NOT NULL DEFAULT '',&#10;  request_key TEXT UNIQUE,&#10;  request_payload TEXT&#10;, class_id INTEGER REFERENCES classes(id), complimentary INTEGER NOT NULL DEFAULT 0 CHECK (complimentary IN (0, 1)), complimentary_by TEXT, complimentary_at TEXT);&#10;CREATE INDEX attendance_admin_idx ON attendance (recorded_by);&#10;CREATE INDEX attendance_class_idx ON attendance (class_id);&#10;CREATE UNIQUE INDEX attendance_class_unique_idx ON attendance (student_id, course_id, attended_at) WHERE request_key IS NOT NULL;&#10;CREATE INDEX attendance_course_idx ON attendance (course_id, attended_at);&#10;CREATE TRIGGER attendance_requires_active_class BEFORE INSERT ON attendance&#10;WHEN NOT EXISTS (SELECT 1 FROM classes WHERE id = NEW.class_id AND cancelled = 0&#10;AND course_id = NEW.course_id AND class_date = substr(NEW.attended_at, 1, 10) AND start_time = substr(NEW.attended_at, 12, 5))&#10;BEGIN SELECT RAISE(ABORT, 'Class is cancelled or invalid'); END;&#10;CREATE INDEX attendance_student_idx ON attendance (student_id, attended_at, id);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
+                    <mxGeometry x="60" y="2980" width="2000" height="680" as="geometry" />
+                </mxCell>
+                <mxCell id="sql-student_payments" value="CREATE TABLE student_payments (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  student_id INTEGER NOT NULL REFERENCES students(id),&#10;  paid_on TEXT NOT NULL,&#10;  amount_minor INTEGER NOT NULL CHECK (typeof(amount_minor) = 'integer' AND amount_minor BETWEEN 1 AND 99999999),&#10;  notes TEXT NOT NULL DEFAULT '',&#10;  recorded_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),&#10;  recorded_at TEXT NOT NULL,&#10;  request_key TEXT NOT NULL UNIQUE,&#10;  request_payload TEXT NOT NULL&#10;, given_to_school INTEGER NOT NULL DEFAULT 0 CHECK (given_to_school IN (0, 1)));&#10;CREATE INDEX student_payments_admin_idx ON student_payments (recorded_by);&#10;CREATE INDEX student_payments_date_idx ON student_payments (paid_on DESC, id DESC);&#10;CREATE INDEX student_payments_student_idx ON student_payments (student_id, paid_on, id);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
+                    <mxGeometry x="60" y="3680" width="2000" height="680" as="geometry" />
+                </mxCell>
+                <mxCell id="sql-payment_course_allowances" value="CREATE TABLE payment_course_allowances (&#10;  payment_id INTEGER NOT NULL REFERENCES student_payments(id),&#10;  course_id INTEGER NOT NULL REFERENCES courses(id),&#10;  course_name TEXT NOT NULL,&#10;  allowance INTEGER NOT NULL CHECK (typeof(allowance) = 'integer' AND allowance BETWEEN 1 AND 10000),&#10;  PRIMARY KEY (payment_id, course_id)&#10;);&#10;CREATE INDEX payment_course_allowances_course_idx ON payment_course_allowances (course_id);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
+                    <mxGeometry x="60" y="4380" width="2000" height="680" as="geometry" />
+                </mxCell>
+                <mxCell id="sql-student_course_balances" value="CREATE VIEW student_course_balances AS&#10;WITH pairs AS (&#10;  SELECT student_id, course_id FROM student_courses&#10;  UNION SELECT student_id, course_id FROM attendance&#10;  UNION SELECT p.student_id, a.course_id FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id&#10;), totals AS (&#10;  SELECT pairs.student_id, pairs.course_id,&#10;    (SELECT COUNT(*) FROM attendance a WHERE a.student_id = pairs.student_id AND a.course_id = pairs.course_id) AS attendance_count,&#10;    (SELECT COALESCE(SUM(a.allowance), 0) FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = pairs.student_id AND a.course_id = pairs.course_id) AS paid_allowance&#10;  FROM pairs&#10;)&#10;SELECT student_id, course_id, attendance_count, paid_allowance,&#10;  paid_allowance - attendance_count AS remaining_allowance,&#10;  MAX(attendance_count - paid_allowance, 0) AS excess_attendance FROM totals;" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
+                    <mxGeometry x="60" y="5080" width="2000" height="680" as="geometry" />
+                </mxCell>
+                <mxCell id="sql-admin_profiles" value="CREATE TABLE admin_profiles (&#10;  email TEXT PRIMARY KEY COLLATE NOCASE,&#10;  name TEXT NOT NULL,&#10;  picture TEXT&#10;);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
+                    <mxGeometry x="60" y="5780" width="2000" height="680" as="geometry" />
+                </mxCell>
+                <mxCell id="sql-administrator_permissions" value="CREATE TABLE administrator_permissions (&#10;  email TEXT PRIMARY KEY COLLATE NOCASE,&#10;  can_dashboard INTEGER NOT NULL DEFAULT 0 CHECK (can_dashboard IN (0, 1)),&#10;  can_students INTEGER NOT NULL DEFAULT 0 CHECK (can_students IN (0, 1)),&#10;  can_courses INTEGER NOT NULL DEFAULT 0 CHECK (can_courses IN (0, 1)),&#10;  can_qr_codes INTEGER NOT NULL DEFAULT 0 CHECK (can_qr_codes IN (0, 1)),&#10;  can_practice_parties INTEGER NOT NULL DEFAULT 0 CHECK (can_practice_parties IN (0, 1)));" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
+                    <mxGeometry x="60" y="6480" width="2000" height="680" as="geometry" />
+                </mxCell>
+                <mxCell id="sql-qr_codes" value="CREATE TABLE &quot;qr_codes&quot; (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  slug TEXT NOT NULL UNIQUE,&#10;  name TEXT NOT NULL,&#10;  destination_url TEXT NOT NULL,&#10;  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),&#10;  image_mode TEXT NOT NULL DEFAULT 'none' CHECK (image_mode IN ('none', 'logo', 'custom')),&#10;  image_path TEXT,&#10;  module_shape TEXT NOT NULL DEFAULT 'square' CHECK (module_shape IN ('square', 'circle')),&#10;  foreground_color TEXT NOT NULL DEFAULT '#1e293b',&#10;  eye_shape TEXT NOT NULL DEFAULT 'square' CHECK (eye_shape IN ('square', 'rounded', 'circle')),&#10;  eye_color TEXT NOT NULL DEFAULT '#1e293b',&#10;  logo_size INTEGER NOT NULL DEFAULT 25 CHECK (logo_size BETWEEN 15 AND 30),&#10;  logo_shape TEXT NOT NULL DEFAULT 'square' CHECK (logo_shape IN ('square', 'rounded', 'circle'))&#10;);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
+                    <mxGeometry x="60" y="7880" width="2000" height="680" as="geometry" />
+                </mxCell>
+                <mxCell id="sql-payment_presets" value="CREATE TABLE payment_presets (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  name TEXT NOT NULL CHECK (length(trim(name)) BETWEEN 1 AND 120),&#10;  amount_minor INTEGER NOT NULL CHECK (typeof(amount_minor) = 'integer' AND amount_minor BETWEEN 1 AND 99999999)&#10;);&#10;CREATE UNIQUE INDEX payment_presets_name_idx ON payment_presets (name COLLATE NOCASE);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
+                    <mxGeometry x="60" y="1130" width="2000" height="500" as="geometry" />
+                </mxCell>
+                <mxCell id="sql-payment_preset_courses" value="CREATE TABLE payment_preset_courses (&#10;  preset_id INTEGER NOT NULL REFERENCES payment_presets(id) ON DELETE CASCADE,&#10;  course_id INTEGER NOT NULL REFERENCES courses(id),&#10;  allowance INTEGER NOT NULL CHECK (typeof(allowance) = 'integer' AND allowance BETWEEN 1 AND 10000),&#10;  PRIMARY KEY (preset_id, course_id)&#10;);&#10;CREATE INDEX payment_preset_courses_course_idx ON payment_preset_courses (course_id);" style="text;html=0;whiteSpace=wrap;fontFamily=Courier New;fontSize=12;" parent="sql-reference-layer" vertex="1">
+                    <mxGeometry x="60" y="1340" width="2000" height="500" as="geometry" />
+                </mxCell>
+                <mxCell id="sql-classes" value="CREATE TABLE classes (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  course_id INTEGER NOT NULL REFERENCES courses(id),&#10;  class_date TEXT NOT NULL,&#10;  start_time TEXT NOT NULL,&#10;  end_time TEXT,&#10;  cancelled INTEGER NOT NULL DEFAULT 0 CHECK (cancelled IN (0, 1)),&#10;  cancelled_by TEXT REFERENCES admin_profiles(email),&#10;  cancelled_at TEXT,&#10;  UNIQUE (course_id, class_date, start_time)&#10;);&#10;CREATE TRIGGER cancellation_requires_no_attendance BEFORE UPDATE OF cancelled ON classes&#10;WHEN NEW.cancelled = 1 AND EXISTS (SELECT 1 FROM attendance WHERE class_id = NEW.id)&#10;BEGIN SELECT RAISE(ABORT, 'Class already has attendance'); END;" parent="sql-reference-layer" vertex="1" />
+                <mxCell id="sql-practice_parties" value="CREATE TABLE practice_parties (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  starts_at TEXT NOT NULL,&#10;  starts_utc TEXT NOT NULL,&#10;  duration_minutes INTEGER NOT NULL CHECK (duration_minutes BETWEEN 1 AND 1440),&#10;  cancelled INTEGER NOT NULL DEFAULT 0 CHECK (cancelled IN (0, 1)),&#10;  revision INTEGER NOT NULL DEFAULT 0,&#10;  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),&#10;  recorded_at TEXT NOT NULL,&#10;  request_key TEXT NOT NULL UNIQUE&#10;, request_hash TEXT, last_request_key TEXT, last_request_hash TEXT);&#10;CREATE INDEX practice_parties_date_idx ON practice_parties (starts_at, id);&#10;CREATE TRIGGER practice_revision_matches BEFORE UPDATE OF revision ON practice_parties&#10;WHEN NEW.revision != OLD.revision + 1&#10;BEGIN SELECT RAISE(ABORT, 'Practice party changed. Reload before saving.'); END;" parent="sql-reference-layer" vertex="1" />
+                <mxCell id="sql-practice_attendance" value="CREATE TABLE &quot;practice_attendance&quot; (&#10;  id INTEGER PRIMARY KEY AUTOINCREMENT,&#10;  student_id INTEGER NOT NULL REFERENCES students(id),&#10;  practice_id INTEGER NOT NULL REFERENCES practice_parties(id),&#10;  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),&#10;  recorded_at TEXT NOT NULL,&#10;  notes TEXT NOT NULL DEFAULT '',&#10;  donation_amount_minor INTEGER CHECK (donation_amount_minor IS NULL OR (typeof(donation_amount_minor) = 'integer' AND donation_amount_minor BETWEEN 1 AND 99999999)),&#10;  donation_paid_on TEXT,&#10;  donation_notes TEXT NOT NULL DEFAULT '',&#10;  donation_recorded_by TEXT REFERENCES admin_profiles(email),&#10;  donation_recorded_at TEXT,&#10;  donation_given_to_school INTEGER NOT NULL DEFAULT 0 CHECK (donation_given_to_school IN (0, 1)),&#10;  UNIQUE (student_id, practice_id),&#10;  CHECK (&#10;    (donation_amount_minor IS NULL AND donation_paid_on IS NULL AND donation_recorded_by IS NULL AND donation_recorded_at IS NULL AND donation_notes = '' AND donation_given_to_school = 0)&#10;    OR (donation_amount_minor IS NOT NULL AND donation_paid_on IS NOT NULL AND donation_recorded_by IS NOT NULL AND donation_recorded_at IS NOT NULL)&#10;  )&#10;);&#10;CREATE INDEX practice_attendance_donation_date_idx ON practice_attendance (donation_paid_on, id) WHERE donation_amount_minor IS NOT NULL;&#10;CREATE TRIGGER practice_attendance_keeps_donation BEFORE DELETE ON practice_attendance&#10;WHEN OLD.donation_amount_minor IS NOT NULL&#10;BEGIN SELECT RAISE(ABORT, 'Remove the donation before removing attendance.'); END;&#10;CREATE INDEX practice_attendance_party_idx ON practice_attendance (practice_id, id);" parent="sql-reference-layer" vertex="1" />
+                <mxCell id="sql-school_payment_records" value="CREATE VIEW school_payment_records AS&#10;SELECT p.id, 'course' AS purpose, NULL AS practice_id, NULL AS practice_description,&#10;  p.student_id, p.paid_on, p.amount_minor, p.recorded_by, p.given_to_school&#10;FROM student_payments p&#10;UNION ALL&#10;SELECT a.id, 'practice_donation', a.practice_id, 'Practice party · ' || s.starts_at,&#10;  a.student_id, a.donation_paid_on, a.donation_amount_minor, a.donation_recorded_by, a.donation_given_to_school&#10;FROM practice_attendance a JOIN practice_parties s ON s.id = a.practice_id&#10;WHERE a.donation_amount_minor IS NOT NULL;" parent="sql-reference-layer" vertex="1" />
+                <mxCell id="practice_parties-id" value="id : INTEGER  [PK]" parent="practice_parties" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="id: INTEGER">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_parties-starts_at" value="starts_at : TEXT  [NN]" parent="practice_parties" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="starts_at: TEXT">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_parties-starts_utc" value="starts_utc : TEXT  [NN]" parent="practice_parties" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="starts_utc: TEXT">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_parties-duration_minutes" value="duration_minutes : INTEGER  [NN]" parent="practice_parties" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="duration_minutes: INTEGER">
+                    <mxGeometry x="0" y="128" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_parties-cancelled" value="cancelled : INTEGER  [NN]" parent="practice_parties" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="cancelled: INTEGER; DEFAULT 0">
+                    <mxGeometry x="0" y="156" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_parties-revision" value="revision : INTEGER  [NN]" parent="practice_parties" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="revision: INTEGER; DEFAULT 0">
+                    <mxGeometry x="0" y="184" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_parties-recorded_by" value="recorded_by : TEXT  [FK, NN] → admin_profiles.email" parent="practice_parties" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="recorded_by: TEXT">
+                    <mxGeometry x="0" y="212" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_parties-recorded_at" value="recorded_at : TEXT  [NN]" parent="practice_parties" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="recorded_at: TEXT">
+                    <mxGeometry x="0" y="240" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_parties-request_key" value="request_key : TEXT  [NN]" parent="practice_parties" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="request_key: TEXT">
+                    <mxGeometry x="0" y="268" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_parties-request_hash" value="request_hash : TEXT" parent="practice_parties" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="request_hash: TEXT">
+                    <mxGeometry x="0" y="296" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_parties-last_request_key" value="last_request_key : TEXT" parent="practice_parties" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="last_request_key: TEXT">
+                    <mxGeometry x="0" y="324" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_parties-last_request_hash" value="last_request_hash : TEXT" parent="practice_parties" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="last_request_hash: TEXT">
+                    <mxGeometry x="0" y="352" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_attendance-id" value="id : INTEGER  [PK]" parent="practice_attendance" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="id: INTEGER">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_attendance-student_id" value="student_id : INTEGER  [FK, NN] → students.id" parent="practice_attendance" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="student_id: INTEGER">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_attendance-practice_id" value="practice_id : INTEGER  [FK, NN] → practice_parties.id" parent="practice_attendance" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="practice_id: INTEGER">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_attendance-recorded_by" value="recorded_by : TEXT  [FK, NN] → admin_profiles.email" parent="practice_attendance" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="recorded_by: TEXT">
+                    <mxGeometry x="0" y="128" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_attendance-recorded_at" value="recorded_at : TEXT  [NN]" parent="practice_attendance" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="recorded_at: TEXT">
+                    <mxGeometry x="0" y="156" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_attendance-notes" value="notes : TEXT  [NN]" parent="practice_attendance" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="notes: TEXT; DEFAULT ''">
+                    <mxGeometry x="0" y="184" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_attendance-donation_amount_minor" value="donation_amount_minor : INTEGER" parent="practice_attendance" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="donation_amount_minor: INTEGER">
+                    <mxGeometry x="0" y="212" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_attendance-donation_paid_on" value="donation_paid_on : TEXT" parent="practice_attendance" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="donation_paid_on: TEXT">
+                    <mxGeometry x="0" y="240" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_attendance-donation_notes" value="donation_notes : TEXT  [NN]" parent="practice_attendance" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="donation_notes: TEXT; DEFAULT ''">
+                    <mxGeometry x="0" y="268" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_attendance-donation_recorded_by" value="donation_recorded_by : TEXT  [FK] → admin_profiles.email" parent="practice_attendance" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="donation_recorded_by: TEXT">
+                    <mxGeometry x="0" y="296" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_attendance-donation_recorded_at" value="donation_recorded_at : TEXT" parent="practice_attendance" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="donation_recorded_at: TEXT">
+                    <mxGeometry x="0" y="324" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="practice_attendance-donation_given_to_school" value="donation_given_to_school : INTEGER  [NN]" parent="practice_attendance" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="donation_given_to_school: INTEGER; DEFAULT 0">
+                    <mxGeometry x="0" y="352" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="school_payment_records-id" value="id : INTEGER" parent="school_payment_records" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="id: INTEGER">
+                    <mxGeometry x="0" y="44" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="school_payment_records-purpose" value="purpose : derived" parent="school_payment_records" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="purpose: derived">
+                    <mxGeometry x="0" y="72" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="school_payment_records-practice_id" value="practice_id : INT" parent="school_payment_records" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="practice_id: INT">
+                    <mxGeometry x="0" y="100" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="school_payment_records-practice_description" value="practice_description : derived" parent="school_payment_records" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="practice_description: derived">
+                    <mxGeometry x="0" y="128" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="school_payment_records-student_id" value="student_id : INTEGER" parent="school_payment_records" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="student_id: INTEGER">
+                    <mxGeometry x="0" y="156" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="school_payment_records-paid_on" value="paid_on : TEXT" parent="school_payment_records" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="paid_on: TEXT">
+                    <mxGeometry x="0" y="184" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="school_payment_records-amount_minor" value="amount_minor : INTEGER" parent="school_payment_records" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="amount_minor: INTEGER">
+                    <mxGeometry x="0" y="212" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="school_payment_records-recorded_by" value="recorded_by : TEXT" parent="school_payment_records" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#fff7ed;overflow=hidden;" tooltip="recorded_by: TEXT">
+                    <mxGeometry x="0" y="240" width="560" height="28" as="geometry" />
+                </mxCell>
+                <mxCell id="school_payment_records-given_to_school" value="given_to_school : INTEGER" parent="school_payment_records" vertex="1" style="text;html=0;align=left;verticalAlign=middle;spacingLeft=12;fontFamily=Helvetica;fontSize=12;fillColor=#ffffff;overflow=hidden;" tooltip="given_to_school: INTEGER">
+                    <mxGeometry x="0" y="268" width="560" height="28" as="geometry" />
                 </mxCell>
             </root>
         </mxGraphModel>

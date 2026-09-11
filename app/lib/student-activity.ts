@@ -4,7 +4,7 @@ export type AttendanceLog = { id: number; courseId: number; courseName: string; 
 export type ActivitySummary = { eventAttendanceCount?: number; donationsMinor?: number; missedClasses: number; attendanceCount: number; paymentCount: number; paidAllowance: number; remainingAllowance: number; excessAttendance: number; totalPaidMinor: number };
 export type StudentActivity = {
   canRecordFuturePayments: boolean;
-  logs: { id: number; kind: "attendance" | "payment" | "missed" | "cancelled" | "practice_attendance" | "practice_donation"; practiceId?: number; voidedAt?: string | null; givenToSchool?: number; complimentary?: number; complimentaryBy?: string | null; complimentaryAt?: string | null; courseId?: number | null; eventDate: string; courseName: string | null; amountMinor: number | null; notes: string; recordedBy: string; recordedAt: string | null; allocations: { courseId: number; courseName: string; allowance: number; coverage?: PaymentCoverage }[] }[];
+  logs: { id: number; kind: "attendance" | "payment" | "missed" | "cancelled" | "practice_attendance"; practiceId?: number; voidedAt?: string | null; givenToSchool?: number; complimentary?: number; complimentaryBy?: string | null; complimentaryAt?: string | null; courseId?: number | null; eventDate: string; courseName: string | null; amountMinor: number | null; notes: string; recordedBy: string; recordedAt: string | null; allocations: { courseId: number; courseName: string; allowance: number; coverage?: PaymentCoverage }[] }[];
   logsPage: number;
   logsPageSize: number;
   logsCount: number;

@@ -39,16 +39,13 @@ export async function GET(request: Request, context: Context) {
         FROM student_payments p WHERE student_id = ?
       ) ORDER BY eventDate DESC, eventTime DESC, recordedAt DESC, kind DESC, id DESC LIMIT ? OFFSET ?`).bind(id, id, logsPage * logsPageSize, 0),
     ]);
-    const eventRows = await db.prepare(`SELECT * FROM (
-      SELECT a.id, 'practice_attendance' AS kind, s.id AS practiceId, s.starts_at AS eventDate,
-      'Practice party' AS courseName, NULL AS amountMinor, a.notes || CASE WHEN a.voided_at IS NULL THEN '' ELSE ' · Corrected: ' || a.void_reason END AS notes,
-      a.recorded_by AS recordedBy, a.recorded_at AS recordedAt, a.voided_at AS voidedAt
+    const eventRows = await db.prepare(`SELECT a.id, 'practice_attendance' AS kind, s.id AS practiceId, s.starts_at AS eventDate,
+      'Practice party' AS courseName, a.donation_amount_minor AS amountMinor,
+      a.notes || CASE WHEN a.donation_amount_minor IS NULL THEN '' ELSE ' · Donation: ' || a.donation_notes END AS notes,
+      a.recorded_by AS recordedBy, a.recorded_at AS recordedAt, NULL AS voidedAt
       FROM practice_attendance a JOIN practice_parties s ON s.id = a.practice_id WHERE a.student_id = ?
-      UNION ALL SELECT p.id, 'practice_donation', p.practice_id, p.paid_on, 'Practice party · ' || s.starts_at, p.amount_minor,
-      p.notes, p.recorded_by, p.recorded_at, NULL
-      FROM practice_donations p JOIN practice_parties s ON s.id = p.practice_id WHERE p.student_id = ?
-    ) ORDER BY eventDate DESC, recordedAt DESC, kind DESC, id DESC`).bind(id, id).all<Omit<StudentActivity["logs"][number], "allocations">>();
-    const eventLogs: StudentActivity["logs"] = eventRows.results.map(row => ({ ...row, complimentary: row.kind === 'practice_attendance' ? 1 : 0, allocations: [] }));
+      ORDER BY s.starts_at DESC, a.recorded_at DESC, a.id DESC`).bind(id).all<Omit<StudentActivity["logs"][number], "allocations">>();
+    const eventLogs: StudentActivity["logs"] = eventRows.results.map(row => ({ ...row, complimentary: 1, allocations: [] }));
     const creditData = await db.batch([
       db.prepare("SELECT course_id AS courseId, day_of_week AS day, start_time AS startTime FROM course_schedule"),
       db.prepare("SELECT course_id AS courseId, class_date AS classDate, start_time AS startTime, cancelled FROM classes"),
@@ -76,7 +73,7 @@ export async function GET(request: Request, context: Context) {
     const payments = (results[2].results as Omit<StudentActivity["payments"][number], "allocations">[]).map((p) => ({ ...p, allocations: allocations.filter((a) => a.paymentId === p.id).map(({ courseId, courseName, allowance }) => ({ courseId, courseName, allowance })) }));
     const recordedLogs: StudentActivity["logs"] = (results[6].results as (Omit<StudentActivity["logs"][number], "allocations"> & { allocations: string; eventTime: string })[]).map((row) => ({ ...row, eventDate: row.eventTime, allocations: (JSON.parse(row.allocations) as StudentActivity["logs"][number]["allocations"]).map((allocation) => ({ ...allocation, coverage: coverage.get(`${row.id}:${allocation.courseId}`) })) }));
     summary.eventAttendanceCount = eventLogs.filter(r => r.kind === 'practice_attendance' && !r.voidedAt).length;
-    summary.donationsMinor = eventLogs.filter(r => r.kind === 'practice_donation' && !r.voidedAt).reduce((sum, r) => sum + (r.amountMinor ?? 0), 0);
+    summary.donationsMinor = eventLogs.filter(r => r.kind === 'practice_attendance').reduce((sum, r) => sum + (r.amountMinor ?? 0), 0);
     summary.totalPaidMinor += summary.donationsMinor;
     // Merge calculated absences before pagination so no entries are skipped between pages.
     const logs = [...recordedLogs, ...calculatedLogs, ...eventLogs].sort((a, b) =>
