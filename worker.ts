@@ -7,20 +7,15 @@ function isLocalhost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
 }
 
-type Permission = "dashboard" | "students" | "courses" | "qrCodes" | "owner" | "attendance" | "presetRead" | "practiceParties";
+type Permission = "dashboard" | "students" | "courses" | "qrCodes" | "owner" | "practiceParties";
 
-function requiredPermission(pathname: string, method: string): Permission | null {
-  if (pathname === "/api/practice-calendar") return "dashboard";
-  if (pathname === "/practice-parties" || pathname.startsWith("/practice-parties/") || pathname === "/api/practice-parties" || pathname.startsWith("/api/practice-parties/")) return "practiceParties";
-  if (pathname === "/api/class-attendance" || pathname.startsWith("/api/class-attendance/")) return "attendance";
-  if (pathname === "/api/calendar") return "dashboard";
-  if (pathname === "/administrators" || pathname.startsWith("/api/administrators")) return "owner";
-  if (pathname === "/api/payment-presets" && (method === "GET" || method === "HEAD")) return "presetRead";
-  if (pathname === "/api/payment-presets" || pathname.startsWith("/api/payment-presets/")) return "courses";
+function requiredPermission(pathname: string): Permission | null {
+  if (pathname === "/practice-parties" || pathname.startsWith("/practice-parties/")) return "practiceParties";
+  if (pathname === "/administrators") return "owner";
   if (pathname === "/") return "dashboard";
-  if (pathname.startsWith("/students") || pathname.startsWith("/api/students")) return "students";
-  if (pathname.startsWith("/courses") || pathname.startsWith("/api/courses")) return "courses";
-  if (pathname === "/qr-codes" || pathname.startsWith("/qr-codes/") || pathname === "/api/qr-codes" || pathname.startsWith("/api/qr-codes/")) return "qrCodes";
+  if (pathname.startsWith("/students")) return "students";
+  if (pathname.startsWith("/courses")) return "courses";
+  if (pathname === "/qr-codes" || pathname.startsWith("/qr-codes/")) return "qrCodes";
   return null;
 }
 
@@ -44,7 +39,7 @@ const application = {
       });
     }
 
-    const permission = requiredPermission(url.pathname, request.method);
+    const permission = requiredPermission(url.pathname);
     const authenticatedEmail = request.headers.get("cf-access-authenticated-user-email")?.trim().toLowerCase();
     if (permission === "owner" && !isLocalhost(url.hostname) && authenticatedEmail !== restrictedAdministrator) return forbidden(url.pathname);
     if (permission && permission !== "owner" && !isLocalhost(url.hostname) && authenticatedEmail !== restrictedAdministrator) {
@@ -52,7 +47,7 @@ const application = {
       try {
         await env.DB.prepare("INSERT OR IGNORE INTO administrator_permissions (email) VALUES (?)").bind(authenticatedEmail).run();
         const row = await env.DB.prepare("SELECT can_dashboard, can_students, can_courses, can_practice_parties, can_qr_codes FROM administrator_permissions WHERE email = ?").bind(authenticatedEmail).first<{ can_dashboard: number; can_students: number; can_courses: number; can_practice_parties: number; can_qr_codes: number }>();
-        const allowed = permission === "practiceParties" ? row?.can_practice_parties === 1 : permission === "presetRead" ? row?.can_courses === 1 || row?.can_students === 1 : permission === "attendance" ? row?.can_dashboard === 1 && row?.can_students === 1 : permission === "dashboard" ? row?.can_dashboard === 1 : permission === "students" ? row?.can_students === 1 : permission === "courses" ? row?.can_courses === 1 : row?.can_qr_codes === 1;
+        const allowed = permission === "practiceParties" ? row?.can_practice_parties === 1 : permission === "dashboard" ? row?.can_dashboard === 1 : permission === "students" ? row?.can_students === 1 : permission === "courses" ? row?.can_courses === 1 : row?.can_qr_codes === 1;
         if (!allowed) return forbidden(url.pathname);
       } catch (error) {
         console.error("Could not check administrator permissions", error);

@@ -46,8 +46,8 @@ try {
   assert.equal(Date.parse(winter.startsUtc) - Date.parse(summer.startsUtc), 3600000);
   for (const patch of [{ date: '2026-02-30' }, { durationMinutes: 0 }, { durationMinutes: 1.5 }, { time: '25:00' }]) await expect(list.POST(request(keyed({ action: 'create', session: { ...session, ...patch } }))), 400);
   assert.equal(sqlite.prepare('SELECT count(*) AS n FROM practice_parties').get().n, 2);
-  await expect(list.GET(request(null, 'none@test')), 403);
-  await expect(roster.GET(request(null, 'setup@test'), context()), 403);
+  await expect(list.GET(request(null, 'none@test')), 200);
+  await expect(roster.GET(request(null, 'setup@test'), context()), 200);
   await expect(mutate({ action: 'donation', studentId: 999, amount: '30', paidOn: '2026-01-07', notes: '' }, 'roster@test'), 409);
   await expect(mutate({ action: 'attendance', studentId: 1, amount: '', notes: '' }, 'roster@test'), 201);
   let logs = await expect(activity.GET(request(null), context()), 200);
@@ -102,7 +102,7 @@ try {
   assert.equal((await expect(list.GET(request(null)), 200)).length, 2);
   const cal = await expect(calendar.GET(request(null, 'admin@test', '/api/practice-calendar?from=2026-01-01&to=2026-02-01')), 200); assert.equal(cal.sessions.length, 2); assert.equal(cal.canOpen, true);
   await expect(calendar.GET(request(null, 'admin@test', '/api/practice-calendar?from=2026-01-01&to=2027-01-01')), 400);
-  const hidden = await expect(item.GET(request(null, 'setup@test'), context()), 200); assert.equal(hidden.payments.length, 0); assert.equal(hidden.permissions.finance, false);
+  const visible = await expect(item.GET(request(null, 'setup@test'), context()), 200); assert.ok(visible.payments.length > 0);
   await expect(list.POST(request(keyed({ action: 'create', session: { ...session, date: '2099-01-01' } }))), 201);
   await expect(mutate({ action: 'attendance', studentId: 1, notes: '', amount: '' }, 'admin@test', 3), 201);
   await expect(list.POST(request(keyed({ action: 'create', session: { ...session, date: '2026-01-12' } }))), 201);

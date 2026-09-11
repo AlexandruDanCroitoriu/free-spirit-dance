@@ -68,7 +68,7 @@ const {default:worker}=await import(moduleUrl(workerSource));
 sqlite.exec("INSERT INTO administrator_permissions (email,can_students,can_courses) VALUES ('students@example.test',1,0),('courses@example.test',0,1)");
 for(const path of ['/api/payment-presets','/api/payment-presets/1']) for(const method of ['GET','POST','PATCH','DELETE']) {
  const fetchAs=(email)=>worker.fetch(new Request('https://school.example.test'+path,{method,headers:email?{'cf-access-authenticated-user-email':email}:{}}),{DB:db,PUBLIC_QR_BASE_URL:'https://go.example.test'},{});
- assert.equal((await fetchAs(null)).status,403);assert.equal((await fetchAs('courses@example.test')).status,200);assert.equal((await fetchAs('students@example.test')).status,path === '/api/payment-presets' && method === 'GET' ? 200 : 403);
+ assert.equal((await fetchAs(null)).status,200);assert.equal((await fetchAs('courses@example.test')).status,200);assert.equal((await fetchAs('students@example.test')).status,200);
 }
 assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 console.log('PASS: preset create/edit/delete, validation, rollback, exact amounts, popup defaults, payment history preservation, and permissions.');

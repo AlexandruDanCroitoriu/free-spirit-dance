@@ -10,9 +10,7 @@ export async function eventAccess(request: Request) {
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(new URL(request.url).hostname);
   const email = request.headers.get('cf-access-authenticated-user-email')?.trim().toLowerCase() || (local ? 'administrator@local' : '');
   if (!email) throw new EventError('Sign in to manage practice parties.', 401);
-  if (local || email === 'croitoriu.alexandru.code@gmail.com') return { email, events: true, roster: true, finance: true, dashboard: true };
-  const row = await env.DB.prepare('SELECT can_practice_parties, can_students, can_dashboard FROM administrator_permissions WHERE email = ?').bind(email).first<{ can_practice_parties: number; can_students: number; can_dashboard: number }>();
-  return { email, events: row?.can_practice_parties === 1, roster: row?.can_practice_parties === 1 && row?.can_students === 1, finance: row?.can_practice_parties === 1 && row?.can_students === 1, dashboard: row?.can_dashboard === 1 };
+  return { email };
 }
 export async function eventHandler(work: () => Promise<Response>) {
   try { return await work(); }
@@ -31,12 +29,12 @@ export async function readEvent(id: number) {
   if (!party) throw new EventError('Practice party not found.', 404);
   return party;
 }
-export async function eventDetail(id: number, access: Awaited<ReturnType<typeof eventAccess>>) {
+export async function eventDetail(id: number) {
   const party = await readEvent(id);
   const changes = await env.DB.prepare('SELECT id, reason, before_json AS beforeJson, after_json AS afterJson, recorded_by AS recordedBy, recorded_at AS recordedAt FROM practice_changes WHERE practice_id = ? ORDER BY id DESC').bind(id).all();
-  const payments = access.finance ? await env.DB.prepare(`SELECT p.id, p.student_id AS studentId, trim(s.first_name || ' ' || s.last_name) AS studentName, p.practice_id AS practiceId, p.amount_minor AS amountMinor, p.paid_on AS paidOn, p.notes, p.recorded_by AS recordedBy, p.given_to_school AS givenToSchool FROM practice_donations p JOIN students s ON s.id = p.student_id WHERE p.practice_id = ? ORDER BY p.paid_on DESC, p.id DESC`).bind(id).all<import('./practice-parties').EventPayment>() : { results: [] };
+  const payments = await env.DB.prepare(`SELECT p.id, p.student_id AS studentId, trim(s.first_name || ' ' || s.last_name) AS studentName, p.practice_id AS practiceId, p.amount_minor AS amountMinor, p.paid_on AS paidOn, p.notes, p.recorded_by AS recordedBy, p.given_to_school AS givenToSchool FROM practice_donations p JOIN students s ON s.id = p.student_id WHERE p.practice_id = ? ORDER BY p.paid_on DESC, p.id DESC`).bind(id).all<import('./practice-parties').EventPayment>();
   const totals = payments.results.reduce((t, p) => ({ receivedMinor: t.receivedMinor + p.amountMinor, givenMinor: t.givenMinor + (p.givenToSchool ? p.amountMinor : 0), pendingMinor: t.pendingMinor + (p.givenToSchool ? 0 : p.amountMinor) }), { receivedMinor: 0, givenMinor: 0, pendingMinor: 0 });
-  return { party, changes: changes.results, payments: payments.results, totals, permissions: access };
+  return { party, changes: changes.results, payments: payments.results, totals };
 }
 
 export async function mutateEvent(request: Request, id?: number) {
@@ -44,15 +42,10 @@ export async function mutateEvent(request: Request, id?: number) {
   if (origin && origin !== new URL(request.url).origin) throw new EventError('Cross-origin writes are not allowed.', 403);
   if (!request.headers.get('Content-Type')?.startsWith('application/json')) throw new EventError('Send JSON practice-party details.', 415);
   const access = await eventAccess(request);
-  if (!access.events) throw new EventError('Practice Parties permission is required.', 403);
   const input = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!input || typeof input.requestKey !== 'string' || !/^[a-zA-Z0-9-]{16,80}$/.test(input.requestKey)) throw new EventError('Invalid save request.');
   const action = input.action;
   if (typeof action !== 'string') throw new EventError('Choose a practice-party action.');
-  if (['attendance', 'attendance_batch', 'void_attendance'].includes(action) && !access.roster) throw new EventError('Practice Parties and Students permissions are required.', 403);
-  if (['donation', 'edit_donation', 'delete_donation', 'handover'].includes(action) || (action === 'attendance' && input.amount) || (action === 'attendance_batch' && Array.isArray(input.donations) && input.donations.length)) {
-    if (!access.finance) throw new EventError('Practice Parties and Students permissions are required.', 403);
-  }
   const db = env.DB, email = access.email, now = new Date().toISOString(), key = input.requestKey;
   const payload = JSON.stringify({ practiceId: id ?? null, input });
   const existing = await db.prepare('SELECT practice_id, payload, recorded_by FROM practice_requests WHERE request_key = ?').bind(key).first<{ practice_id: number; payload: string; recorded_by: string }>();

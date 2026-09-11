@@ -1,8 +1,7 @@
 import { env } from '../../../../lib/storage';
 import { eventAccess, eventHandler, eventJson, EventError, positiveId } from '../../../../lib/practice-parties-server';
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) { return eventHandler(async () => {
-  const access = await eventAccess(request);
-  if (!access.roster) throw new EventError('Practice Parties and Students permissions are required.', 403);
+  await eventAccess(request);
   const id = positiveId(Number((await context.params).id)), url = new URL(request.url);
   if (!await env.DB.prepare('SELECT id FROM practice_parties WHERE id = ?').bind(id).first()) throw new EventError('Practice party not found.', 404);
   const search = (url.searchParams.get('q') ?? '').trim().slice(0, 120);

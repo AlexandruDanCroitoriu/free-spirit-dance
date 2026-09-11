@@ -23,14 +23,16 @@ async function request(path, { qr = 0, email = 'admin@example.com', host = 'admi
     headers: email ? { 'cf-access-authenticated-user-email': email } : {},
   }), env, {});
 }
-test('QR page and management APIs require QR permission independently', async () => {
-  for (const path of ['/qr-codes', '/qr-codes/', '/api/qr-codes', '/api/qr-codes/1', '/api/qr-codes/1/image']) {
+test('page routes require their page permission while shared APIs remain available', async () => {
+  for (const path of ['/qr-codes', '/qr-codes/']) {
     assert.equal((await request(path)).status, 403, path);
     assert.equal((await request(path, { qr: 1 })).status, 200, path);
     assert.equal((await request(path, { email: '' })).status, 403, path);
   }
-  assert.equal((await request('/api/students', { qr: 1 })).status, 403);
-  assert.equal((await request('/api/administrators', { qr: 1 })).status, 403);
+  for (const path of ['/api/qr-codes', '/api/qr-codes/1', '/api/qr-codes/1/image', '/api/students', '/api/administrators']) {
+    assert.equal((await request(path)).status, 200, path);
+    assert.equal((await request(path, { qr: 1 })).status, 200, path);
+  }
 });
 test('authenticated administrators can access images with no page permissions', async () => {
   for (const path of ['/api/student-images/avatar.webp', '/api/qr-code-images/logo.webp', '/api/admin-profile/image']) {
@@ -44,10 +46,10 @@ test('owner and local development keep access; public redirects still work', asy
   assert.equal((await request('/s/example', { email: '', host: 'go.example.com' })).status, 200);
 });
 
-test('payment transfer records require student permission and stay off the public host', async () => {
+test('shared payment records stay off the public host', async () => {
   const path = '/api/students/payments';
-  assert.equal((await request(path)).status, 403);
-  assert.equal((await request(path, { email: '' })).status, 403);
+  assert.equal((await request(path)).status, 200);
+  assert.equal((await request(path, { email: '' })).status, 200);
   assert.equal((await request(path, { host: 'go.example.com' })).status, 404);
   assert.equal((await request(path, { email: 'croitoriu.alexandru.code@gmail.com' })).status, 200);
 });

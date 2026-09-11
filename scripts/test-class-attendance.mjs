@@ -94,10 +94,10 @@ sqlite.exec("INSERT INTO administrator_permissions (email,can_dashboard,can_stud
 const {default:worker}=await import(moduleUrl(readFileSync('worker.ts','utf8').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();').replace('import vinextHandler from "vinext/server/fetch-handler";','const vinextHandler={fetch:()=>new Response("allowed")};')));
 for(const method of ['GET','POST']) for(const email of [null,'dashboard@example.test','students@example.test','courses@example.test','both@example.test']) {
  const response=await worker.fetch(new Request('https://school.example.test/api/class-attendance',{method,headers:email?{'cf-access-authenticated-user-email':email}:{}}),{DB:db,PUBLIC_QR_BASE_URL:'https://go.example.test'},{});
- assert.equal(response.status,email==='both@example.test'?200:403);
+ assert.equal(response.status,200);
 }
 assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
-console.log('PASS: roster grouping, assigned/other/inactive attendance, schedule validation, atomic bulk save, retries, overlapping submissions, distinct class times, balances and authorization.');
+console.log('PASS: roster grouping, assigned/other/inactive attendance, schedule validation, atomic bulk save, retries, overlapping submissions, distinct class times, balances and page-only access.');
 
 for (const endDate of ["", null, undefined]) assert.equal(parseCourse({...validCourse, endDate}).endDate, null);
 
