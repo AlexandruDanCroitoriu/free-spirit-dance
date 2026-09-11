@@ -3,7 +3,7 @@
 import { DashboardWidgetsProvider, DashboardSettings } from "./dashboard-settings";
 import DevelopmentStorage from "./development-storage";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 
 type IconName = "book" | "home" | "qr-code" | "shield" | "users";
 type AdminProfile = { email: string; name: string; picture: string | null };
@@ -35,7 +35,7 @@ function Sidebar({ close, pathname, permissions, profile }: { close?: () => void
 
   return <aside className="flex h-full flex-col bg-slate-900 px-4 pt-4 pb-5 text-stone-100">
     <div className="pb-4"><a className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-slate-800 focus:bg-slate-800 focus:outline-none" href={visibleNavigation[0]?.href ?? "/settings"}><img alt="Free Spirit Dance" className="h-20 w-16 max-w-none shrink-0 object-contain" src="/logo.svg" /><div className="min-w-0"><strong className="block whitespace-nowrap font-sans text-base font-bold">Free Spirit Dance</strong><span className="mt-1 block whitespace-nowrap font-sans text-xs uppercase tracking-wide text-slate-400">Knowledgebase</span></div></a></div>
-    <nav aria-label="Main navigation" className="font-sans text-sm"><p className="m-0 mb-2.5 px-2.5 text-xs font-bold uppercase tracking-widest text-slate-500">Workspace</p>{visibleNavigation.map((item) => { const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href); return <a className={`flex items-center gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-slate-800 focus:bg-slate-800 focus:outline-none ${active ? "bg-slate-700 text-orange-300" : "text-slate-300 hover:text-stone-100 focus:text-stone-100"}`} href={item.href} key={item.href} onClick={close}><Icon name={item.icon} />{item.label}</a>; })}</nav>
+    <nav aria-label="Main navigation" className="font-sans text-sm"><p className="m-0 mb-2.5 px-2.5 text-xs font-bold uppercase tracking-widest text-slate-500">Workspace</p>{visibleNavigation.map((item) => { const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href); return <Fragment key={item.href}>{item.permission === "administrators" && <p className="m-0 mt-6 mb-2.5 px-2.5 text-xs font-bold uppercase tracking-widest text-slate-500">Main administrator</p>}<a className={`flex items-center gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-slate-800 focus:bg-slate-800 focus:outline-none ${active ? "bg-slate-700 text-orange-300" : "text-slate-300 hover:text-stone-100 focus:text-stone-100"}`} href={item.href} onClick={close}><Icon name={item.icon} />{item.label}</a></Fragment>; })}</nav>
     <DevelopmentStorage />
     <div className="relative mt-auto border-t border-slate-700 pt-4">
       {userMenuOpen && <div className="absolute bottom-24 left-0 right-0 rounded-xl border border-slate-600 bg-slate-800 p-2 shadow-2xl md:bottom-20 md:rounded-lg md:p-1">

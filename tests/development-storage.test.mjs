@@ -28,8 +28,8 @@ test('database and images switch together, defaulting to local only in developme
   assert.deepEqual(await (await request({ development: false, cookie: 'fsd-storage=local' })).json(), { db: 'production-db', images: 'production-images' });
   assert.equal((await request()).headers.get('Cache-Control'), 'no-store');
 });
-test('other accounts and hostnames cannot select production during development', async () => {
-  for (const overrides of [{ email: 'other@example.com' }, { host: 'untrusted.example.com' }]) {
+test('unauthenticated requests and other hostnames cannot select production during development', async () => {
+  for (const overrides of [{ email: '' }, { host: 'untrusted.example.com' }]) {
     assert.deepEqual(await (await request({ ...overrides, cookie: 'fsd-storage=production' })).json(), { db: 'local-db', images: 'local-images' });
     assert.deepEqual(await (await request({ ...overrides, path: '/api/development-storage' })).json(), { available: false });
   }
@@ -71,4 +71,35 @@ test('localhost has main administrator identity and can switch without signing i
     assert.deepEqual(await (await request({ ...options, development: false, path: '/api/local-identity-test' })).json(), { email: '' });
     assert.deepEqual(await (await request({ ...options, development: false, path: '/api/development-storage' })).json(), { available: false });
   }
+});
+
+test('other tunnel administrators retain production storage regardless of owner cookies', async () => {
+  for (const cookie of ['', 'fsd-storage=local', 'fsd-storage=production']) {
+    const options = { email: 'other@example.com', cookie };
+    assert.deepEqual(await (await request(options)).json(), { db: 'production-db', images: 'production-images' });
+    assert.deepEqual(await (await request({ ...options, path: '/api/development-storage' })).json(), { available: false });
+    assert.deepEqual(await (await request({ ...options, path: '/api/development-storage', method: 'POST', origin: 'https://dev-free-spirit-dance.alexandru-croitoriu.dev', body: { selected: 'local' } })).json(), { available: false });
+  }
+});
+
+test('tunnel page authorization reads granted production permissions instead of empty local permissions', async () => {
+  const checkedStores = [];
+  const database = (name, students) => ({ prepare: () => ({ bind: () => ({
+    run: async () => {},
+    first: async () => {
+      checkedStores.push(name);
+      return { can_students: students, can_courses: 0 };
+    },
+  }) }) });
+  const env = {
+    LOCAL_STORAGE_ENABLED: 'true', LOCAL_DB: database('local', 0), LOCAL_IMAGES: 'local-images',
+    DB: database('production', 1), STUDENT_IMAGES: 'production-images', PUBLIC_QR_BASE_URL: 'https://go.example.com',
+  };
+  for (const [path, status] of [['/students', 200], ['/courses', 403], ['/administrators', 403]]) {
+    const response = await exports.default.fetch(new Request('https://dev-free-spirit-dance.alexandru-croitoriu.dev' + path, {
+      headers: { 'cf-access-authenticated-user-email': 'other@example.com', Cookie: 'fsd-storage=local' },
+    }), env, {});
+    assert.equal(response.status, status, path);
+  }
+  assert.deepEqual(checkedStores, ['production', 'production']);
 });

@@ -74,7 +74,11 @@ export default {
     const email = request.headers.get("cf-access-authenticated-user-email")?.trim().toLowerCase();
     const canSwitch = development && email === restrictedAdministrator &&
       (url.hostname === "dev-free-spirit-dance.alexandru-croitoriu.dev" || isLocalhost(url.hostname));
-    const selected = canSwitch && /(?:^|;\s*)fsd-storage=production(?:;|$)/.test(request.headers.get("Cookie") ?? "") ? "production" : "local";
+    // Other tunnel administrators use the same permissions and records as production.
+    // Only the owner can opt into the separate local development store.
+    const tunnelAdministrator = development && url.hostname === "dev-free-spirit-dance.alexandru-croitoriu.dev" &&
+      Boolean(email) && email !== restrictedAdministrator;
+    const selected = tunnelAdministrator || (canSwitch && /(?:^|;\s*)fsd-storage=production(?:;|$)/.test(request.headers.get("Cookie") ?? "")) ? "production" : "local";
     if (url.pathname === "/api/development-storage") {
       const headers = new Headers({ "Cache-Control": "no-store" });
       if (!canSwitch) return Response.json({ available: false }, { headers });
