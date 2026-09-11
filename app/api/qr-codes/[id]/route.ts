@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { env } from "../../../lib/storage";
 
 import { serialize, validate, type QrCodeRow } from "../../../lib/qr-codes";
 

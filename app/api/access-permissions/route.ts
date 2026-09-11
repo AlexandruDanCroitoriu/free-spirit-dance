@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { env } from "../../lib/storage";
 
 const ownerEmail = "croitoriu.alexandru.code@gmail.com";
 

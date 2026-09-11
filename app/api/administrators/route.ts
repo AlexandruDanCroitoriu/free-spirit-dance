@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { env } from "../../lib/storage";
 
 type PermissionRow = { email: string; can_dashboard: number; can_students: number; can_courses: number; can_payments: number; can_qr_codes: number };
 function serialize(row: PermissionRow) { return { email: row.email, dashboard: row.can_dashboard === 1, students: row.can_students === 1, courses: row.can_courses === 1, payments: row.can_payments === 1, qrCodes: row.can_qr_codes === 1 }; }

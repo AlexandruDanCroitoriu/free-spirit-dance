@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { env } from "../../../lib/storage";
 
 export async function GET(_request: Request, context: { params: Promise<{ key: string }> }) {
   const key = decodeURIComponent((await context.params).key);

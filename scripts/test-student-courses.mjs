@@ -34,7 +34,7 @@ function moduleUrl(source) {
   return "data:text/javascript;base64," + Buffer.from(js).toString("base64");
 }
 
-const api = await import(moduleUrl(readFileSync("app/api/students/[id]/courses/route.ts", "utf8").replace('import { env } from "cloudflare:workers";', 'const env = globalThis.studentCoursesTestEnv;')));
+const api = await import(moduleUrl(readFileSync("app/api/students/[id]/courses/route.ts", "utf8").replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/, 'const env = globalThis.studentCoursesTestEnv;')));
 const context = (id) => ({ params: Promise.resolve({ id: String(id) }) });
 const request = (body) => new Request("https://example.test/api/students/1/courses", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 sqlite.exec("INSERT INTO students (first_name,last_name,email) VALUES ('A','Test','a@example.test'),('B','Test','b@example.test'); INSERT INTO courses (name) VALUES ('Zouk'),('Basics'),('Practice')");
@@ -60,7 +60,7 @@ assert.deepEqual(assigned(),[]);
 assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 console.log('PASS: multiple assignments, updates, removal, validation, rollback, student isolation and deletion constraints.');
 
-const studentsApi = await import(moduleUrl(readFileSync("app/api/students/route.ts", "utf8").replace('import { env } from "cloudflare:workers";', 'const env = globalThis.studentCoursesTestEnv;')));
+const studentsApi = await import(moduleUrl(readFileSync("app/api/students/route.ts", "utf8").replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/, 'const env = globalThis.studentCoursesTestEnv;')));
 const create = (extra) => studentsApi.POST(new Request("https://example.test/api/students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firstName: "New", lastName: "Student", email: "", phone: "", ...extra }) }));
 const created = await create({courseIds:[1,2,3]});
 assert.equal(created.status,201);

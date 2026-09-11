@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "free-spirit-dance-local",
+  "compatibility_date": "2026-09-03",
+  "d1_databases": [
+    {
+      "binding": "LOCAL_DB",
+      "database_name": "free-spirit-dance-local",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "remote": false,
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "LOCAL_IMAGES",
+      "bucket_name": "free-spirit-dance-local-images",
+      "remote": false
+    }
+  ]
+}

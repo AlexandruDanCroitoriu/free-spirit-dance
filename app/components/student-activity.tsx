@@ -1,5 +1,6 @@
 "use client";
 
+import PaymentTransferCheckbox from "./payment-transfer-checkbox";
 import { useEffect, useRef, useState } from "react";
 import { activityLogPageSize, activityLogPageSizes, formatLogDate, formatMoney, schoolToday, type StudentActivity as Activity } from "../lib/student-activity";
 import { presetDraft, type PaymentPreset } from "../lib/payment-presets";
@@ -57,11 +58,13 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
     window.addEventListener("student-courses-updated", refresh);
     window.addEventListener("calendar-updated", refreshActivity);
     window.addEventListener("student-activity-updated", refreshActivity);
+    window.addEventListener("payment-transfer-updated", refreshActivity);
     window.addEventListener("focus", refreshActivity);
     return () => {
       window.removeEventListener("student-courses-updated", refresh);
       window.removeEventListener("calendar-updated", refreshActivity);
       window.removeEventListener("student-activity-updated", refreshActivity);
+      window.removeEventListener("payment-transfer-updated", refreshActivity);
       window.removeEventListener("focus", refreshActivity);
     };
   }, [studentId]);
@@ -207,7 +210,7 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
           <table className="w-full text-left font-sans text-sm">
             <caption className="sr-only">Student activity log, newest events first. Green lines connect payments to covered attendance on this page.</caption>
             <thead className="bg-stone-50 text-xs text-slate-500">
-              <tr>{["Type", "Date", "Class", "Attendances added", "Recorded by", "Actions"].map((label) => <th key={label} scope="col" className="px-3 py-3 font-semibold">{label}</th>)}</tr>
+              <tr>{["Type", "Date", "Class", "Attendances added", "Recorded by", "School transfer", "Actions"].map((label) => <th key={label} scope="col" className="px-3 py-3 font-semibold">{label}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
               {data.logs.map((row, rowIndex) => <tr key={`${row.kind}-${row.id}-${row.eventDate}`} className="align-top">
@@ -222,9 +225,10 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
                 <td className="px-3 py-4">{row.kind === "payment" ? row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1">{allocation.courseName}</p>) : row.courseName}</td>
                 <td className="px-3 py-4">{row.kind === "payment" ? row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1 whitespace-nowrap">Next {allocation.allowance} classes</p>) : row.kind === "missed" ? <span className="whitespace-nowrap text-amber-800">1 missed</span> : row.kind === "cancelled" ? <span className="whitespace-nowrap text-slate-500">Cancelled · no credit used</span> : row.complimentary ? <span className="whitespace-nowrap text-lime-700">Free attendance{row.complimentaryBy && <span className="mt-1 block max-w-40 truncate text-xs text-slate-500" title={`Granted by ${row.complimentaryBy}`}>Granted by {row.complimentaryBy}</span>}{row.complimentaryAt && <time className="mt-1 block whitespace-nowrap text-xs text-slate-500" dateTime={row.complimentaryAt}>{formatLogDate(row.complimentaryAt)}</time>}</span> : "1 attended"}</td>
                 <td className="px-3 py-4 text-xs text-slate-500"><span className="block max-w-40 truncate" title={row.recordedBy}>{row.recordedBy}</span>{row.recordedAt && <time className="mt-1 block whitespace-nowrap" dateTime={row.recordedAt}>{formatLogDate(row.recordedAt)}</time>}</td>
+                <td className="px-3 py-4">{row.kind === "payment" ? <PaymentTransferCheckbox paymentId={row.id} studentId={studentId} checked={row.givenToSchool === 1} disabled={loading || busy} /> : "—"}</td>
                 <td className="px-3 py-4">{row.kind === "payment" ? <button type="button" className={button + " whitespace-nowrap"} disabled={loading || busy} onClick={() => editPayment(row)}>Edit payment</button> : row.kind === "missed" || row.kind === "cancelled" ? <span className="text-slate-400">—</span> : <button type="button" aria-label={`Free attendance for ${row.courseName} on ${formatLogDate(row.eventDate.slice(0, 10))}`} aria-pressed={row.complimentary === 1} disabled={loading || busy || !row.courseId} onClick={() => void toggleFreeAttendance(row)} className={`${button.replace("bg-white", "").replace("border-stone-300", "")} whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-green-600 ${row.complimentary === 1 ? "border-green-600 bg-green-600 text-white hover:bg-green-700" : "border-stone-300 bg-white text-slate-600 hover:border-green-500"}`}>{row.complimentary === 1 ? "✓ Free attendance" : "Free attendance"}</button>}</td>
               </tr>)}
-              {!data.logs.length && <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-500">No attendance or payment logs yet.</td></tr>}
+              {!data.logs.length && <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-500">No attendance or payment logs yet.</td></tr>}
             </tbody>
           </table>
         </div>

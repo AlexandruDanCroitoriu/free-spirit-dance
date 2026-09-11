@@ -13,7 +13,11 @@ npm run dev
 
 `npm run dev` starts Vinext on port 3000 and the named tunnel `free-spirit-dance-local`. Open https://dev-free-spirit-dance.alexandru-croitoriu.dev and authenticate through Cloudflare Access with Google.
 
-The current Wrangler configuration uses **remote D1 and R2 bindings**, including during development. Changes made in the development app affect those configured resources. The automated tests use isolated SQLite databases and synthetic records.
+Local development defaults to persistent **local SQLite and local image storage** under the ignored `.wrangler/state` directory. `npm run dev` first applies pending migrations to the local database only. You can also run `npm run db:local:migrate` separately.
+
+When signed in through the development tunnel as `croitoriu.alexandru.code@gmail.com`, the sidebar shows **Local / Production**. Production uses the live D1 database and R2 images, including for writes. The selection is saved in a session cookie for that browser; switching reloads the dashboard and other open tabs. Finish or discard edits before switching. Plain localhost (including 127.0.0.1 and ::1) acts as the main administrator during local development, including the storage switch and administrator attribution. Other administrators using the tunnel use local storage. The deployed app always uses production and has no switch.
+
+Local storage starts empty; switching does not copy or import production records. To import a compatible SQL file locally, use `npx wrangler d1 execute LOCAL_DB --local --config wrangler.local.json --file /path/to/import.sql`. Keep private imports outside Git. The built preview (`npm run start`) uses production bindings; the switch is available in `npm run dev` only.
 
 On a new machine, run `cloudflared tunnel login`, securely transfer the tunnel credentials, and create `~/.cloudflared/config.yml` outside this repository:
 

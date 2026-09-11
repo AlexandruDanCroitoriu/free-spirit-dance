@@ -37,7 +37,7 @@ function moduleUrl(source) {
 
 
 const helper=moduleUrl(readFileSync('app/lib/courses.ts','utf8'));
-const api=await import(moduleUrl(readFileSync('app/api/courses/[id]/route.ts','utf8').replace('import { env } from "cloudflare:workers";','const env = globalThis.activityTestEnv;').replace('"../../../lib/courses"',JSON.stringify(helper))));
+const api=await import(moduleUrl(readFileSync('app/api/courses/[id]/route.ts','utf8').replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/,'const env = globalThis.activityTestEnv;').replace('"../../../lib/courses"',JSON.stringify(helper))));
 const context={params:Promise.resolve({id:'1'})};
 const request=new Request('https://school.example.test/api/courses/1');
 sqlite.exec("INSERT INTO courses (name) VALUES ('Zouk'); INSERT INTO course_schedule (course_id,day_of_week,start_time,end_time) VALUES (1,'Monday','18:00','19:00')");

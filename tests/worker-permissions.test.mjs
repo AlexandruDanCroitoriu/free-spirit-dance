@@ -7,6 +7,7 @@ import { stripTypeScriptTypes } from 'node:module';
 // Exercise the Worker boundary while replacing only the downstream app handler.
 const code = stripTypeScriptTypes(readFileSync(new URL('../worker.ts', import.meta.url), 'utf8'))
   .replace('import vinextHandler from "vinext/server/fetch-handler";', '')
+  .replace('import { withStorage } from "./app/lib/storage";', '')
   .replace('export default', 'exports.default =');
 const exports = {};
 vm.runInNewContext(code, { exports, Request, Response, URL, console,
@@ -41,4 +42,12 @@ test('owner and local development keep access; public redirects still work', asy
   assert.equal((await request('/qr-codes', { email: 'croitoriu.alexandru.code@gmail.com' })).status, 200);
   assert.equal((await request('/qr-codes', { email: '', host: 'localhost' })).status, 200);
   assert.equal((await request('/s/example', { email: '', host: 'go.example.com' })).status, 200);
+});
+
+test('payment transfer records require student permission and stay off the public host', async () => {
+  const path = '/api/students/payments';
+  assert.equal((await request(path)).status, 403);
+  assert.equal((await request(path, { email: '' })).status, 403);
+  assert.equal((await request(path, { host: 'go.example.com' })).status, 404);
+  assert.equal((await request(path, { email: 'croitoriu.alexandru.code@gmail.com' })).status, 200);
 });

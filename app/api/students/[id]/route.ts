@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { env } from "../../../lib/storage";
 
 type StudentRow = { id: number; first_name: string; last_name: string; email: string; phone: string; picture: string | null; active: number };
 

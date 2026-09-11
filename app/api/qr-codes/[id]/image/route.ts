@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { env } from "../../../../lib/storage";
 
 const maxImageBytes = 250_000;
 const allowedTypes = new Map([

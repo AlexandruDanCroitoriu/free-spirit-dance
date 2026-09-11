@@ -36,7 +36,7 @@ function moduleUrl(source) {
 }
 
 
-const api=await import(moduleUrl(readFileSync('app/api/students/route.ts','utf8').replace('import { env } from "cloudflare:workers";','const env = globalThis.activityTestEnv;')));
+const api=await import(moduleUrl(readFileSync('app/api/students/route.ts','utf8').replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/,'const env = globalThis.activityTestEnv;')));
 const req=(email)=>new Request('https://school.test/api/students',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({firstName:'Test',lastName:'Student',email,phone:'',picture:null,active:true})});
 assert.equal((await api.POST(req(''))).status,201);
 assert.equal((await api.POST(req('   '))).status,201);

@@ -39,7 +39,7 @@ const helperUrl = moduleUrl(readFileSync("app/lib/courses.ts", "utf8"));
 const helper = await import(helperUrl);
 async function route(path) {
   return import(moduleUrl(readFileSync(path, "utf8")
-    .replace('import { env } from "cloudflare:workers";', "const env = globalThis.courseTestEnv;")
+    .replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/, "const env = globalThis.courseTestEnv;")
     .replace(/"\.\.\/(?:\.\.\/)*lib\/courses"/g, JSON.stringify(helperUrl))));
 }
 const collection = await route("app/api/courses/route.ts");

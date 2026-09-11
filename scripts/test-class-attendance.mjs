@@ -38,7 +38,7 @@ function moduleUrl(source) {
 const activityUrl=moduleUrl(readFileSync('app/lib/student-activity.ts','utf8'));
 const classUrl=moduleUrl(readFileSync('app/lib/class-attendance.ts','utf8'));
 const {schoolToday}=await import(activityUrl);
-const api=await import(moduleUrl(readFileSync('app/api/class-attendance/route.ts','utf8').replace('import { env } from "cloudflare:workers";','const env = globalThis.activityTestEnv;').replace('"../../lib/class-attendance"',JSON.stringify(classUrl)).replace('"../../lib/student-activity"',JSON.stringify(activityUrl))));
+const api=await import(moduleUrl(readFileSync('app/api/class-attendance/route.ts','utf8').replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/,'const env = globalThis.activityTestEnv;').replace('"../../lib/class-attendance"',JSON.stringify(classUrl)).replace('"../../lib/student-activity"',JSON.stringify(activityUrl))));
 const slot={courseId:1,classDate:'2026-09-09',startTime:'18:30'};
 const request=(extra={},email='croitoriu.alexandru.code@gmail.com')=>new Request('https://school.example.test/api/class-attendance',{method:'POST',headers:{'Content-Type':'application/json',...(email?{'cf-access-authenticated-user-email':email}:{})},body:JSON.stringify({...slot,studentIds:[1,2],...extra})});
 const get=(extra={})=>api.GET(new Request('https://school.example.test/api/class-attendance?'+new URLSearchParams({...slot,...extra})));
@@ -91,7 +91,7 @@ const validCourse={name:'Zouk',startDate:'2026-09-09',endDate:'2026-09-16',sched
 assert.equal(typeof parseCourse(validCourse),'object');
 for(const dates of [{startDate:'2026-02-30'},{endDate:'2026-09-08'},{startDate:''}]) assert.equal(typeof parseCourse({...validCourse,...dates}),'string');
 sqlite.exec("INSERT INTO administrator_permissions (email,can_dashboard,can_students,can_courses) VALUES ('both@example.test',1,1,0),('dashboard@example.test',1,0,0),('students@example.test',0,1,0),('courses@example.test',0,0,1)");
-const {default:worker}=await import(moduleUrl(readFileSync('worker.ts','utf8').replace('import vinextHandler from "vinext/server/fetch-handler";','const vinextHandler={fetch:()=>new Response("allowed")};')));
+const {default:worker}=await import(moduleUrl(readFileSync('worker.ts','utf8').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();').replace('import vinextHandler from "vinext/server/fetch-handler";','const vinextHandler={fetch:()=>new Response("allowed")};')));
 for(const method of ['GET','POST']) for(const email of [null,'dashboard@example.test','students@example.test','courses@example.test','both@example.test']) {
  const response=await worker.fetch(new Request('https://school.example.test/api/class-attendance',{method,headers:email?{'cf-access-authenticated-user-email':email}:{}}),{DB:db,PUBLIC_QR_BASE_URL:'https://go.example.test'},{});
  assert.equal(response.status,email==='both@example.test'?200:403);
@@ -136,7 +136,7 @@ console.log('PASS: complimentary attendance validates grants, records attributio
 sqlite.prepare("INSERT INTO classes (course_id,class_date,start_time,end_time) VALUES (2,?,'12:00','13:00') ON CONFLICT DO NOTHING").run(schoolToday());
 assert.equal((await api.POST(request({ courseId:2, classDate:schoolToday(), startTime:'12:00', studentIds:[3], complimentaryStudentIds:[3] }, 'both@example.test'))).status,200);
 assert.equal(sqlite.prepare("SELECT complimentary FROM attendance WHERE student_id=3 AND course_id=2 AND attended_at=?").get(schoolToday()+'T12:00:00').complimentary,1);
-const activityApi = await import(moduleUrl(readFileSync('app/api/students/[id]/activity/route.ts','utf8').replace('import { env } from "cloudflare:workers";', 'const env = globalThis.activityTestEnv;').replace('"../../../../lib/student-activity"', JSON.stringify(activityUrl))));
+const activityApi = await import(moduleUrl(readFileSync('app/api/students/[id]/activity/route.ts','utf8').replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/, 'const env = globalThis.activityTestEnv;').replace('"../../../../lib/student-activity"', JSON.stringify(activityUrl))));
 const freeActivity = await (await activityApi.GET(new Request('https://school.example.test/api/students/2/activity'), {params:Promise.resolve({id:'2'})})).json();
 assert.ok(freeActivity.logs.some(log=>log.kind==='attendance' && log.complimentary===1 && log.notes==='Trial class'));
 console.log('PASS: ordinary administrator complimentary grants and student log attribution.');

@@ -38,7 +38,7 @@ function moduleUrl(source) {
 const activityUrl = moduleUrl(readFileSync('app/lib/student-activity.ts','utf8'));
 const helperUrl = moduleUrl(readFileSync('app/lib/payment-presets.ts','utf8').replace('"./student-activity"',JSON.stringify(activityUrl)));
 const helper = await import(helperUrl);
-async function route(path) { return import(moduleUrl(readFileSync(path,'utf8').replace('import { env } from "cloudflare:workers";', 'const env = globalThis.presetTestEnv;').replace(/"(?:\.\.\/)+lib\/payment-presets"/g,JSON.stringify(helperUrl)).replace('"../../../../lib/student-activity"',JSON.stringify(activityUrl)))); }
+async function route(path) { return import(moduleUrl(readFileSync(path,'utf8').replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/, 'const env = globalThis.presetTestEnv;').replace(/"(?:\.\.\/)+lib\/payment-presets"/g,JSON.stringify(helperUrl)).replace('"../../../../lib/student-activity"',JSON.stringify(activityUrl)))); }
 const collection=await route('app/api/payment-presets/route.ts');
 const item=await route('app/api/payment-presets/[id]/route.ts');
 const activity=await route('app/api/students/[id]/activity/route.ts');
@@ -63,7 +63,7 @@ assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM payment_preset_courses').
 assert.equal((await item.DELETE(request({}),context(preset.id))).status,404);
 assert.equal((await item.PATCH(request(input),context(999))).status,404);
 assert.equal((await item.DELETE(request({}),context('bad'))).status,400);
-const workerSource=readFileSync('worker.ts','utf8').replace('import vinextHandler from "vinext/server/fetch-handler";','const vinextHandler = { fetch: () => new Response("allowed") };');
+const workerSource=readFileSync('worker.ts','utf8').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();').replace('import vinextHandler from "vinext/server/fetch-handler";','const vinextHandler = { fetch: () => new Response("allowed") };');
 const {default:worker}=await import(moduleUrl(workerSource));
 sqlite.exec("INSERT INTO administrator_permissions (email,can_students,can_courses) VALUES ('students@example.test',1,0),('courses@example.test',0,1)");
 sqlite.exec("INSERT INTO administrator_permissions (email,can_payments) VALUES ('payments@example.test',1)");
@@ -75,9 +75,9 @@ assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 console.log('PASS: preset create/edit/delete, validation, rollback, exact amounts, popup defaults, payment history preservation, and permissions.');
 
 // Permission editing persists independently and is reflected in identity responses.
-const adminUrl = moduleUrl(readFileSync('app/api/administrators/route.ts', 'utf8').replace('import { env } from "cloudflare:workers";', 'const env = globalThis.presetTestEnv;'));
+const adminUrl = moduleUrl(readFileSync('app/api/administrators/route.ts', 'utf8').replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/, 'const env = globalThis.presetTestEnv;'));
 const admins = await import(adminUrl);
-const adminItem = await import(moduleUrl(readFileSync('app/api/administrators/[email]/route.ts', 'utf8').replace('import { env } from "cloudflare:workers";', 'const env = globalThis.presetTestEnv;').replace('"../route"', JSON.stringify(adminUrl))));
+const adminItem = await import(moduleUrl(readFileSync('app/api/administrators/[email]/route.ts', 'utf8').replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/, 'const env = globalThis.presetTestEnv;').replace('"../route"', JSON.stringify(adminUrl))));
 const identity = await route('app/api/access-permissions/route.ts');
 const adminContext = { params: Promise.resolve({ email: 'students@example.test' }) };
 const permissions = { dashboard: false, students: true, courses: false, qrCodes: false, payments: true };

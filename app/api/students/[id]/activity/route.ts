@@ -1,11 +1,11 @@
-import { env } from "cloudflare:workers";
+import { env } from "../../../../lib/storage";
 import { courseCreditBalance, activityPageSize, activityLogPageSize, activityLogPageSizes, parseAmount, validPaymentDate, canRecordFuturePayments, type StudentActivity, type PaymentCoverage } from "../../../../lib/student-activity";
 
 type Context = { params: Promise<{ id: string }> };
 const headers = { "Cache-Control": "no-store" };
 const json = (data: unknown, status = 200) => Response.json(data, { status, headers });
 const attendanceColumns = "id, course_id AS courseId, course_name AS courseName, attended_at AS attendedAt, recorded_by AS recordedBy, recorded_at AS recordedAt, notes";
-const paymentColumns = "id, paid_on AS paidOn, amount_minor AS amountMinor, recorded_by AS recordedBy, recorded_at AS recordedAt, notes";
+const paymentColumns = "id, paid_on AS paidOn, amount_minor AS amountMinor, given_to_school AS givenToSchool, recorded_by AS recordedBy, recorded_at AS recordedAt, notes";
 function page(value: string | null) { const n = Number(value ?? 1); return Number.isSafeInteger(n) && n > 0 && n <= 100000 ? n : null; }
 function actor(request: Request) {
   const email = request.headers.get("cf-access-authenticated-user-email")?.trim().toLowerCase();
@@ -31,10 +31,10 @@ export async function GET(request: Request, context: Context) {
       db.prepare("SELECT COUNT(*) AS paymentCount, COALESCE(SUM(amount_minor), 0) AS totalPaidMinor FROM student_payments WHERE student_id = ?").bind(id),
       db.prepare("SELECT id, name FROM courses ORDER BY name COLLATE NOCASE, id"),
       db.prepare(`SELECT * FROM (
-        SELECT id, complimentary, complimentary_by AS complimentaryBy, complimentary_at AS complimentaryAt, course_id AS courseId, 'attendance' AS kind, substr(attended_at, 1, 10) AS eventDate, attended_at AS eventTime, course_name AS courseName, NULL AS amountMinor, notes, recorded_by AS recordedBy, recorded_at AS recordedAt, '[]' AS allocations
+        SELECT id, NULL AS givenToSchool, complimentary, complimentary_by AS complimentaryBy, complimentary_at AS complimentaryAt, course_id AS courseId, 'attendance' AS kind, substr(attended_at, 1, 10) AS eventDate, attended_at AS eventTime, course_name AS courseName, NULL AS amountMinor, notes, recorded_by AS recordedBy, recorded_at AS recordedAt, '[]' AS allocations
         FROM attendance WHERE student_id = ?
         UNION ALL
-        SELECT p.id, 0 AS complimentary, NULL AS complimentaryBy, NULL AS complimentaryAt, NULL AS courseId, 'payment', paid_on, paid_on, NULL, amount_minor, notes, recorded_by, recorded_at,
+        SELECT p.id, p.given_to_school AS givenToSchool, 0 AS complimentary, NULL AS complimentaryBy, NULL AS complimentaryAt, NULL AS courseId, 'payment', paid_on, paid_on, NULL, amount_minor, notes, recorded_by, recorded_at,
           (SELECT json_group_array(json_object('courseId', a.course_id, 'courseName', a.course_name, 'allowance', a.allowance)) FROM payment_course_allowances a WHERE a.payment_id = p.id)
         FROM student_payments p WHERE student_id = ?
       ) ORDER BY eventDate DESC, eventTime DESC, recordedAt DESC, kind DESC, id DESC LIMIT ? OFFSET ?`).bind(id, id, logsPage * logsPageSize, 0),

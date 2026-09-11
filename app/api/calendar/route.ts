@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { env } from "../../lib/storage";
 import { courseQuery, serializeCourses, type CourseRow } from "../../lib/courses";
 export async function GET() {
   try {

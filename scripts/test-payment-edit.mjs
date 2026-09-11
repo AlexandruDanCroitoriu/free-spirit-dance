@@ -37,7 +37,7 @@ function moduleUrl(source) {
 
 
 const helper=moduleUrl(readFileSync('app/lib/student-activity.ts','utf8'));
-const api=await import(moduleUrl(readFileSync('app/api/students/[id]/activity/route.ts','utf8').replace('import { env } from "cloudflare:workers";','const env = globalThis.activityTestEnv;').replace('"../../../../lib/student-activity"',JSON.stringify(helper))));
+const api=await import(moduleUrl(readFileSync('app/api/students/[id]/activity/route.ts','utf8').replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/,'const env = globalThis.activityTestEnv;').replace('"../../../../lib/student-activity"',JSON.stringify(helper))));
 sqlite.exec("INSERT INTO students (first_name,last_name,email) VALUES ('A','Student','a@test'),('B','Student','b@test'); INSERT INTO courses (name) VALUES ('Zouk'),('Basics')");
 const ctx=(id=1)=>({params:Promise.resolve({id:String(id)})});
 const body={kind:'payment',requestKey:'payment-edit-test-1234',notes:'Original',paidOn:'2026-01-01',amount:'280',allocations:[{courseId:1,allowance:4}]};

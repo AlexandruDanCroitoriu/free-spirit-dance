@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { env } from "../../../../lib/storage";
 
 type Context = { params: Promise<{ id: string }> };
 const headers = { "Cache-Control": "no-store" };

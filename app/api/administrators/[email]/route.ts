@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { env } from "../../../lib/storage";
 import { serialize, type PermissionRow } from "../route";
 
 export async function PATCH(request: Request, context: { params: Promise<{ email: string }> }) {

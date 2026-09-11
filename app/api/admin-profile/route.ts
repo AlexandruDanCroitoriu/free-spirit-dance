@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { env } from "../../lib/storage";
 
 type AdminProfileRow = { email: string; name: string; picture: string | null };
 

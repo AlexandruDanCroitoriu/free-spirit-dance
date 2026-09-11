@@ -40,10 +40,10 @@ function moduleUrl(source) {
 const helperUrl = moduleUrl(readFileSync("app/lib/student-activity.ts", "utf8"));
 const helpers = await import(helperUrl);
 const api = await import(moduleUrl(readFileSync("app/api/students/[id]/activity/route.ts", "utf8")
-  .replace('import { env } from "cloudflare:workers";', 'const env = globalThis.activityTestEnv;')
+  .replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/, 'const env = globalThis.activityTestEnv;')
   .replace('"../../../../lib/student-activity"', JSON.stringify(helperUrl))));
 const classHelper = moduleUrl(readFileSync('app/lib/class-attendance.ts','utf8'));
-const classApi = await import(moduleUrl(readFileSync('app/api/class-attendance/route.ts','utf8').replace('import { env } from "cloudflare:workers";', 'const env = globalThis.activityTestEnv;').replace('"../../lib/class-attendance"',JSON.stringify(classHelper)).replace('"../../lib/student-activity"',JSON.stringify(helperUrl))));
+const classApi = await import(moduleUrl(readFileSync('app/api/class-attendance/route.ts','utf8').replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/, 'const env = globalThis.activityTestEnv;').replace('"../../lib/class-attendance"',JSON.stringify(classHelper)).replace('"../../lib/student-activity"',JSON.stringify(helperUrl))));
 const recordClass = (body) => classApi.POST(request({courseId:body.courseId,classDate:body.classDate,startTime:'18:30',studentIds:[1]}, 'croitoriu.alexandru.code@gmail.com'));
 const context = (id=1) => ({ params: Promise.resolve({ id: String(id) }) });
 const request = (body, email='admin@example.test', url='https://example.test/api/students/1/activity') => new Request(url, { method:'POST', headers: { 'Content-Type':'application/json', ...(email ? {'cf-access-authenticated-user-email':email} : {}) }, body:JSON.stringify(body) });
@@ -103,7 +103,7 @@ assert.throws(()=>sqlite.exec('DELETE FROM courses WHERE id=1'),/FOREIGN KEY/);
 assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 console.log('PASS: unpaid attendance, per-course balances, payment allocations, exact money parsing, validation, atomic rollback, retries, log snapshots, pagination and preserved history.');
 
-const workerSource = readFileSync('worker.ts','utf8').replace('import vinextHandler from "vinext/server/fetch-handler";', 'const vinextHandler = { fetch: () => new Response("allowed") };');
+const workerSource = readFileSync('worker.ts','utf8').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();').replace('import vinextHandler from "vinext/server/fetch-handler";', 'const vinextHandler = { fetch: () => new Response("allowed") };');
 const {default:worker} = await import(moduleUrl(workerSource));
 const workerEnv = { DB:db, PUBLIC_QR_BASE_URL:'https://go.example.test' };
 for (const method of ['GET','POST']) {

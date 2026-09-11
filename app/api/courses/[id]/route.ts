@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { env } from "../../../lib/storage";
 import { courseQuery, scheduleStatements, parseCourse, serializeCourses, type CourseRow } from "../../../lib/courses";
 
 function courseId(value: string) { const id = Number(value); return Number.isInteger(id) && id > 0 ? id : null; }

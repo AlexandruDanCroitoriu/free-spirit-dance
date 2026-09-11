@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { env } from "../../lib/storage";
 import { parseClass, classWeekday, type CalendarClass, type ClassStudent } from "../../lib/class-attendance";
 import { schoolToday } from "../../lib/student-activity";
 const json = (data: unknown, status = 200) => Response.json(data, { status, headers: { "Cache-Control": "no-store" } });

@@ -37,7 +37,7 @@ function moduleUrl(source) {
 
 
 const helper=moduleUrl(readFileSync('app/lib/student-activity.ts','utf8'));
-const api=await import(moduleUrl(readFileSync('app/api/students/balances/route.ts','utf8').replace('import { env } from "cloudflare:workers";','const env = globalThis.activityTestEnv;').replace('"../../../lib/student-activity"',JSON.stringify(helper))));
+const api=await import(moduleUrl(readFileSync('app/api/students/balances/route.ts','utf8').replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/,'const env = globalThis.activityTestEnv;').replace('"../../../lib/student-activity"',JSON.stringify(helper))));
 sqlite.exec(`INSERT INTO admin_profiles (email,name) VALUES ('admin@test','Admin');
 INSERT INTO students (first_name,last_name,email,active) VALUES ('Unpaid','Student','a@test',0),('Paid','Student','b@test',1),('No activity','Student','c@test',1);
 INSERT INTO courses (name,start_date,end_date) VALUES ('Zouk','2020-01-01','2020-01-31'),('Basics','2020-01-01','2020-01-31'),('Future course','2099-01-01',NULL);
