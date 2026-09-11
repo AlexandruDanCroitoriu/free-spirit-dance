@@ -5,7 +5,7 @@ type Context = { params: Promise<{ id: string }> };
 const headers = { "Cache-Control": "no-store" };
 const json = (data: unknown, status = 200) => Response.json(data, { status, headers });
 const attendanceColumns = "id, course_id AS courseId, course_name AS courseName, attended_at AS attendedAt, recorded_by AS recordedBy, recorded_at AS recordedAt, notes";
-const paymentColumns = "id, paid_on AS paidOn, amount_minor AS amountMinor, given_to_school AS givenToSchool, recorded_by AS recordedBy, recorded_at AS recordedAt, notes";
+const paymentColumns = "id, paid_on AS paidOn, amount_minor AS amountMinor, received_method AS receivedMethod, given_to_school AS givenToSchool, recorded_by AS recordedBy, recorded_at AS recordedAt, notes";
 function page(value: string | null) { const n = Number(value ?? 1); return Number.isSafeInteger(n) && n > 0 && n <= 100000 ? n : null; }
 function actor(request: Request) {
   const email = request.headers.get("cf-access-authenticated-user-email")?.trim().toLowerCase();
@@ -19,22 +19,23 @@ export async function GET(request: Request, context: Context) {
   const logsPageSize = Number(url.searchParams.get("logsPageSize") ?? activityLogPageSize);
   const logsPage = page(url.searchParams.get("logsPage"));
   const attendancePage = page(url.searchParams.get("attendancePage")), paymentsPage = page(url.searchParams.get("paymentsPage"));
-  if (!Number.isSafeInteger(id) || id < 1 || attendancePage === null || paymentsPage === null || logsPage === null || !activityLogPageSizes.includes(logsPageSize)) return json({ error: "Invalid student or page." }, 400);
+  const requestedPaymentId = url.searchParams.has("paymentId") ? Number(url.searchParams.get("paymentId")) : null;
+  if (!Number.isSafeInteger(id) || id < 1 || attendancePage === null || paymentsPage === null || logsPage === null || !activityLogPageSizes.includes(logsPageSize) || (requestedPaymentId !== null && (!Number.isSafeInteger(requestedPaymentId) || requestedPaymentId < 1))) return json({ error: "Invalid student or page." }, 400);
   try {
     const db = env.DB;
     if (!await db.prepare("SELECT id FROM students WHERE id = ?").bind(id).first()) return json({ error: "Student not found." }, 404);
     const results = await db.batch([
       db.prepare("SELECT c.id AS courseId, c.name AS courseName, c.start_date AS startDate, c.end_date AS endDate FROM courses c WHERE c.id IN (SELECT course_id FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = ? UNION SELECT course_id FROM attendance WHERE student_id = ?)").bind(id, id),
       db.prepare(`SELECT ${attendanceColumns} FROM attendance WHERE student_id = ? ORDER BY attended_at DESC, id DESC LIMIT ? OFFSET ?`).bind(id, activityPageSize, (attendancePage - 1) * activityPageSize),
-      db.prepare(`SELECT ${paymentColumns} FROM student_payments WHERE student_id = ? ORDER BY paid_on DESC, id DESC LIMIT ? OFFSET ?`).bind(id, activityPageSize, (paymentsPage - 1) * activityPageSize),
-      db.prepare("SELECT a.payment_id AS paymentId, a.course_id AS courseId, a.course_name AS courseName, a.allowance FROM payment_course_allowances a WHERE a.payment_id IN (SELECT id FROM student_payments WHERE student_id = ? ORDER BY paid_on DESC, id DESC LIMIT ? OFFSET ?) ORDER BY a.course_id").bind(id, activityPageSize, (paymentsPage - 1) * activityPageSize),
+      db.prepare(`SELECT ${paymentColumns} FROM student_payments WHERE student_id = ? AND (? IS NULL OR id = ?) ORDER BY paid_on DESC, id DESC LIMIT ? OFFSET ?`).bind(id, requestedPaymentId, requestedPaymentId, activityPageSize, (paymentsPage - 1) * activityPageSize),
+      db.prepare("SELECT a.payment_id AS paymentId, a.course_id AS courseId, a.course_name AS courseName, a.allowance FROM payment_course_allowances a WHERE a.payment_id IN (SELECT id FROM student_payments WHERE student_id = ? AND (? IS NULL OR id = ?) ORDER BY paid_on DESC, id DESC LIMIT ? OFFSET ?) ORDER BY a.course_id").bind(id, requestedPaymentId, requestedPaymentId, activityPageSize, (paymentsPage - 1) * activityPageSize),
       db.prepare("SELECT COUNT(*) AS paymentCount, COALESCE(SUM(amount_minor), 0) AS totalPaidMinor FROM student_payments WHERE student_id = ?").bind(id),
       db.prepare("SELECT id, name FROM courses ORDER BY name COLLATE NOCASE, id"),
       db.prepare(`SELECT * FROM (
-        SELECT id, NULL AS givenToSchool, complimentary, complimentary_by AS complimentaryBy, complimentary_at AS complimentaryAt, course_id AS courseId, 'attendance' AS kind, substr(attended_at, 1, 10) AS eventDate, attended_at AS eventTime, course_name AS courseName, NULL AS amountMinor, notes, recorded_by AS recordedBy, recorded_at AS recordedAt, '[]' AS allocations
+        SELECT id, NULL AS givenToSchool, NULL AS receivedMethod, complimentary, complimentary_by AS complimentaryBy, complimentary_at AS complimentaryAt, course_id AS courseId, 'attendance' AS kind, substr(attended_at, 1, 10) AS eventDate, attended_at AS eventTime, course_name AS courseName, NULL AS amountMinor, notes, recorded_by AS recordedBy, recorded_at AS recordedAt, '[]' AS allocations
         FROM attendance WHERE student_id = ?
         UNION ALL
-        SELECT p.id, p.given_to_school AS givenToSchool, 0 AS complimentary, NULL AS complimentaryBy, NULL AS complimentaryAt, NULL AS courseId, 'payment', paid_on, paid_on, NULL, amount_minor, notes, recorded_by, recorded_at,
+        SELECT p.id, p.given_to_school AS givenToSchool, p.received_method AS receivedMethod, 0 AS complimentary, NULL AS complimentaryBy, NULL AS complimentaryAt, NULL AS courseId, 'payment', paid_on, paid_on, NULL, amount_minor, notes, recorded_by, recorded_at,
           (SELECT json_group_array(json_object('courseId', a.course_id, 'courseName', a.course_name, 'allowance', a.allowance)) FROM payment_course_allowances a WHERE a.payment_id = p.id)
         FROM student_payments p WHERE student_id = ?
       ) ORDER BY eventDate DESC, eventTime DESC, recordedAt DESC, kind DESC, id DESC LIMIT ? OFFSET ?`).bind(id, id, logsPage * logsPageSize, 0),
@@ -79,7 +80,8 @@ export async function GET(request: Request, context: Context) {
     const logs = [...recordedLogs, ...calculatedLogs, ...eventLogs].sort((a, b) =>
       b.eventDate.localeCompare(a.eventDate) || (b.recordedAt ?? "").localeCompare(a.recordedAt ?? "") || b.kind.localeCompare(a.kind) || b.id - a.id,
     ).slice((logsPage - 1) * logsPageSize, logsPage * logsPageSize);
-    return json({ canRecordFuturePayments: canRecordFuturePayments(actor(request)), logs, logsPage, logsPageSize, logsCount: summary.attendanceCount + summary.paymentCount + calculatedLogs.length + eventLogs.length, summary, balances, payments, attendance: results[1].results as StudentActivity["attendance"], courses: results[5].results as StudentActivity["courses"], attendancePage, paymentsPage } satisfies StudentActivity);
+    const paymentMethods = actor(request) ? await db.prepare("SELECT method FROM administrator_payment_methods WHERE email = ? ORDER BY method COLLATE NOCASE").bind(actor(request)).all<{ method: string }>() : { results: [] };
+    return json({ canRecordFuturePayments: canRecordFuturePayments(actor(request)), logs, logsPage, logsPageSize, logsCount: summary.attendanceCount + summary.paymentCount + calculatedLogs.length + eventLogs.length, summary, balances, payments, attendance: results[1].results as StudentActivity["attendance"], courses: results[5].results as StudentActivity["courses"], paymentMethods: paymentMethods.results.map((item) => item.method), attendancePage, paymentsPage } satisfies StudentActivity);
   } catch (error) {
     console.error("Could not load student activity", error);
     return json({ error: "Could not load attendance and payments." }, 500);
@@ -92,7 +94,7 @@ export async function POST(request: Request, context: Context) {
   const email = actor(request);
   if (!email) return json({ error: "Sign in to record student activity." }, 401);
   const input = await request.json().catch(() => null) as Record<string, unknown> | null;
-  if (!input || input.kind !== "payment" || typeof input.requestKey !== "string" || !/^[a-zA-Z0-9-]{16,80}$/.test(input.requestKey) || typeof input.notes !== "string" || input.notes.length > 1000) return json({ error: "Enter a valid record with notes of up to 1,000 characters." }, 400);
+  if (!input || input.kind !== "payment" || typeof input.requestKey !== "string" || !/^[a-zA-Z0-9-]{16,80}$/.test(input.requestKey) || typeof input.notes !== "string" || input.notes.length > 1000 || typeof input.receivedMethod !== "string") return json({ error: "Enter a valid record with notes of up to 1,000 characters." }, 400);
   let payload: Record<string, unknown>;
   {
     const amountMinor = parseAmount(input.amount);
@@ -102,7 +104,9 @@ export async function POST(request: Request, context: Context) {
       if (!item || !Number.isSafeInteger(item.courseId) || item.courseId < 1 || !Number.isInteger(item.allowance) || item.allowance < 1 || item.allowance > 10000 || allocations.some((a) => a.courseId === item.courseId)) return json({ error: "Select each course once and enter 1–10,000 classes per course." }, 400);
       allocations.push({ courseId: item.courseId, allowance: item.allowance });
     }
-    payload = { amountMinor, paidOn: input.paidOn, allocations: allocations.sort((a, b) => a.courseId - b.courseId), notes: input.notes.trim() };
+    const receivedMethod = input.receivedMethod.trim();
+    if (!receivedMethod || receivedMethod.length > 50 || !await env.DB.prepare("SELECT method FROM administrator_payment_methods WHERE email = ? AND method = ? COLLATE NOCASE").bind(email, receivedMethod).first()) return json({ error: "Choose one of your payment methods in Settings." }, 400);
+    payload = { amountMinor, paidOn: input.paidOn, allocations: allocations.sort((a, b) => a.courseId - b.courseId), notes: input.notes.trim(), receivedMethod };
   }
   const table = "student_payments";
   const serialized = JSON.stringify(payload);
@@ -114,7 +118,7 @@ export async function POST(request: Request, context: Context) {
       if (typeof paymentId !== "number" || !Number.isSafeInteger(paymentId) || paymentId < 1) return json({ error: "Invalid payment." }, 400);
       if (!await db.prepare("SELECT id FROM student_payments WHERE id = ? AND student_id = ?").bind(paymentId, id).first()) return json({ error: "Payment not found." }, 404);
       await db.batch([
-        db.prepare("UPDATE student_payments SET paid_on = ?, amount_minor = ?, notes = ? WHERE id = ? AND student_id = ?").bind(payload.paidOn, payload.amountMinor, payload.notes, paymentId, id),
+        db.prepare("UPDATE student_payments SET paid_on = ?, amount_minor = ?, notes = ?, received_method = ? WHERE id = ? AND student_id = ?").bind(payload.paidOn, payload.amountMinor, payload.notes, payload.receivedMethod, paymentId, id),
         db.prepare("DELETE FROM payment_course_allowances WHERE payment_id IN (SELECT id FROM student_payments WHERE id = ? AND student_id = ?)").bind(paymentId, id),
         ...(payload.allocations as { courseId: number; allowance: number }[]).map((a) => db.prepare("INSERT INTO payment_course_allowances (payment_id, course_id, course_name, allowance) VALUES ((SELECT id FROM student_payments WHERE id = ? AND student_id = ?), ?, (SELECT name FROM courses WHERE id = ?), ?)").bind(paymentId, id, a.courseId, a.courseId, a.allowance)),
       ]);
@@ -124,7 +128,7 @@ export async function POST(request: Request, context: Context) {
     if (existing) return existing.student_id === id && existing.recorded_by === email && existing.request_payload === serialized ? json({ id: existing.id }) : json({ error: "This save was already used for different details. Close the popup and try again." }, 409);
     const statements = [db.prepare("INSERT INTO admin_profiles (email, name) VALUES (?, '') ON CONFLICT(email) DO NOTHING").bind(email)];
     {
-      statements.push(db.prepare("INSERT INTO student_payments (student_id, paid_on, amount_minor, notes, recorded_by, recorded_at, request_key, request_payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(id, payload.paidOn, payload.amountMinor, payload.notes, email, new Date().toISOString(), input.requestKey, serialized));
+      statements.push(db.prepare("INSERT INTO student_payments (student_id, paid_on, amount_minor, notes, received_method, recorded_by, recorded_at, request_key, request_payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(id, payload.paidOn, payload.amountMinor, payload.notes, payload.receivedMethod, email, new Date().toISOString(), input.requestKey, serialized));
       for (const a of payload.allocations as { courseId: number; allowance: number }[]) {
         // Missing courses fail the NOT NULL/FK constraints, rolling back the payment too.
         statements.push(db.prepare("INSERT INTO payment_course_allowances (payment_id, course_id, course_name, allowance) VALUES ((SELECT id FROM student_payments WHERE request_key = ?), ?, (SELECT name FROM courses WHERE id = ?), ?)").bind(input.requestKey, a.courseId, a.courseId, a.allowance));

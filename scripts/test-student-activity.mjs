@@ -51,7 +51,8 @@ const read = async (id=1, suffix='') => { const response = await api.GET(new Req
 sqlite.exec("INSERT INTO students (first_name,last_name,email) VALUES ('A','Test','a@example.test'),('B','Test','b@example.test'); INSERT INTO courses (name) VALUES ('Zouk'),('Basics'); INSERT INTO student_courses VALUES (1,1),(1,2)");
 sqlite.exec("INSERT INTO course_schedule (course_id,day_of_week,start_time,end_time) VALUES (1,'Wednesday','18:30','19:30')");
 let key=0;
-const payment = (extra={}) => ({kind:'payment',requestKey:'test-request-key-'+(++key),notes:'Cash received',paidOn:helpers.schoolToday(),amount:'200,50',allocations:[{courseId:1,allowance:2},{courseId:2,allowance:10}],...extra});
+sqlite.exec("INSERT INTO admin_profiles (email, name) VALUES ('admin@example.test', ''); INSERT INTO administrator_payment_methods (email, method) VALUES ('admin@example.test', 'Cash')");
+const payment = (extra={}) => ({kind:'payment',requestKey:'test-request-key-'+(++key),notes:'Cash received',paidOn:helpers.schoolToday(),amount:'200,50',receivedMethod:'Cash',allocations:[{courseId:1,allowance:2},{courseId:2,allowance:10}],...extra});
 const attendance = (extra={}) => ({kind:'attendance',requestKey:'test-request-key-'+(++key),notes:'',classDate:'2026-09-09',courseId:1,...extra});
 assert.equal(helpers.parseAmount('0.01'),1);
 assert.equal(helpers.parseAmount('10.10'),1010);

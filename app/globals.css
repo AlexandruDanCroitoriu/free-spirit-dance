@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* A neutral gray workspace gives the white administration panels clear separation. */
+.app-background {
+	background-color: #e5e7eb;
+	background-image:
+		radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.55), transparent 32rem),
+		radial-gradient(circle at 95% 100%, rgba(148, 163, 184, 0.24), transparent 28rem);
+	background-size: auto, auto;
+}
+
+.app-content :is(section, article)[class~="bg-white"] {
+	box-shadow: 0 16px 35px rgba(15, 23, 42, 0.1), 0 2px 6px rgba(15, 23, 42, 0.05);
+}
+
 .calendar-grid {
 	display: grid;
 	grid-template-columns: repeat(7, minmax(0, 1fr));

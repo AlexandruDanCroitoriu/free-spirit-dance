@@ -1,10 +1,10 @@
 export type PaymentCoverage = { classes: { startsAt: string; attended: boolean }[]; remaining: number };
-export type PaymentLog = { id: number; givenToSchool: number; paidOn: string; amountMinor: number; allocations: { courseId: number; courseName: string; allowance: number }[]; notes: string; recordedBy: string; recordedAt: string };
+export type PaymentLog = { id: number; givenToSchool: number; paidOn: string; amountMinor: number; receivedMethod: string; allocations: { courseId: number; courseName: string; allowance: number }[]; notes: string; recordedBy: string; recordedAt: string };
 export type AttendanceLog = { id: number; courseId: number; courseName: string; attendedAt: string; notes: string; recordedBy: string; recordedAt: string | null };
 export type ActivitySummary = { eventAttendanceCount?: number; donationsMinor?: number; missedClasses: number; attendanceCount: number; paymentCount: number; paidAllowance: number; remainingAllowance: number; excessAttendance: number; totalPaidMinor: number };
 export type StudentActivity = {
   canRecordFuturePayments: boolean;
-  logs: { id: number; kind: "attendance" | "payment" | "missed" | "cancelled" | "practice_attendance"; practiceId?: number; voidedAt?: string | null; givenToSchool?: number; complimentary?: number; complimentaryBy?: string | null; complimentaryAt?: string | null; courseId?: number | null; eventDate: string; courseName: string | null; amountMinor: number | null; notes: string; recordedBy: string; recordedAt: string | null; allocations: { courseId: number; courseName: string; allowance: number; coverage?: PaymentCoverage }[] }[];
+  logs: { id: number; kind: "attendance" | "payment" | "missed" | "cancelled" | "practice_attendance"; practiceId?: number; voidedAt?: string | null; givenToSchool?: number; receivedMethod?: string; complimentary?: number; complimentaryBy?: string | null; complimentaryAt?: string | null; courseId?: number | null; eventDate: string; courseName: string | null; amountMinor: number | null; notes: string; recordedBy: string; recordedAt: string | null; allocations: { courseId: number; courseName: string; allowance: number; coverage?: PaymentCoverage }[] }[];
   logsPage: number;
   logsPageSize: number;
   logsCount: number;
@@ -13,6 +13,7 @@ export type StudentActivity = {
   attendance: AttendanceLog[];
   payments: PaymentLog[];
   courses: { id: number; name: string }[];
+  paymentMethods: string[];
   attendancePage: number;
   paymentsPage: number;
 };

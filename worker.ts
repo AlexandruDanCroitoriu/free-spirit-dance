@@ -11,7 +11,7 @@ type Permission = "dashboard" | "students" | "courses" | "qrCodes" | "owner" | "
 
 function requiredPermission(pathname: string): Permission | null {
   if (pathname === "/practice-parties" || pathname.startsWith("/practice-parties/")) return "practiceParties";
-  if (pathname === "/administrators") return "owner";
+  if (pathname === "/administrators" || pathname === "/api/administrators" || pathname.startsWith("/api/administrators/")) return "owner";
   if (pathname === "/") return "dashboard";
   if (pathname.startsWith("/students")) return "students";
   if (pathname.startsWith("/courses")) return "courses";

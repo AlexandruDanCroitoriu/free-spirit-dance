@@ -14,7 +14,7 @@ async function readResponse(response: Response): Promise<unknown> {
   return body;
 }
 
-export default function StudentActivity({ studentId }: { studentId: number }) {
+export default function StudentActivity({ studentId, initialPaymentId }: { studentId: number; initialPaymentId?: number }) {
   const [data, setData] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -34,6 +34,8 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
   const [presetId, setPresetId] = useState("");
   const [presetsLoading, setPresetsLoading] = useState(false);
   const [presetsError, setPresetsError] = useState("");
+  const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
+  const [receivedMethod, setReceivedMethod] = useState("");
   const [presetRetry, setPresetRetry] = useState(0);
   const [amount, setAmount] = useState("");
   const [allocations, setAllocations] = useState<Record<string, string>>({});
@@ -41,17 +43,18 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
   const presetToMatch = useRef<Pick<Activity["logs"][number], "amountMinor" | "allocations"> | null>(null);
   const requestKey = useRef("");
   const submitted = useRef<string | null>(null);
+  const initialPaymentOpened = useRef<number | null>(null);
   const url = `/api/students/${studentId}/activity`;
 
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError("");
-    fetch(`${url}?logsPage=${logsPage}&logsPageSize=${logsPageSize}`, { signal: controller.signal })
+    fetch(`${url}?logsPage=${logsPage}&logsPageSize=${logsPageSize}${initialPaymentId ? `&paymentId=${initialPaymentId}` : ""}`, { signal: controller.signal })
       .then(readResponse).then((body) => { if (!controller.signal.aborted) setData(body as Activity); })
       .catch((reason) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load student activity."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [url, reload, logsPage, logsPageSize]);
+  }, [url, reload, logsPage, logsPageSize, initialPaymentId]);
   useEffect(() => {
     const refresh = (event: Event) => { if ((event as CustomEvent<number>).detail === studentId) setReload((value) => value + 1); };
     const refreshActivity = () => setReload((value) => value + 1);
@@ -94,12 +97,13 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
       .finally(() => { if (!controller.signal.aborted) setPresetsLoading(false); });
     return () => controller.abort();
   }, [mode, presetRetry]);
+  useEffect(() => { if (mode === "payment") setPaymentMethods(data?.paymentMethods ?? []); }, [mode, data?.paymentMethods]);
 
   function open(next: "payment") {
     // Payments are returned newest first independently of the current activity-log page.
     const previous = data?.payments[0];
     presetToMatch.current = previous ?? null;
-    setEditingPaymentId(null); setConfirmDelete(false);
+    setEditingPaymentId(null); setConfirmDelete(false); setReceivedMethod("");
     setPresetId(""); setPresets([]);
     setDate(schoolToday());
     setAmount(previous ? (previous.amountMinor / 100).toFixed(2) : "");
@@ -107,14 +111,21 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
     setNotes(previous?.notes ?? ""); setFormError("");
     submitted.current = null; requestKey.current = crypto.randomUUID(); setMode(next);
   }
-  function editPayment(row: Activity["logs"][number]) {
+  function editPayment(row: Pick<Activity["logs"][number], "id" | "eventDate" | "amountMinor" | "notes" | "allocations" | "receivedMethod">) {
     open("payment");
     presetToMatch.current = row;
     setEditingPaymentId(row.id);
     setDate(row.eventDate.slice(0, 10)); setAmount((row.amountMinor! / 100).toFixed(2));
-    setNotes(row.notes);
+    setNotes(row.notes); setReceivedMethod(row.receivedMethod ?? "");
     setAllocations(Object.fromEntries(row.allocations.map((a) => [String(a.courseId), String(a.allowance)])));
   }
+  useEffect(() => {
+    if (!data || !initialPaymentId || initialPaymentOpened.current === initialPaymentId) return;
+    const payment = data.payments.find((item) => item.id === initialPaymentId);
+    if (!payment) return;
+    initialPaymentOpened.current = initialPaymentId;
+    editPayment({ ...payment, eventDate: payment.paidOn });
+  }, [data, initialPaymentId]);
   async function deletePayment() {
     if (saving.current || !editingPaymentId) return;
     saving.current = true; setBusy(true); setFormError("");
@@ -128,7 +139,8 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
   async function save() {
     if (saving.current || !mode) return;
     if (mode === "payment" && Object.keys(allocations).length === 0) { setFormError("Select at least one course and enter its class allowance."); return; }
-    const payload = { paymentId: editingPaymentId, kind: "payment", requestKey: requestKey.current, notes, paidOn: date, amount, allocations: Object.entries(allocations).map(([id, allowance]) => ({ courseId: Number(id), allowance: Number(allowance) })) };
+    if (!receivedMethod) { setFormError("Choose how you received this payment."); return; }
+    const payload = { paymentId: editingPaymentId, kind: "payment", requestKey: requestKey.current, notes, paidOn: date, amount, receivedMethod, allocations: Object.entries(allocations).map(([id, allowance]) => ({ courseId: Number(id), allowance: Number(allowance) })) };
     saving.current = true; setBusy(true); setFormError("");
     submitted.current ??= JSON.stringify(payload);
     try {
@@ -246,6 +258,7 @@ export default function StudentActivity({ studentId }: { studentId: number }) {
       <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
         <fieldset disabled={locked} className="m-0 space-y-4 border-0 p-0 font-sans text-xs font-semibold text-slate-600">
           <label className="block">{"Payment date"}<input autoFocus required type="date" min="1900-01-01" max={data.canRecordFuturePayments ? undefined : schoolToday()} value={date} onChange={(event) => setDate(event.target.value)} className={inputClass} /></label>
+          <fieldset className="border-0 p-0"><legend>Received via</legend>{paymentMethods.length ? <div className="mt-2 flex flex-wrap gap-2">{paymentMethods.map((method) => <label key={method} className="cursor-pointer"><input required className="peer sr-only" type="radio" name="received-method" value={method} checked={receivedMethod === method} onChange={() => setReceivedMethod(method)} /><span className="inline-flex rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-slate-700 transition-colors peer-checked:border-lime-700 peer-checked:bg-lime-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-lime-600">{method}</span></label>)}</div> : <p className="mt-2 font-normal text-slate-500">Add a method in <a className="underline" href="/settings" target="_blank" rel="noopener noreferrer">Settings</a> before recording a payment.</p>}</fieldset>
           <>
             <label className="block">Payment preset<select className={inputClass} value={presetId} disabled={presetsLoading} onChange={(event) => {
               const selected = event.target.value;

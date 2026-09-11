@@ -73,6 +73,14 @@ export async function mutateEvent(request: Request, id?: number) {
     return eventJson({ id });
   }
   if (!Number.isInteger(input.revision) || input.revision !== party.revision) throw new EventError('This practice party changed. Reload before saving.', 409);
+  if (input.action === 'delete_session') {
+    if (party.attendanceCount) throw new EventError('Remove all attendance before deleting this practice party.', 409);
+    const result = await db.prepare(`DELETE FROM practice_parties
+      WHERE id = ? AND revision = ?
+        AND NOT EXISTS (SELECT 1 FROM practice_attendance WHERE practice_id = ?)`).bind(id, party.revision, id).run();
+    if (!result.meta.changes) throw new EventError('This practice party changed or now has attendance. Reload before deleting.', 409);
+    return eventJson({ id });
+  }
   const statements: D1PreparedStatement[] = [
     db.prepare("INSERT INTO admin_profiles (email, name) VALUES (?, '') ON CONFLICT(email) DO NOTHING").bind(email),
     db.prepare('UPDATE practice_parties SET revision = revision + 1, last_request_key = ?, last_request_hash = ? WHERE id = ? AND revision = ?').bind(key, requestHash, id, party.revision),
@@ -89,23 +97,24 @@ export async function mutateEvent(request: Request, id?: number) {
     if (!Array.isArray(input.addStudentIds) || !Array.isArray(input.removeAttendanceIds) || !Array.isArray(input.donations) || input.addStudentIds.length + input.removeAttendanceIds.length + input.donations.length < 1 || input.addStudentIds.length + input.removeAttendanceIds.length + input.donations.length > 500) throw new EventError('Select up to 500 attendance changes or donations.');
     const add = input.addStudentIds.map(positiveId), remove = input.removeAttendanceIds.map(positiveId);
     if (new Set(add).size !== add.length || new Set(remove).size !== remove.length || add.some(student => remove.includes(student))) throw new EventError('Choose each student once.');
-    const donations = new Map<number, { amountMinor: number | null; paidOn: string | null; notes: string }>();
+    const donations = new Map<number, { amountMinor: number | null; paidOn: string | null; notes: string; receivedMethod: string }>();
     for (const raw of input.donations) {
       const donation = raw as Record<string, unknown>, student = positiveId(donation?.studentId), amountMinor = parseAmount(donation?.amount);
       const paidOn = typeof donation?.paidOn === 'string' ? donation.paidOn : new Date(now).toLocaleDateString('en-CA', { timeZone: 'Europe/Bucharest' });
       if (donations.has(student)) throw new EventError('Enter one donation per attending student.');
-      if (amountMinor === null && typeof donation?.amount === 'string' && donation.amount.trim() === '') donations.set(student, { amountMinor: null, paidOn: null, notes: '' });
+      if (amountMinor === null && typeof donation?.amount === 'string' && donation.amount.trim() === '') donations.set(student, { amountMinor: null, paidOn: null, notes: '', receivedMethod: '' });
       else {
-        if (amountMinor === null || !validPaymentDate(paidOn)) throw new EventError('Enter one valid donation per attending student.');
-        donations.set(student, { amountMinor, paidOn, notes: cleanText(donation?.notes ?? '', 1000) });
+        const receivedMethod = cleanText(donation?.receivedMethod, 50, true);
+        if (amountMinor === null || !validPaymentDate(paidOn) || !await db.prepare("SELECT method FROM administrator_payment_methods WHERE email = ? AND method = ? COLLATE NOCASE").bind(email, receivedMethod).first()) throw new EventError('Choose one of your payment methods for each donation.');
+        donations.set(student, { amountMinor, paidOn, notes: cleanText(donation?.notes ?? '', 1000), receivedMethod });
       }
     }
     for (const student of add) statements.push(db.prepare('INSERT INTO practice_attendance (student_id, practice_id, recorded_by, recorded_at, notes) VALUES (?, ?, ?, ?, ?)').bind(student, id, email, now, ''));
     for (const attendanceId of remove) {
-      statements.push(db.prepare("UPDATE practice_attendance SET donation_amount_minor = NULL, donation_paid_on = NULL, donation_notes = '', donation_recorded_by = NULL, donation_recorded_at = NULL, donation_given_to_school = 0 WHERE id = ? AND practice_id = ?").bind(attendanceId, id));
+      statements.push(db.prepare("UPDATE practice_attendance SET donation_amount_minor = NULL, donation_paid_on = NULL, donation_notes = '', donation_recorded_by = NULL, donation_recorded_at = NULL, donation_received_method = '', donation_given_to_school = 0 WHERE id = ? AND practice_id = ?").bind(attendanceId, id));
       statements.push(db.prepare('DELETE FROM practice_attendance WHERE id = ? AND practice_id = ?').bind(attendanceId, id));
     }
-    for (const [student, donation] of donations) statements.push(db.prepare('UPDATE practice_attendance SET donation_amount_minor = ?, donation_paid_on = ?, donation_notes = ?, donation_recorded_by = ?, donation_recorded_at = ?, donation_given_to_school = 0 WHERE student_id = ? AND practice_id = ?').bind(donation.amountMinor, donation.paidOn, donation.notes, donation.amountMinor === null ? null : email, donation.amountMinor === null ? null : now, student, id));
+    for (const [student, donation] of donations) statements.push(db.prepare('UPDATE practice_attendance SET donation_amount_minor = ?, donation_paid_on = ?, donation_notes = ?, donation_recorded_by = ?, donation_recorded_at = ?, donation_received_method = ?, donation_given_to_school = 0 WHERE student_id = ? AND practice_id = ?').bind(donation.amountMinor, donation.paidOn, donation.notes, donation.amountMinor === null ? null : email, donation.amountMinor === null ? null : now, donation.receivedMethod, student, id));
   } else {
     throw new EventError('Unknown practice-party action.');
   }

@@ -7,10 +7,10 @@ import StudentPanel from "../components/student-panel";
 import StudentCourses from "../components/student-courses";
 import StudentCard from "../components/student-card";
 
-type Student = { id: number; firstName: string; lastName: string; email: string; phone: string; picture: string | null; active: boolean; courseIds?: number[] };
+type Student = { id: number; firstName: string; lastName: string; email: string; phone: string; birthDate: string | null; picture: string | null; active: boolean; courseIds?: number[] };
 type FormState = Omit<Student, "id"> & { courseIds: number[] };
 type ApiError = { error?: string };
-const emptyForm: FormState = { firstName: "", lastName: "", email: "", phone: "", picture: null, active: true, courseIds: [] };
+const emptyForm: FormState = { firstName: "", lastName: "", email: "", phone: "", birthDate: null, picture: null, active: true, courseIds: [] };
 
 export default function StudentsPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
@@ -139,9 +139,9 @@ export default function StudentsPage() {
     return matchesStatus && matchesSearch && (courseFilter === "all" || student.courseIds?.includes(Number(courseFilter)));
   });
 
-  return <main className="flex-1 bg-stone-50 px-6 py-6 text-slate-800 md:px-12"><div className="mx-auto max-w-5xl">
+  return <main className="flex-1 px-6 py-6 text-slate-800 md:px-12"><div className="mx-auto max-w-5xl">
     {formOpen && <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/70 p-4 md:left-64" role="presentation"><div aria-labelledby="student-dialog-title" aria-modal="true" className="mx-auto w-full max-w-3xl rounded-xl border border-stone-200 bg-white p-6 shadow-2xl" role="dialog"><form onSubmit={saveStudent} className="grid min-w-0 gap-4 md:grid-cols-2"><div className="flex items-center justify-between md:col-span-2"><h2 className="m-0 text-xl font-normal" id="student-dialog-title">Add student</h2><button aria-label="Close dialog" type="button" onClick={closeForm} className="rounded-md border border-stone-300 px-3 py-2 font-sans text-xs font-semibold">×</button></div>
-      {([['firstName', 'First name'], ['lastName', 'Last name'], ['email', 'Email (optional)'], ['phone', 'Phone']] as const).map(([field, label]) => <label key={field} className="font-sans text-xs font-semibold text-slate-600">{label}<input required={field === 'firstName' || field === 'lastName'} type={field === 'email' ? 'email' : 'text'} {...(field === 'phone' ? { inputMode: "numeric" as const, minLength: 10, pattern: "[0-9]{10,}", title: "Enter at least 10 numbers." } : {})} value={form[field] ?? ""} onChange={(event) => updateField(field, event.target.value)} className="mt-2 w-full rounded-md border border-stone-300 px-3 py-3 font-normal text-slate-800 outline-none focus:border-lime-600" /></label>)}
+      {([['firstName', 'First name'], ['lastName', 'Last name'], ['email', 'Email (optional)'], ['phone', 'Phone'], ['birthDate', 'Birth date (optional)']] as const).map(([field, label]) => <label key={field} className="font-sans text-xs font-semibold text-slate-600">{label}<input required={field === 'firstName' || field === 'lastName'} type={field === 'email' ? 'email' : field === 'birthDate' ? 'date' : 'text'} {...(field === 'birthDate' ? { max: new Date().toISOString().slice(0, 10) } : {})} {...(field === 'phone' ? { inputMode: "numeric" as const, minLength: 10, pattern: "[0-9]{10,}", title: "Enter at least 10 numbers." } : {})} value={form[field] ?? ""} onChange={(event) => updateField(field, event.target.value)} className="mt-2 w-full rounded-md border border-stone-300 px-3 py-3 font-normal text-slate-800 outline-none focus:border-lime-600" /></label>)}
       <div><span className="font-sans text-xs font-semibold text-slate-600">Student status</span><label className="mt-4 flex cursor-pointer items-center gap-3 font-sans text-xs font-semibold text-slate-600"><input type="checkbox" checked={form.active} onChange={(event) => updateField("active", event.target.checked)} className="peer sr-only" /><span className="relative h-6 w-11 rounded-full bg-stone-300 transition-colors after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:bg-lime-600 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-lime-600 peer-focus-visible:ring-offset-2" /><span>Active student</span></label></div>
       <div>
         <span className="font-sans text-xs font-semibold text-slate-600">Student picture (optional)</span>

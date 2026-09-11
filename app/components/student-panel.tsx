@@ -7,20 +7,21 @@ import StudentActivity from "./student-activity";
 import StudentCourses from "./student-courses";
 import StudentCard from "./student-card";
 
-export type Student = { id: number; firstName: string; lastName: string; email: string; phone: string; picture: string | null; active: boolean };
+export type Student = { id: number; firstName: string; lastName: string; email: string; phone: string; birthDate: string | null; picture: string | null; active: boolean };
 const studentTabs = [["logs", "Logs"], ["info", "Student info"]] as const;
 type Field = keyof Student;
-type EditableTextField = "firstName" | "lastName" | "email" | "phone";
+type EditableTextField = "firstName" | "lastName" | "email" | "phone" | "birthDate";
 type Drafts = Record<EditableTextField, string>;
 const editableFields: Array<{ key: EditableTextField; label: string; type?: string }> = [
   { key: "firstName", label: "First name" },
   { key: "lastName", label: "Last name" },
   { key: "email", label: "Email (optional)", type: "email" },
   { key: "phone", label: "Phone" },
+  { key: "birthDate", label: "Birth date (optional)", type: "date" },
 ];
-const emptyDrafts: Drafts = { firstName: "", lastName: "", email: "", phone: "" };
+const emptyDrafts: Drafts = { firstName: "", lastName: "", email: "", phone: "", birthDate: "" };
 
-export default function StudentPanel({ id, onClose, onUpdate, onDelete }: { id: number; onClose: () => void; onUpdate: (student: Student) => void; onDelete: (id: number) => void }) {
+export default function StudentPanel({ id, onClose, onUpdate, onDelete, editPaymentId }: { id: number; onClose: () => void; onUpdate: (student: Student) => void; onDelete: (id: number) => void; editPaymentId?: number }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const pendingSaves = useRef(0);
   useEffect(() => {
@@ -48,7 +49,7 @@ export default function StudentPanel({ id, onClose, onUpdate, onDelete }: { id: 
       const data = await readJson<Student & { error?: string }>(response);
       if (!response.ok) throw new Error(data.error ?? "Could not load student.");
       if (controller.signal.aborted) return;
-      studentRef.current = data; setStudent(data); setDrafts({ firstName: data.firstName, lastName: data.lastName, email: data.email, phone: data.phone }); setActiveDraft(String(data.active));
+      studentRef.current = data; setStudent(data); setDrafts({ firstName: data.firstName, lastName: data.lastName, email: data.email, phone: data.phone, birthDate: data.birthDate ?? "" }); setActiveDraft(String(data.active));
     }).catch((reason) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load student."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
@@ -97,6 +98,7 @@ export default function StudentPanel({ id, onClose, onUpdate, onDelete }: { id: 
     if ((field === "firstName" || field === "lastName") && !value.trim()) { setError(`${field === "firstName" ? "First" : "Last"} name is required.`); return; }
     if (field === "email" && value.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) { setError("Enter a valid email or leave it empty."); return; }
     if (field === "phone" && value.trim() && !/^\d{10,}$/.test(value.trim())) { setError("Phone must contain only numbers and be at least 10 digits."); return; }
+    if (field === "birthDate" && value && (Number.isNaN(Date.parse(`${value}T00:00:00Z`)) || value > new Date().toISOString().slice(0, 10))) { setError("Enter a valid birth date that is not in the future, or leave it empty."); return; }
     pendingSaves.current += 1;
     setSavingField(field); setError("");
     try {
@@ -113,7 +115,7 @@ export default function StudentPanel({ id, onClose, onUpdate, onDelete }: { id: 
       studentRef.current = { ...(studentRef.current ?? data), [field]: data[field], picture: data.picture };
       setStudent(studentRef.current); onUpdate(studentRef.current);
       if (field === "active") setActiveDraft(String(data.active));
-      else setDrafts((currentDrafts) => ({ ...currentDrafts, [field]: String(data[field]) }));
+      else setDrafts((currentDrafts) => ({ ...currentDrafts, [field]: field === "birthDate" ? data.birthDate ?? "" : String(data[field]) }));
     }
     } catch (reason) {
       studentRef.current = current; setStudent(current);
@@ -153,14 +155,14 @@ export default function StudentPanel({ id, onClose, onUpdate, onDelete }: { id: 
         <div className="min-w-0"><p className="m-0 font-sans text-xs font-bold uppercase tracking-wider text-slate-400">Profile photo</p><p className="mt-1 truncate font-sans text-sm text-slate-800">{savingPhoto ? "Saving photo…" : "Photo changes save automatically"}</p></div>
         <div className="flex flex-wrap justify-end gap-2"><label className="cursor-pointer rounded-md border border-stone-300 px-3 py-2 font-sans text-xs font-semibold">Camera<input accept="image/*" capture="environment" type="file" disabled={saving || savingPhoto || savingField !== null} className="sr-only" onChange={(event) => { void selectImage(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="cursor-pointer rounded-md border border-stone-300 px-3 py-2 font-sans text-xs font-semibold">Upload<input accept="image/*" type="file" disabled={saving || savingPhoto || savingField !== null} className="sr-only" onChange={(event) => { void selectImage(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label></div>
       </div>
-      {editableFields.map(({ key, label, type }) => <div key={key} className="border-b border-stone-200 py-4"><label className="block font-sans"><span className="flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-wider text-slate-400"><span>{label}</span>{savingField === key && <span className="normal-case tracking-normal text-lime-700">Saving...</span>}</span><input disabled={savingPhoto} type={type ?? "text"} {...(key === "phone" ? { inputMode: "numeric" as const, minLength: 10, pattern: "[0-9]{10,}", title: "Enter at least 10 numbers." } : {})} value={drafts[key]} onChange={(event) => setDrafts((current) => ({ ...current, [key]: event.target.value }))} onBlur={() => void saveField(key, drafts[key])} className="mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-lime-600 focus:ring-1 focus:ring-lime-600" /></label></div>)}
+      {editableFields.map(({ key, label, type }) => <div key={key} className="border-b border-stone-200 py-4"><label className="block font-sans"><span className="flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-wider text-slate-400"><span>{label}</span>{savingField === key && <span className="normal-case tracking-normal text-lime-700">Saving...</span>}</span><input disabled={savingPhoto} type={type ?? "text"} {...(key === "birthDate" ? { max: new Date().toISOString().slice(0, 10) } : {})} {...(key === "phone" ? { inputMode: "numeric" as const, minLength: 10, pattern: "[0-9]{10,}", title: "Enter at least 10 numbers." } : {})} value={drafts[key]} onChange={(event) => setDrafts((current) => ({ ...current, [key]: event.target.value }))} onBlur={() => void saveField(key, drafts[key])} className="mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-lime-600 focus:ring-1 focus:ring-lime-600" /></label></div>)}
       <div className="border-b border-stone-200 py-4"><label className="block font-sans"><span className="flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-wider text-slate-400"><span>Status</span>{savingField === "active" && <span className="normal-case tracking-normal text-lime-700">Saving...</span>}</span><select disabled={savingPhoto} value={activeDraft} onChange={(event) => setActiveDraft(event.target.value)} onBlur={(event) => void saveField("active", event.currentTarget.value)} className={`mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-lime-600 focus:ring-1 focus:ring-lime-600 ${activeDraft === "true" ? "text-lime-700" : "text-slate-500"}`}><option value="true">Active</option><option value="false">Inactive</option></select></label></div>
       {error && <p role="alert" className="py-4 font-sans text-sm text-red-700">{error}</p>}
       <div className="flex justify-end py-4"><button disabled={saving || savingPhoto} onClick={() => setDeleteConfirmOpen(true)} className="rounded-md border border-red-300 bg-white px-3 py-2 font-sans text-xs font-semibold text-red-700 transition-colors hover:bg-red-50">Delete student</button></div>
     </section>
     </div>
     <div id="student-panel-logs" role="tabpanel" aria-labelledby="student-tab-logs" hidden={activeTab !== "logs"}>
-      {activeTab === "logs" && <StudentActivity key={`activity-${student.id}`} studentId={student.id} />}
+      {activeTab === "logs" && <StudentActivity key={`activity-${student.id}`} studentId={student.id} initialPaymentId={editPaymentId} />}
     </div>
     {deleteConfirmOpen && <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 p-5" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setDeleteConfirmOpen(false); }}>
       <div aria-labelledby="delete-student-title" aria-describedby="delete-student-description" aria-modal="true" className="w-full max-w-sm overflow-hidden rounded-xl border border-red-800 bg-red-50 shadow-2xl" role="alertdialog">

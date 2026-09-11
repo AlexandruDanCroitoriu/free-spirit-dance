@@ -5,10 +5,12 @@ import { readJson } from "../lib/http";
 import { useEffect, useState } from "react";
 import OperationNotification from "../components/operation-notification";
 
-type AdminProfile = { email: string; name: string; picture: string | null; error?: string };
+type AdminProfile = { email: string; name: string; picture: string | null; paymentMethods: string[]; error?: string };
 
 export default function SettingsPage() {
-  const [profile, setProfile] = useState<AdminProfile>({ email: "Loading account...", name: "", picture: null });
+  const [profile, setProfile] = useState<AdminProfile>({ email: "Loading account...", name: "", picture: null, paymentMethods: [] });
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [savingPaymentMethods, setSavingPaymentMethods] = useState(false);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -42,7 +44,7 @@ export default function SettingsPage() {
       if (!uploadResponse.ok || !upload.picture) { setError(upload.error ?? "Could not upload profile image."); setSaving(false); return; }
       picture = upload.picture;
     }
-    const response = await fetch("/api/admin-profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: profile.name, picture }) });
+    const response = await fetch("/api/admin-profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: profile.name, picture, paymentMethods: profile.paymentMethods }) });
     const data = await readJson<AdminProfile>(response);
     if (!response.ok) { setError(data.error ?? "Could not save profile."); setSaving(false); return; }
     setProfile(data); setPendingImage(null); setPreview(null); setMessage("Profile saved."); setSaving(false);
@@ -50,12 +52,29 @@ export default function SettingsPage() {
   }
 
   const displayPicture = preview ?? profile.picture;
+  async function savePaymentMethods(paymentMethods: string[]) {
+    setSavingPaymentMethods(true); setError(""); setMessage("");
+    try {
+      const response = await fetch("/api/admin-profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: profile.name, picture: profile.picture, paymentMethods }) });
+      const data = await readJson<AdminProfile>(response);
+      if (!response.ok) throw new Error(data.error ?? "Could not save payment methods.");
+      setProfile(data); setMessage("Payment methods saved.");
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not save payment methods."); }
+    finally { setSavingPaymentMethods(false); }
+  }
 
-  return <main className="flex-1 bg-stone-50 px-6 py-6 text-slate-800 md:px-12"><div className="mx-auto max-w-5xl">
+  function addPaymentMethod() {
+    const method = paymentMethod.trim();
+    if (!method || profile.paymentMethods.some((item) => item.toLowerCase() === method.toLowerCase())) return;
+    setPaymentMethod(""); void savePaymentMethods([...profile.paymentMethods, method]);
+  }
+
+  return <main className="flex-1 px-6 py-6 text-slate-800 md:px-12"><div className="mx-auto max-w-5xl">
     <section className="max-w-xl rounded-xl border border-stone-200 bg-white p-6"><form className="space-y-6" onSubmit={saveProfile}>
       <div className="flex flex-wrap items-center gap-4"><div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-200 font-sans text-xl font-bold text-slate-800">{displayPicture ? <img alt="Administrator profile" className="h-full w-full object-cover" src={displayPicture} /> : (profile.name || profile.email).charAt(0).toUpperCase()}</div><div><label className="cursor-pointer rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold">Upload image<input accept="image/*" className="sr-only" type="file" onChange={(event) => { void selectImage(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><p className="mt-3 font-sans text-xs text-slate-400">Images are compressed before upload.</p></div></div>
       <label className="block font-sans text-xs font-bold uppercase tracking-wider text-slate-500" htmlFor="account-name">Name<input className="mt-2 w-full rounded-lg border border-stone-300 px-3 py-3 font-sans text-sm font-normal normal-case tracking-normal text-slate-800 outline-none focus:border-lime-600" id="account-name" maxLength={100} required value={profile.name} onChange={(event) => setProfile((current) => ({ ...current, name: event.target.value }))} /></label>
       <label className="block font-sans text-xs font-bold uppercase tracking-wider text-slate-500" htmlFor="account-email">Account email<input className="mt-2 w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-3 font-sans text-sm font-normal normal-case tracking-normal text-slate-600 outline-none" id="account-email" readOnly value={profile.email} /></label>
+      <fieldset className="border-0 p-0 font-sans"><legend className="text-xs font-bold uppercase tracking-wider text-slate-500">Payment methods</legend><p className="mt-2 text-xs font-normal normal-case tracking-normal text-slate-500">Add the ways you receive money, such as Revolut, cash, or BCR. Changes save immediately.</p><div className="mt-3 flex gap-2"><input aria-label="New payment method" disabled={savingPaymentMethods} className="min-w-0 flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm disabled:opacity-50" maxLength={50} value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addPaymentMethod(); } }} /><button className="rounded-lg border border-stone-300 px-3 py-2 text-xs font-semibold disabled:opacity-50" disabled={savingPaymentMethods} type="button" onClick={addPaymentMethod}>{savingPaymentMethods ? "Saving..." : "Add"}</button></div><div className="mt-3 flex flex-wrap gap-2">{profile.paymentMethods.map((method) => <button key={method} type="button" disabled={savingPaymentMethods} className="rounded-full bg-lime-100 px-3 py-1.5 text-xs text-lime-900 disabled:opacity-50" onClick={() => void savePaymentMethods(profile.paymentMethods.filter((item) => item !== method))}>{method} <span aria-hidden="true">×</span><span className="sr-only">Remove {method}</span></button>)}{!profile.paymentMethods.length && <p className="m-0 text-xs text-slate-500">No payment methods configured.</p>}</div></fieldset>
       <div className="flex items-center justify-between gap-4">{error ? <p className="m-0 font-sans text-sm text-red-700" role="alert">{error}</p> : <OperationNotification message={message} onDismiss={() => setMessage("")} />}<button className="shrink-0 rounded-lg border-0 bg-slate-800 px-4 py-3 font-sans text-xs font-bold text-stone-100 disabled:opacity-60" disabled={saving}>{saving ? "Saving..." : "Save profile"}</button></div>
     </form></section>
   </div></main>;

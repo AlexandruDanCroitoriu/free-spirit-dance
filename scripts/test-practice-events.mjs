@@ -34,7 +34,7 @@ try {
   const roster = await load('app/api/practice-parties/[id]/roster/route.ts', 'roster');
   const activity = await load('app/api/students/[id]/activity/route.ts', 'activity');
   const payments = await load('app/api/students/payments/route.ts', 'payments');
-  sqlite.exec("INSERT INTO students (first_name,last_name,email,phone) VALUES ('Ana','Student','ana@test','0700000001'),('Ben','Student','ben@test','0700000002'); INSERT INTO admin_profiles(email,name) VALUES ('admin@test','Admin');");
+  sqlite.exec("INSERT INTO students (first_name,last_name,email,phone) VALUES ('Ana','Student','ana@test','0700000001'),('Ben','Student','ben@test','0700000002'); INSERT INTO admin_profiles(email,name) VALUES ('admin@test','Admin'); INSERT INTO administrator_payment_methods(email,method) VALUES ('admin@test','Cash');");
   let requestNumber = 0;
   const request = (body, method = 'POST', path = '/api/practice-parties/1') => new Request(`https://school.test${path}`, { method, headers: { 'Content-Type': 'application/json', 'cf-access-authenticated-user-email': 'admin@test' }, ...(body ? { body: JSON.stringify(body) } : {}) });
   const context = (id = 1) => ({ params: Promise.resolve({ id: String(id) }) });
@@ -49,7 +49,7 @@ try {
   const phoneSearch = await expect(roster.GET(request(null, 'GET', '/api/practice-parties/1/roster?q=0700000002'), context()), 200);
   assert.equal(phoneSearch.count, 1); assert.equal(phoneSearch.students[0].firstName, 'Ben');
 
-  const attendance = keyed({ action: 'attendance_batch', revision: revision(), addStudentIds: [1], removeAttendanceIds: [], donations: [{ studentId: 1, amount: '30.50', paidOn: '2026-01-07', notes: 'Thank you' }] });
+  const attendance = keyed({ action: 'attendance_batch', revision: revision(), addStudentIds: [1], removeAttendanceIds: [], donations: [{ studentId: 1, amount: '30.50', paidOn: '2026-01-07', notes: 'Thank you', receivedMethod: 'Cash' }] });
   await expect(party.POST(request(attendance), context()), 201);
   await expect(party.POST(request(attendance), context()), 200);
   const recorded = sqlite.prepare('SELECT * FROM practice_attendance').get();

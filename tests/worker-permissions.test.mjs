@@ -29,9 +29,13 @@ test('page routes require their page permission while shared APIs remain availab
     assert.equal((await request(path, { qr: 1 })).status, 200, path);
     assert.equal((await request(path, { email: '' })).status, 403, path);
   }
-  for (const path of ['/api/qr-codes', '/api/qr-codes/1', '/api/qr-codes/1/image', '/api/students', '/api/administrators']) {
+  for (const path of ['/api/qr-codes', '/api/qr-codes/1', '/api/qr-codes/1/image', '/api/students']) {
     assert.equal((await request(path)).status, 200, path);
     assert.equal((await request(path, { qr: 1 })).status, 200, path);
+  }
+  for (const path of ['/api/administrators', '/api/administrators/admin%40example.com']) {
+    assert.equal((await request(path)).status, 403, path);
+    assert.equal((await request(path, { email: 'croitoriu.alexandru.code@gmail.com' })).status, 200, path);
   }
 });
 test('authenticated administrators can access images with no page permissions', async () => {

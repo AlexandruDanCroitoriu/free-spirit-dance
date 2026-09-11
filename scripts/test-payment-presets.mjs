@@ -53,7 +53,8 @@ const list=await (await collection.GET()).json();assert.equal(list.presets.lengt
 assert.equal((await item.PATCH(request({...input,allocations:[{courseId:999,allowance:1}]}),context(preset.id))).status,409);
 assert.deepEqual((await (await collection.GET()).json()).presets[0],preset,'Invalid changes must roll back');
 const draft=helper.presetDraft(preset);assert.equal(draft.amount,'200.50');assert.deepEqual(draft.allocations,{'1':'4','2':'2'});
-const payment={kind:'payment',requestKey:'preset-payment-test-123',notes:'',paidOn:'2026-09-09',amount:draft.amount,allocations:Object.entries(draft.allocations).map(([id,n])=>({courseId:Number(id),allowance:Number(n)}))};
+sqlite.exec("INSERT INTO admin_profiles (email, name) VALUES ('admin@example.test', ''); INSERT INTO administrator_payment_methods (email, method) VALUES ('admin@example.test', 'Cash')");
+const payment={kind:'payment',requestKey:'preset-payment-test-123',notes:'',paidOn:'2026-09-09',amount:draft.amount,receivedMethod:'Cash',allocations:Object.entries(draft.allocations).map(([id,n])=>({courseId:Number(id),allowance:Number(n)}))};
 assert.equal((await activity.POST(request(payment),context(1))).status,201);
 const originalPayment=sqlite.prepare('SELECT * FROM student_payments').all();const originalAllowances=sqlite.prepare('SELECT * FROM payment_course_allowances').all();
 assert.equal((await item.PATCH(request({...input,name:'Updated',amount:'250',allocations:[{courseId:2,allowance:8}]}),context(preset.id))).status,200);
@@ -70,6 +71,11 @@ for(const path of ['/api/payment-presets','/api/payment-presets/1']) for(const m
  const fetchAs=(email)=>worker.fetch(new Request('https://school.example.test'+path,{method,headers:email?{'cf-access-authenticated-user-email':email}:{}}),{DB:db,PUBLIC_QR_BASE_URL:'https://go.example.test'},{});
  assert.equal((await fetchAs(null)).status,200);assert.equal((await fetchAs('courses@example.test')).status,200);assert.equal((await fetchAs('students@example.test')).status,200);
 }
+for (const path of ['/api/administrators', '/api/administrators/students%40example.test']) {
+ const fetchAs = (email) => worker.fetch(new Request('https://school.example.test' + path, { method: 'DELETE', headers: email ? { 'cf-access-authenticated-user-email': email } : {} }), { DB: db, PUBLIC_QR_BASE_URL: 'https://go.example.test' }, {});
+ assert.equal((await fetchAs('students@example.test')).status, 403);
+ assert.equal((await fetchAs('croitoriu.alexandru.code@gmail.com')).status, 200);
+}
 assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 console.log('PASS: preset create/edit/delete, validation, rollback, exact amounts, popup defaults, payment history preservation, and permissions.');
 
@@ -83,4 +89,8 @@ const permissions = { dashboard: false, students: true, courses: false, practice
 const response = await adminItem.PATCH(request(permissions), adminContext);
 assert.equal(response.status, 200);
 assert.equal((await response.json()).practiceParties, true);
+const deletion = await adminItem.DELETE(new Request('https://school.example.test/api/administrators/students%40example.test', { method: 'DELETE' }), adminContext);
+assert.equal(deletion.status, 204);
+assert.equal(sqlite.prepare("SELECT email FROM administrator_permissions WHERE email = 'students@example.test'").get(), undefined);
+assert.equal((await adminItem.DELETE(new Request('https://school.example.test/api/administrators/students%40example.test', { method: 'DELETE' }), adminContext)).status, 404);
 console.log('PASS: Practice Parties access is managed independently through administrator APIs.');

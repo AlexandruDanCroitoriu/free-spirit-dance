@@ -128,7 +128,7 @@ export default function CoursesPage() {
     finally { setBusy(false); }
   }
 
-  return <main className="flex-1 bg-stone-50 px-6 py-6 text-slate-800 md:px-12"><div className="mx-auto max-w-5xl space-y-4">
+  return <main className="flex-1 px-6 py-6 text-slate-800 md:px-12"><div className="mx-auto max-w-5xl space-y-4">
     <OperationNotification message={operationError} kind="error" onDismiss={() => setOperationError("")} />
     <OperationNotification message={notice} onDismiss={() => setNotice("")} />
     {error && !formOpen && <p role="alert" className="rounded-lg bg-red-50 p-3 font-sans text-sm text-red-700">{error}{!loaded && <button className={buttonClass + " ml-3"} onClick={() => void load()}>Retry</button>}</p>}

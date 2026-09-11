@@ -11,3 +11,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ email
     return Response.json(serialize(result));
   } catch (error) { console.error("Could not update administrator", error); return Response.json({ error: "Could not update administrator." }, { status: 500 }); }
 }
+
+export async function DELETE(_request: Request, context: { params: Promise<{ email: string }> }) {
+  const email = decodeURIComponent((await context.params).email).trim().toLowerCase();
+  if (!email) return Response.json({ error: "Administrator email is required." }, { status: 400 });
+  try {
+    const result = await env.DB.prepare("DELETE FROM administrator_permissions WHERE email = ?").bind(email).run();
+    if (!result.meta.changes) return Response.json({ error: "Administrator not found." }, { status: 404 });
+    return new Response(null, { status: 204 });
+  } catch (error) { console.error("Could not delete administrator", error); return Response.json({ error: "Could not delete administrator." }, { status: 500 }); }
+}

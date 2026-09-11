@@ -1,12 +1,18 @@
 import { env } from "../../../lib/storage";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
+const primaryAdministratorEmail = "croitoriu.alexandru.code@gmail.com";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const page = Number(url.searchParams.get("page") ?? 1);
+  const pageSize = Number(url.searchParams.get("pageSize") ?? 10);
   const status = url.searchParams.get("status") ?? "all";
-  if (!Number.isSafeInteger(page) || page < 1 || page > 100000 || !["all", "pending", "given"].includes(status)) return json({ error: "Invalid payment filters." }, 400);
+  if (!Number.isSafeInteger(page) || page < 1 || page > 100000 || ![10, 20, 30, 40, 50].includes(pageSize) || !["all", "pending", "given"].includes(status)) return json({ error: "Invalid payment filters." }, 400);
+  const collectors = [...new Set(url.searchParams.getAll("collector"))];
+  if (collectors.length > 90 || collectors.some((email) => !email.trim() || email.length > 254)) return json({ error: "Invalid administrator filter." }, 400);
+  const methods = [...new Set(url.searchParams.getAll("method"))];
+  if (methods.length > 30 || methods.some((method) => !method.trim() || method.length > 50)) return json({ error: "Invalid payment-method filter." }, 400);
   const from = url.searchParams.get("from") ?? "";
   const to = url.searchParams.get("to") ?? "";
   const validDate = (value: string) => {
@@ -20,14 +26,21 @@ export async function GET(request: Request) {
   if (status !== "all") { conditions.push("p.given_to_school = ?"); values.push(status === "given" ? 1 : 0); }
   if (from) { conditions.push("p.paid_on >= ?"); values.push(from); }
   if (to) { conditions.push("p.paid_on <= ?"); values.push(to); }
+  if (collectors.length) {
+    conditions.push(`p.recorded_by IN (${collectors.map(() => "?").join(", ")})`);
+    values.push(...collectors);
+  }
+  if (methods.length) { conditions.push(`p.received_method IN (${methods.map(() => "?").join(", ")})`); values.push(...methods); }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   try {
     const results = await env.DB.batch([
-      env.DB.prepare(`SELECT p.id, p.purpose, p.practice_id AS practiceId, p.practice_description AS practiceDescription, p.student_id AS studentId, s.first_name AS firstName, s.last_name AS lastName, s.email AS studentEmail, s.picture AS studentPicture, a.name AS administratorName, a.picture AS administratorPicture, p.paid_on AS paidOn, p.amount_minor AS amountMinor, p.recorded_by AS recordedBy, p.given_to_school AS givenToSchool FROM school_payment_records p JOIN students s ON s.id = p.student_id LEFT JOIN admin_profiles a ON a.email = p.recorded_by ${where} ORDER BY p.paid_on DESC, p.purpose, p.id DESC LIMIT 10 OFFSET ?`).bind(...values, (page - 1) * 10),
+      env.DB.prepare(`SELECT p.id, p.purpose, p.practice_id AS practiceId, p.practice_description AS practiceDescription, p.student_id AS studentId, s.first_name AS firstName, s.last_name AS lastName, s.email AS studentEmail, s.picture AS studentPicture, a.name AS administratorName, a.picture AS administratorPicture, p.paid_on AS paidOn, p.amount_minor AS amountMinor, p.recorded_by AS recordedBy, p.received_method AS receivedMethod, p.given_to_school AS givenToSchool FROM school_payment_records p JOIN students s ON s.id = p.student_id LEFT JOIN admin_profiles a ON a.email = p.recorded_by ${where} ORDER BY p.paid_on DESC, p.purpose, p.id DESC LIMIT ? OFFSET ?`).bind(...values, pageSize, (page - 1) * pageSize),
       env.DB.prepare(`SELECT COUNT(*) AS count FROM school_payment_records p ${where}`).bind(...values),
       env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN given_to_school = 0 THEN amount_minor ELSE 0 END), 0) AS pendingMinor, COALESCE(SUM(CASE WHEN given_to_school = 1 THEN amount_minor ELSE 0 END), 0) AS givenMinor FROM school_payment_records p ${where}`).bind(...values),
+      env.DB.prepare("SELECT directory.email, profiles.name FROM (SELECT email FROM administrator_permissions UNION SELECT ? AS email) directory LEFT JOIN admin_profiles profiles ON profiles.email = directory.email ORDER BY COALESCE(NULLIF(TRIM(profiles.name), ''), directory.email) COLLATE NOCASE, directory.email").bind(primaryAdministratorEmail),
+      collectors.length ? env.DB.prepare(`SELECT DISTINCT method FROM administrator_payment_methods WHERE email IN (${collectors.map(() => "?").join(", ")}) ORDER BY method COLLATE NOCASE`).bind(...collectors) : env.DB.prepare("SELECT '' AS method WHERE 0"),
     ]);
-    return json({ payments: results[0].results, count: (results[1].results[0] as { count: number }).count, totals: results[2].results[0] });
+    return json({ payments: results[0].results, count: (results[1].results[0] as { count: number }).count, totals: results[2].results[0], collectors: results[3].results, methods: results[4].results });
   } catch (error) {
     console.error("Could not load school payment transfers", error);
     return json({ error: "Could not load payments." }, 500);

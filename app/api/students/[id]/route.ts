@@ -1,9 +1,9 @@
 import { env } from "../../../lib/storage";
 
-type StudentRow = { id: number; first_name: string; last_name: string; email: string; phone: string; picture: string | null; active: number };
+type StudentRow = { id: number; first_name: string; last_name: string; email: string; phone: string; birth_date: string | null; picture: string | null; active: number };
 
 function serialize(row: StudentRow) {
-  return { id: row.id, firstName: row.first_name, lastName: row.last_name, email: row.email, phone: row.phone, picture: row.picture, active: row.active === 1 };
+  return { id: row.id, firstName: row.first_name, lastName: row.last_name, email: row.email, phone: row.phone, birthDate: row.birth_date, picture: row.picture, active: row.active === 1 };
 }
 
 function isPhoneConstraintError(error: unknown) {
@@ -16,12 +16,19 @@ function imageKey(picture: string | null) {
   try { return decodeURIComponent(picture.slice(prefix.length)); } catch { return null; }
 }
 
+function validBirthDate(value: unknown) {
+  if (value === null || value === "") return true;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value > new Date().toISOString().slice(0, 10)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const id = Number((await context.params).id);
   if (!Number.isInteger(id) || id < 1) return Response.json({ error: "Invalid student id." }, { status: 400 });
   try {
     const db = env.DB;
-    const result = await db.prepare("SELECT id, first_name, last_name, email, phone, picture, active FROM students WHERE id = ?").bind(id).first<StudentRow>();
+    const result = await db.prepare("SELECT id, first_name, last_name, email, phone, birth_date, picture, active FROM students WHERE id = ?").bind(id).first<StudentRow>();
     if (!result) return Response.json({ error: "Student not found." }, { status: 404 });
     return Response.json(serialize(result));
   } catch (error) {
@@ -41,6 +48,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (typeof student.email !== "string" || (student.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(student.email.trim()))) return Response.json({ error: "Enter a valid email or leave it empty." }, { status: 400 });
   if (typeof student.phone !== "string" || typeof student.active !== "boolean") return Response.json({ error: "Phone and active state are required." }, { status: 400 });
   if (student.phone.trim() && !/^\d{10,}$/.test(student.phone.trim())) return Response.json({ error: "Phone must contain only numbers and be at least 10 digits." }, { status: 400 });
+  if (!validBirthDate(student.birthDate)) return Response.json({ error: "Enter a valid birth date that is not in the future, or leave it empty." }, { status: 400 });
   if (student.picture !== null && typeof student.picture !== "string") return Response.json({ error: "Picture must be a URL or empty." }, { status: 400 });
   try {
     const db = env.DB;
@@ -51,13 +59,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       const duplicatePhone = await db.prepare("SELECT id FROM students WHERE id <> ? AND trim(phone) = ? LIMIT 1").bind(id, phone).first<{ id: number }>();
       if (duplicatePhone) return Response.json({ error: "A student with this phone number already exists." }, { status: 409 });
     }
-    const result = await db.prepare("UPDATE students SET first_name = ?, last_name = ?, email = ?, phone = ?, picture = ?, active = ? WHERE id = ? RETURNING id, first_name, last_name, email, phone, picture, active").bind(
-      student.firstName.trim(), student.lastName.trim(), student.email.trim(), phone, typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active ? 1 : 0, id,
+    const result = await db.prepare("UPDATE students SET first_name = ?, last_name = ?, email = ?, phone = ?, birth_date = ?, picture = ?, active = ? WHERE id = ? RETURNING id, first_name, last_name, email, phone, birth_date, picture, active").bind(
+      student.firstName.trim(), student.lastName.trim(), student.email.trim(), phone, typeof student.birthDate === "string" && student.birthDate.trim() ? student.birthDate.trim() : null, typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active ? 1 : 0, id,
     ).first<StudentRow>();
     if (!result) return Response.json({ error: "Student not found." }, { status: 404 });
     const previousImageKey = imageKey(existing.picture);
     if (previousImageKey && existing.picture !== result.picture) await env.STUDENT_IMAGES.delete(previousImageKey);
-    return Response.json({ id: result.id, firstName: result.first_name, lastName: result.last_name, email: result.email, phone: result.phone, picture: result.picture, active: result.active === 1 });
+    return Response.json(serialize(result));
   } catch (error) {
     if (isPhoneConstraintError(error)) return Response.json({ error: "A student with this phone number already exists." }, { status: 409 });
     console.error("Could not update student", error);

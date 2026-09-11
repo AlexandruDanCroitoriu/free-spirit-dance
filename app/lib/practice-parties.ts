@@ -1,7 +1,7 @@
 import { validPaymentDate } from './student-activity';
 
 export type PracticeSession = { id: number; startsAt: string; startsUtc: string; durationMinutes: number; cancelled: number; revision: number; attendanceCount: number };
-export type EventStudent = { id: number; firstName: string; lastName: string; email: string | null; picture: string | null; active: number; attendanceId: number | null; donationAmountMinor: number | null };
+export type EventStudent = { id: number; firstName: string; lastName: string; email: string | null; picture: string | null; active: number; attendanceId: number | null; donationAmountMinor: number | null; donationReceivedMethod: string };
 export type EventPayment = { id: number; studentId: number; studentName: string; practiceId: number; amountMinor: number; paidOn: string; notes: string; recordedBy: string; givenToSchool: number };
 export type EventDetail = { party: PracticeSession; payments: EventPayment[]; totals: { receivedMinor: number; givenMinor: number; pendingMinor: number } };
 export const eventButton = 'rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-sans disabled:opacity-50 hover:border-lime-600';
