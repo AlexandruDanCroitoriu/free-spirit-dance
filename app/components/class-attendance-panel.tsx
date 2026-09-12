@@ -6,7 +6,7 @@ import {
   type ClassRoster,
   type ClassStudent,
 } from "../lib/class-attendance";
-import { formatLogDate } from "../lib/student-activity";
+import { formatLogDate, formatMoney } from "../lib/student-activity";
 const button =
   "rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold disabled:opacity-50";
 async function readResponse<T>(response: Response): Promise<T> {
@@ -114,6 +114,17 @@ export default function ClassAttendancePanel({
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update class."); }
     finally { saving.current = false; setBusy(false); }
   }
+  async function changeRentPaid(rentPaid: boolean) {
+    if (saving.current || !data) return;
+    saving.current = true; setBusy(true); setError("");
+    try {
+      await readResponse(await fetch("/api/class-attendance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...slot, rentPaid }) }));
+      setData((current) => current ? { ...current, rentPaid } : current);
+      setNotice(rentPaid ? "Rent marked as paid." : "Rent marked as not paid.");
+      window.dispatchEvent(new Event("calendar-updated"));
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update rent status."); }
+    finally { saving.current = false; setBusy(false); }
+  }
   async function submit() {
     if (saving.current || !changeCount || !editable) return;
     saving.current = true;
@@ -218,6 +229,7 @@ export default function ClassAttendancePanel({
       </header>
       <div className="space-y-5 p-5">
         {data?.cancelled && <p role="status" className="rounded-lg bg-red-50 p-3 font-sans text-sm text-red-700">This class is cancelled. Attendance cannot be added.</p>}
+        {data && <section className="rounded-lg border border-stone-200 bg-white p-4 font-sans text-sm"><p className="m-0 text-xs font-bold uppercase tracking-wider text-slate-500">Class rent</p><div className="mt-2 flex flex-wrap items-center justify-between gap-3"><strong>{formatMoney(data.rentCostMinor)}</strong><label className="flex items-center gap-2 font-semibold"><input type="checkbox" checked={data.rentPaid} disabled={busy || loading || !data.canManageClass} onChange={(event) => void changeRentPaid(event.currentTarget.checked)} className="h-4 w-4 accent-lime-700" />Rent money given</label></div></section>}
         {data?.canManageClass && <div>
           <button type="button" className={button + " text-red-700"} disabled={busy || loading || selected.length > 0 || (!data.cancelled && data.students.some((student) => student.attended))} onClick={() => void changeCancellation()}>{data.cancelled ? "Restore class" : "Cancel class"}</button>
           {!data.cancelled && data.students.some((student) => student.attended) && <p className="font-sans text-xs text-slate-500">Remove recorded attendance before cancelling this class.</p>}

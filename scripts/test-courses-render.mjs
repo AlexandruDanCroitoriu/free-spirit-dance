@@ -29,6 +29,7 @@ try {
     assert.match(html, /End time/);
     assert.doesNotMatch(html, /Add class/);
     assert.equal((html.match(/type="checkbox"/g) ?? []).length, 7);
+    assert.match(html, /Course payment preset/);
     assert.match(html, /Luni/);
     assert.match(html, /Duminică/);
     assert.doesNotMatch(html, /type="time"/);

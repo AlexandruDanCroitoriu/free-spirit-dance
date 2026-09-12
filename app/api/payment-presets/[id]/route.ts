@@ -10,7 +10,9 @@ export async function PATCH(request: Request, context: Context) {
   if (typeof input === "string") return Response.json({ error: input }, { status: 400, headers });
   try {
     const db = env.DB;
-    if (!await db.prepare("SELECT id FROM payment_presets WHERE id = ?").bind(id).first()) return Response.json({ error: "Preset not found." }, { status: 404, headers });
+    const preset = await db.prepare("SELECT id, course_id AS courseId FROM payment_presets WHERE id = ?").bind(id).first<{ id: number; courseId: number | null }>();
+    if (!preset) return Response.json({ error: "Preset not found." }, { status: 404, headers });
+    if (preset.courseId !== null) return Response.json({ error: "Course payment presets can only be edited from their course." }, { status: 403, headers });
     const results = await db.batch([
       db.prepare("UPDATE payment_presets SET name = ?, amount_minor = ? WHERE id = ?").bind(input.name, input.amountMinor, id),
       db.prepare("DELETE FROM payment_preset_courses WHERE preset_id = ?").bind(id),
@@ -28,7 +30,7 @@ export async function DELETE(_request: Request, context: Context) {
   const id = Number((await context.params).id);
   if (!Number.isSafeInteger(id) || id < 1) return Response.json({ error: "Invalid preset id." }, { status: 400, headers });
   try {
-    const result = await env.DB.prepare("DELETE FROM payment_presets WHERE id = ?").bind(id).run();
+    const result = await env.DB.prepare("DELETE FROM payment_presets WHERE id = ? AND course_id IS NULL").bind(id).run();
     return result.meta.changes ? new Response(null, { status: 204, headers }) : Response.json({ error: "Preset not found." }, { status: 404, headers });
   } catch (error) { console.error("Could not delete payment preset", error); return Response.json({ error: "Could not delete payment preset." }, { status: 500, headers }); }
 }

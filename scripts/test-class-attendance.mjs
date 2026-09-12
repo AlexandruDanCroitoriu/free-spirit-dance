@@ -87,7 +87,7 @@ for (const classDate of ['2026-09-02','2026-09-23']) {
 }
 for (const classDate of ['2026-09-09','2026-09-16']) assert.equal((await get({classDate})).status,200);
 const {parseCourse}=await import(moduleUrl(readFileSync('app/lib/courses.ts','utf8')));
-const validCourse={name:'Zouk',startDate:'2026-09-09',endDate:'2026-09-16',schedules:[{day:'Wednesday',startTime:'18:30',endTime:'19:30'}]};
+const validCourse={name:'Zouk',startDate:'2026-09-09',endDate:'2026-09-16',schedules:[{day:'Wednesday',startTime:'18:30',endTime:'19:30',rentCostMinor:0}]};
 assert.equal(typeof parseCourse(validCourse),'object');
 for(const dates of [{startDate:'2026-02-30'},{endDate:'2026-09-08'},{startDate:''}]) assert.equal(typeof parseCourse({...validCourse,...dates}),'string');
 sqlite.exec("INSERT INTO administrator_permissions (email,can_dashboard,can_students,can_courses) VALUES ('both@example.test',1,1,0),('dashboard@example.test',1,0,0),('students@example.test',0,1,0),('courses@example.test',0,0,1)");

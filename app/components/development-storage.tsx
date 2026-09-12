@@ -36,7 +36,9 @@ export default function DevelopmentStorage() {
       });
       if (!response.ok) throw new Error("Could not switch storage. Try again.");
       try { localStorage.setItem("fsd-storage-changed", String(Date.now())); } catch {}
-      window.location.assign("/");
+      // Reload the current URL after the storage-selection cookie is updated.
+      // This preserves the page, filters, and anchors the administrator was using.
+      window.location.reload();
     } catch (error) {
       setError(error instanceof Error ? error.message : "Could not switch storage.");
       setBusy(false);

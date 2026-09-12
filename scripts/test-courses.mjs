@@ -46,7 +46,7 @@ const collection = await route("app/api/courses/route.ts");
 const item = await route("app/api/courses/[id]/route.ts");
 const request = (body) => new Request("http://localhost/api/courses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 const context = (id) => ({ params: Promise.resolve({ id: String(id) }) });
-const schedules = helper.weekdays.slice(0,5).map(day => ({ day, startTime: "18:00", endTime: "19:00" }));
+const schedules = helper.weekdays.slice(0,5).map(day => ({ day, startTime: "18:00", endTime: "19:00", rentCostMinor: 0 }));
 const input = { name: "Five classes", startDate: "2026-09-01", endDate: null, schedules };
 for (const bad of [[], [...schedules,schedules[0]], [schedules[0],schedules[0]], [{...schedules[0],endTime:"17:00"}], [{...schedules[0],day:"Invalid"}]]) {
  assert.equal((await collection.POST(request({...input,schedules:bad}))).status,400);

@@ -6,9 +6,10 @@ import TimeSelector from "../components/time-selector";
 import OperationNotification from "../components/operation-notification";
 import PaymentPresets from "../components/payment-presets";
 import { weekdays, parseCourse, type Course, type CourseInput, type Schedule } from "../lib/courses";
+import { formatMoney, parseAmount } from "../lib/student-activity";
 
 const dayLabels: Record<string, string> = { Monday: "Luni", Tuesday: "Marți", Wednesday: "Miercuri", Thursday: "Joi", Friday: "Vineri", Saturday: "Sâmbătă", Sunday: "Duminică" };
-const newSchedule = (): Schedule => ({ day: "Monday", startTime: "18:00", endTime: "19:00" });
+const newSchedule = (): Schedule => ({ day: "Monday", startTime: "18:00", endTime: "19:00", rentCostMinor: 0 });
 const emptyForm = (): CourseInput => ({ name: "", startDate: "", endDate: "", schedules: [newSchedule()] });
 const inputClass = "mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-3 text-sm font-normal text-slate-800 focus:outline-none focus:ring-2 focus:ring-lime-600";
 const buttonClass = "rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold disabled:opacity-50";
@@ -18,6 +19,9 @@ export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [tab, setTab] = useState<"courses" | "payment-presets">("courses");
   const [form, setForm] = useState<CourseInput>(emptyForm);
+  const [rentCosts, setRentCosts] = useState<Record<string, string>>({ Monday: "0.00" });
+  const [presetAmount, setPresetAmount] = useState("");
+  const [presetAllowance, setPresetAllowance] = useState("1");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -27,7 +31,10 @@ export default function CoursesPage() {
   const [notice, setNotice] = useState("");
   const [operationError, setOperationError] = useState("");
   const panel = useRef<HTMLDialogElement>(null);
+  const discardDialog = useRef<HTMLDialogElement>(null);
+  const initialForm = useRef("");
   const deleteDialog = useRef<HTMLDialogElement>(null);
+  const [discardChanges, setDiscardChanges] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Pick<Course, "id" | "name"> | null>(null);
 
   const [relationships, setRelationships] = useState<{ table: string; label: string; count: number }[] | null>(null);
@@ -66,10 +73,15 @@ export default function CoursesPage() {
     finally { setLoading(false); }
   }
   useEffect(() => { void load(); }, []);
+  function formSnapshot(value: CourseInput, costs: Record<string, string>, amount: string, allowance: string) {
+    return JSON.stringify({ value, costs: Object.fromEntries(value.schedules.map((schedule) => [schedule.day, costs[schedule.day] ?? ""])), amount, allowance });
+  }
   useEffect(() => {
     const open = () => {
       if (busy) return;
-      setForm(emptyForm()); setEditingId(null); setError(""); setNotice(""); setOperationError(""); setFormOpen(true);
+      const fresh = emptyForm(), costs = { Monday: "0.00" };
+      initialForm.current = formSnapshot(fresh, costs, "", "1");
+      setForm(fresh); setRentCosts(costs); setPresetAmount(""); setPresetAllowance("1"); setEditingId(null); setError(""); setNotice(""); setOperationError(""); setFormOpen(true);
     };
     window.addEventListener("open-add-course", open);
     return () => window.removeEventListener("open-add-course", open);
@@ -86,15 +98,28 @@ export default function CoursesPage() {
       if (focus instanceof HTMLElement) focus.focus();
     };
   }, [formOpen]);
-  function close() { if (!busy) { setFormOpen(false); setError(""); } }
+  useEffect(() => {
+    if (!discardChanges) return;
+    discardDialog.current?.showModal();
+    return () => discardDialog.current?.close();
+  }, [discardChanges]);
+  function dismissForm() { setDiscardChanges(false); setFormOpen(false); setError(""); }
+  function close() {
+    if (busy) return;
+    if (initialForm.current !== formSnapshot(form, rentCosts, presetAmount, presetAllowance)) { setDiscardChanges(true); return; }
+    dismissForm();
+  }
   function edit(course: Course) {
-    setForm({ name: course.name, startDate: course.startDate ?? "", endDate: course.endDate ?? "", schedules: course.schedules.length ? course.schedules.map((s) => ({ ...s })) : [newSchedule()] });
-    setEditingId(course.id); setError(""); setNotice(""); setOperationError(""); setFormOpen(true);
+    const schedules = course.schedules.length ? course.schedules.map((s) => ({ ...s })) : [newSchedule()];
+    const value = { name: course.name, startDate: course.startDate ?? "", endDate: course.endDate ?? "", schedules }, costs = Object.fromEntries(schedules.map((schedule) => [schedule.day, (schedule.rentCostMinor / 100).toFixed(2)])), amount = course.paymentPreset ? (course.paymentPreset.amountMinor / 100).toFixed(2) : "", allowance = course.paymentPreset ? String(course.paymentPreset.allowance) : "1";
+    initialForm.current = formSnapshot(value, costs, amount, allowance);
+    setForm(value); setRentCosts(costs); setPresetAmount(amount); setPresetAllowance(allowance); setEditingId(course.id); setError(""); setNotice(""); setOperationError(""); setFormOpen(true);
   }
   function updateSchedule(index: number, values: Partial<Schedule>) {
     setForm((current) => ({ ...current, schedules: current.schedules.map((s, i) => i === index ? { ...s, ...values } : s) }));
   }
   function toggleDay(day: string) {
+    setRentCosts((current) => ({ ...current, [day]: current[day] ?? "0.00" }));
     setForm((current) => {
       if (current.schedules.some((schedule) => schedule.day === day)) {
         return { ...current, schedules: current.schedules.filter((schedule) => schedule.day !== day) };
@@ -105,15 +130,25 @@ export default function CoursesPage() {
   }
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setNotice(""); setOperationError("");
-    const input = parseCourse(form);
+    const schedules = form.schedules.map((schedule) => {
+      const cost = rentCosts[schedule.day] ?? "";
+      const rentCostMinor = cost.trim() === "" || /^0(?:[.,]0{0,2})?$/.test(cost.trim()) ? 0 : parseAmount(cost);
+      return rentCostMinor === null ? null : { ...schedule, rentCostMinor };
+    });
+    if (schedules.some((schedule) => schedule === null)) { setError("Enter a rent cost from 0 to 999,999.99 RON for each class day."); return; }
+    const input = parseCourse({ ...form, schedules: schedules as Schedule[] });
     if (typeof input === "string") { setError(input); return; }
+    const amountMinor = parseAmount(presetAmount);
+    const allowance = Number(presetAllowance);
+    if (amountMinor === null) { setError("Enter a positive payment preset amount from 0.01 to 999,999.99 RON."); return; }
+    if (!Number.isSafeInteger(allowance) || allowance < 1 || allowance > 10_000) { setError("Enter between 1 and 10,000 classes for the payment preset."); return; }
     setBusy(true);
     try {
       const saved = await requestJson<Course>(editingId === null ? "/api/courses" : `/api/courses/${editingId}`, {
-        method: editingId === null ? "POST" : "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input),
+        method: editingId === null ? "POST" : "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...input, paymentPreset: { amountMinor, allowance } }),
       });
       setCourses((current) => [...current.filter((c) => c.id !== saved.id), saved].sort((a, b) => a.name.localeCompare(b.name)));
-      setLoaded(true); setFormOpen(false); setNotice("Course saved.");
+      setLoaded(true); dismissForm(); setNotice("Course saved.");
     } catch (reason) { setOperationError(reason instanceof Error ? reason.message : "Could not save course."); }
     finally { setBusy(false); }
   }
@@ -144,6 +179,11 @@ export default function CoursesPage() {
       <form onSubmit={save} className="mt-5 space-y-5">
         <fieldset disabled={busy} className="space-y-5 disabled:opacity-60">
           <label className="block font-sans text-xs font-semibold text-slate-600">Course name<input autoFocus required maxLength={120} className={inputClass} value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></label>
+          <fieldset className="rounded-lg border border-stone-200 p-4 font-sans text-xs text-slate-600">
+            <legend className="px-1 font-semibold">Course payment preset</legend>
+            <p className="mb-0 mt-1 font-normal text-slate-500">This preset uses the course name and is managed here.</p>
+            <div className="mt-3 grid grid-cols-2 gap-3 font-semibold"><label>Amount (RON)<input required inputMode="decimal" pattern="[0-9]{1,6}([.,][0-9]{1,2})?" maxLength={9} placeholder="e.g. 200.00" className={inputClass} value={presetAmount} onChange={(event) => setPresetAmount(event.target.value)} /></label><label>Classes covered<input required type="number" min="1" max="10000" step="1" className={inputClass} value={presetAllowance} onChange={(event) => setPresetAllowance(event.target.value)} /></label></div>
+          </fieldset>
           <div className="grid grid-cols-2 gap-3 font-sans text-xs font-semibold text-slate-600">
             <label>Start date<input required type="date" min="1900-01-01" max={form.endDate || "9999-12-31"} className={inputClass} value={form.startDate ?? ""} onChange={(event) => setForm((current) => ({ ...current, startDate: event.target.value }))} /></label>
             <label>End date (optional)<input type="date" min={form.startDate || "1900-01-01"} max="9999-12-31" className={inputClass} value={form.endDate ?? ""} onChange={(event) => setForm((current) => ({ ...current, endDate: event.target.value }))} /></label>
@@ -171,11 +211,17 @@ export default function CoursesPage() {
               <TimeSelector label="Start time" value={schedule.startTime} onChange={(startTime) => updateSchedule(index, { startTime })} />
               <TimeSelector label="End time" value={schedule.endTime} onChange={(endTime) => updateSchedule(index, { endTime })} />
             </div>
+            <label className="mt-3 block font-sans text-xs font-semibold text-slate-600">Rent cost for this class (RON)<input required inputMode="decimal" pattern="(?:0|[1-9][0-9]{0,5})(?:[.,][0-9]{1,2})?" maxLength={9} className={inputClass} value={rentCosts[schedule.day] ?? ""} onChange={(event) => setRentCosts((current) => ({ ...current, [schedule.day]: event.target.value }))} /><span className="mt-1 block font-normal text-slate-500">This amount is copied into each recorded class.</span></label>
           </fieldset>)}
         </fieldset>
         {error && <p role="alert" className="rounded-lg bg-red-50 p-3 font-sans text-sm text-red-700">{error}</p>}
         <div className="sticky -bottom-6 -mx-6 flex justify-end gap-3 border-t border-stone-200 bg-white px-6 py-4">{editingId !== null && <button type="button" className={buttonClass + " mr-auto border-red-200 text-red-700"} disabled={busy} onClick={() => setDeleteTarget({ id: editingId, name: courses.find((course) => course.id === editingId)?.name ?? form.name })}>Delete course</button>}<button type="button" className={buttonClass} disabled={busy} onClick={close}>Cancel</button><button className={primaryClass} disabled={busy}>{busy ? "Saving…" : "Save course"}</button></div>
       </form>
+    </dialog>}
+    {discardChanges && <dialog ref={discardDialog} aria-labelledby="discard-course-title" aria-describedby="discard-course-description" aria-modal="true" className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-stone-200 bg-white p-6 text-slate-800 shadow-2xl backdrop:bg-slate-950/70" onCancel={(event) => { event.preventDefault(); setDiscardChanges(false); }}>
+      <h2 id="discard-course-title" className="m-0 text-xl font-semibold">Discard changes?</h2>
+      <p id="discard-course-description" className="mt-3 font-sans text-sm leading-6 text-slate-600">You have unsaved changes to this course. Do you want to leave without saving them?</p>
+      <div className="mt-6 flex justify-end gap-3"><button autoFocus type="button" className={buttonClass} onClick={() => setDiscardChanges(false)}>Keep editing</button><button type="button" className="rounded-md bg-red-700 px-4 py-3 font-sans text-xs font-bold text-white hover:bg-red-800" onClick={dismissForm}>Discard changes</button></div>
     </dialog>}
     {deleteTarget && <dialog ref={deleteDialog} aria-labelledby="delete-course-title" aria-describedby="delete-course-description" aria-modal="true"
       className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-red-200 bg-white p-6 text-slate-800 shadow-2xl backdrop:bg-slate-950/70"
@@ -203,7 +249,7 @@ export default function CoursesPage() {
         <thead className="bg-stone-50 text-xs uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">Course name</th><th className="px-5 py-3">Weekly schedule</th><th className="px-5 py-3"><span className="sr-only">Actions</span></th></tr></thead>
         <tbody className="divide-y divide-stone-200">{courses.map((course) => <tr key={course.id} className="hover:bg-stone-50">
           <td className="px-5 py-4 align-top font-semibold">{course.name}</td>
-          <td className="px-5 py-4 text-slate-600">{course.schedules.length ? <ul className="m-0 list-none space-y-2 p-0">{course.schedules.map((s, i) => <li key={i} className="whitespace-nowrap">{dayLabels[s.day] ?? s.day}, {s.startTime}–{s.endTime}</li>)}</ul> : "No classes scheduled"}</td>
+          <td className="px-5 py-4 text-slate-600">{course.schedules.length ? <ul className="m-0 list-none space-y-2 p-0">{course.schedules.map((s, i) => <li key={i} className="whitespace-nowrap">{dayLabels[s.day] ?? s.day}, {s.startTime}–{s.endTime} · {formatMoney(s.rentCostMinor)}</li>)}</ul> : "No classes scheduled"}</td>
           <td className="px-5 py-4 text-right align-top"><div className="flex justify-end gap-2"><button className={buttonClass} disabled={busy} onClick={() => edit(course)}>Edit<span className="sr-only"> {course.name}</span></button></div></td>
         </tr>)}</tbody>
       </table></div>}

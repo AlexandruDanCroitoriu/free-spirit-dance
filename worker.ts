@@ -25,7 +25,7 @@ function forbidden(pathname: string) {
   return new Response("<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>Access denied</title><body style=\"margin:0;background:#fafaf9;color:#1e293b;font-family:system-ui,sans-serif\"><main style=\"max-width:32rem;margin:12vh auto;padding:2rem\"><h1>Access denied</h1><p>This area is available only to the authorized administrator.</p><a href=\"/settings\">Go to Settings</a></main></body></html>", { status: 403, headers: { ...headers, "Content-Type": "text/html; charset=utf-8" } });
 }
 
-type DevelopmentEnv = CloudflareEnv & { LOCAL_STORAGE_ENABLED?: string; LOCAL_DB?: D1Database; LOCAL_IMAGES?: R2Bucket };
+type DevelopmentEnv = CloudflareEnv & { LOCAL_STORAGE_ENABLED?: string; LOCAL_DB?: D1Database; LOCAL_IMAGES?: R2Bucket; PRODUCTION_IMAGES?: R2Bucket };
 
 const application = {
   async fetch(request: Request, env, ctx) {
@@ -92,7 +92,9 @@ export default {
     }
     if (!development) return application.fetch(request, env, ctx);
     if (!env.LOCAL_DB || !env.LOCAL_IMAGES) return new Response("Local storage is not configured.", { status: 503 });
-    const scoped = selected === "production" ? env : { ...env, DB: env.LOCAL_DB, STUDENT_IMAGES: env.LOCAL_IMAGES };
+    // Local imports can copy profile and QR images from the production binding.
+    // This extra binding is never present in production requests.
+    const scoped = selected === "production" ? env : { ...env, DB: env.LOCAL_DB, STUDENT_IMAGES: env.LOCAL_IMAGES, PRODUCTION_IMAGES: env.STUDENT_IMAGES };
     const response = await withStorage(scoped, () => application.fetch(request, scoped, ctx));
     // Image URLs and record IDs can overlap across stores; never reuse cached data.
     const result = new Response(response.body, response);

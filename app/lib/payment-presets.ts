@@ -1,6 +1,6 @@
 import { parseAmount } from "./student-activity";
 
-export type PaymentPreset = { id: number; name: string; amountMinor: number; allocations: { courseId: number; courseName: string; allowance: number }[] };
+export type PaymentPreset = { id: number; name: string; amountMinor: number; courseId: number | null; allocations: { courseId: number; courseName: string; allowance: number }[] };
 export type PresetInput = { name: string; amountMinor: number; allocations: { courseId: number; allowance: number }[] };
 export function parsePreset(value: unknown): PresetInput | string {
   if (!value || typeof value !== "object") return "Enter a payment preset.";
@@ -18,19 +18,19 @@ export function parsePreset(value: unknown): PresetInput | string {
   }
   return { name: input.name.trim(), amountMinor, allocations };
 }
-export const presetQuery = `SELECT p.id, p.name, p.amount_minor AS amountMinor, a.course_id AS courseId, c.name AS courseName, a.allowance
+export const presetQuery = `SELECT p.id, p.name, p.amount_minor AS amountMinor, p.course_id AS ownedCourseId, a.course_id AS courseId, c.name AS courseName, a.allowance
   FROM payment_presets p LEFT JOIN payment_preset_courses a ON a.preset_id = p.id LEFT JOIN courses c ON c.id = a.course_id`;
-type PresetRow = { id: number; name: string; amountMinor: number; courseId: number | null; courseName: string | null; allowance: number | null };
+type PresetRow = { id: number; name: string; amountMinor: number; ownedCourseId: number | null; courseId: number | null; courseName: string | null; allowance: number | null };
 export function serializePresets(rows: PresetRow[]): PaymentPreset[] {
   const items = new Map<number, PaymentPreset>();
   for (const row of rows) {
-    if (!items.has(row.id)) items.set(row.id, { id: row.id, name: row.name, amountMinor: row.amountMinor, allocations: [] });
+    if (!items.has(row.id)) items.set(row.id, { id: row.id, name: row.name, amountMinor: row.amountMinor, courseId: row.ownedCourseId, allocations: [] });
     if (row.courseId !== null) items.get(row.id)!.allocations.push({ courseId: row.courseId, courseName: row.courseName!, allowance: row.allowance! });
   }
   return [...items.values()];
 }
-export async function readPresets(db: D1Database) {
-  const rows = await db.prepare(presetQuery + " ORDER BY p.name COLLATE NOCASE, p.id, a.course_id").all<PresetRow>();
+export async function readPresets(db: D1Database, filter = "") {
+  const rows = await db.prepare(`${presetQuery} ${filter} ORDER BY p.name COLLATE NOCASE, p.id, a.course_id`).all<PresetRow>();
   return serializePresets(rows.results);
 }
 export function presetDraft(preset: PaymentPreset) {

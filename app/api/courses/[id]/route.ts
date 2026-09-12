@@ -1,21 +1,30 @@
 import { env } from "../../../lib/storage";
-import { courseQuery, scheduleStatements, parseCourse, serializeCourses, type CourseRow } from "../../../lib/courses";
+import { courseQuery, scheduleStatements, parseCourseCreate, serializeCourses, type CourseRow } from "../../../lib/courses";
 
 function courseId(value: string) { const id = Number(value); return Number.isInteger(id) && id > 0 ? id : null; }
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const id = courseId((await context.params).id);
   if (id === null) return Response.json({ error: "Invalid course id." }, { status: 400 });
-  const parsed = parseCourse(await request.json().catch(() => null));
+  const parsed = parseCourseCreate(await request.json().catch(() => null));
   if (typeof parsed === "string") return Response.json({ error: parsed }, { status: 400 });
   try {
     const db = env.DB;
     const existing = await db.prepare("SELECT id FROM courses WHERE id = ?").bind(id).first();
     if (!existing) return Response.json({ error: "Course not found." }, { status: 404 });
+    const ownedPreset = await db.prepare("SELECT id FROM payment_presets WHERE course_id = ?").bind(id).first<{ id: number }>();
+    const presetStatements = parsed.paymentPreset ? (ownedPreset ? [
+      db.prepare("UPDATE payment_presets SET name = ?, amount_minor = ? WHERE id = ?").bind(parsed.name, parsed.paymentPreset.amountMinor, ownedPreset.id),
+      db.prepare("UPDATE payment_preset_courses SET allowance = ? WHERE preset_id = ? AND course_id = ?").bind(parsed.paymentPreset.allowance, ownedPreset.id, id),
+    ] : [
+      db.prepare("INSERT INTO payment_presets (name, amount_minor, course_id) VALUES (?, ?, ?)").bind(parsed.name, parsed.paymentPreset.amountMinor, id),
+      db.prepare("INSERT INTO payment_preset_courses (preset_id, course_id, allowance) VALUES ((SELECT seq FROM sqlite_sequence WHERE name = 'payment_presets'), ?, ?)").bind(id, parsed.paymentPreset.allowance),
+    ]) : [];
     const result = await db.batch([
       db.prepare("UPDATE courses SET name = ?, start_date = ?, end_date = ? WHERE id = ?").bind(parsed.name, parsed.startDate, parsed.endDate, id),
       db.prepare("DELETE FROM course_schedule WHERE course_id = ?").bind(id),
       ...scheduleStatements(db, parsed, id),
+      ...presetStatements,
       db.prepare(`${courseQuery} WHERE c.id = ? ORDER BY s.id`).bind(id),
     ]);
     return Response.json(serializeCourses(result.at(-1)!.results as CourseRow[])[0]);
