@@ -2,6 +2,31 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 const { courseCreditBalance } = await import('data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(readFileSync('app/lib/student-activity.ts', 'utf8'))).toString('base64'));
+
+// Historical blanks, including a student's gap and time after leaving, are not absences.
+{
+  const missed = [], covered = [], cancelled = [];
+  const history = ['2024-01-11T19:00', '2024-02-08T19:00', '2026-03-12T19:00'];
+  const presence = ['2024-01-09T19:00:00', '2024-02-06T19:00:00', '2026-03-10T19:00:00'].map(attendedAt => ({ attendedAt }));
+  const result = courseCreditBalance(
+    { courseId: 1, courseName: 'Historical', startDate: '2024-01-01', endDate: null },
+    [{ day: 'Tuesday', startTime: '19:00' }, { day: 'Thursday', startTime: '19:00' }],
+    [{ classDate: '2025-06-10', startTime: '19:00', cancelled: 0 }, { classDate: '2026-06-11', startTime: '19:00', cancelled: 1 }],
+    [{ paymentId: 1, paidOn: '2024-01-09', allowance: 10 }], presence,
+    new Date('2026-09-12T12:00:00Z'), (_, detail) => covered.push(...detail.classes.map(c => c.startsAt)),
+    slot => missed.push(slot), slot => cancelled.push(slot), history,
+  );
+  assert.deepEqual(missed, history);
+  assert.equal(result.attendanceCount, 3);
+  assert.equal(result.missedClasses, 3);
+  assert.deepEqual(cancelled, []);
+  assert.equal(covered.length, 6, 'Coverage includes only actual p/a records, including a return after a long gap');
+  const noHistory = [];
+  courseCreditBalance({ courseId: 1, courseName: 'Historical', startDate: null, endDate: null },
+    [{ day: 'Tuesday', startTime: '19:00' }], [], [], presence, new Date('2026-09-12T12:00:00Z'),
+    undefined, slot => noHistory.push(slot), undefined, []);
+  assert.deepEqual(noHistory, [], 'An empty catalog absence list must not fall back to generated absences');
+}
 const course = { courseId: 1, courseName: 'Zouk', startDate: '2026-01-01', endDate: null };
 const schedules = [{ day: 'Monday', startTime: '19:00' }];
 const payments = [{ paidOn: '2026-01-05', allowance: 4 }];
@@ -144,11 +169,21 @@ console.log('PASS: October 14 payment covers October 15 attendance recorded in a
 
 const gapMisses = [], gapCancellations = [];
 const gapBalance = courseCreditBalance(septemberCourse, thursdays, [{classDate:'2026-10-08',startTime:'19:00',cancelled:1}], futurePayments, futureAttendance, new Date('2026-09-10T12:00:00Z'), undefined, slot => gapMisses.push(slot), slot => gapCancellations.push(slot));
-assert.deepEqual(gapMisses, ['2026-10-01T19:00'], 'unpaid gaps between packages appear as missed');
+assert.deepEqual(gapMisses, [], 'unpaid gaps between packages do not appear as missed');
 assert.deepEqual(gapCancellations, ['2026-10-08T19:00'], 'cancelled gaps appear separately');
 assert.equal(gapBalance.remainingAllowance, 3, 'unpaid absences and cancellations do not use payment credits');
 assert.equal(gapBalance.excessAttendance, 0);
 const upcomingCancellations = [];
 courseCreditBalance(septemberCourse, thursdays, [{classDate:'2026-10-08',startTime:'19:00',cancelled:1}], futurePayments, futureAttendance.slice(0,4), new Date('2026-09-10T12:00:00Z'), undefined, undefined, slot => upcomingCancellations.push(slot));
 assert.deepEqual(upcomingCancellations, ['2026-10-08T19:00'], 'known upcoming cancellations appear before later attendance is recorded');
-console.log('PASS: activity includes missed and cancelled gaps between September and October payments.');
+console.log('PASS: unpaid gaps are hidden while known cancellations remain separate.');
+
+const afterLeaving = [];
+const paidPeriod = courseCreditBalance(course, schedules, [], [{ paidOn: '2026-01-05', allowance: 2 }],
+  [{ attendedAt: '2026-01-05T19:00:00' }], new Date('2026-09-12T12:00:00Z'), undefined, slot => afterLeaving.push(slot));
+assert.deepEqual(afterLeaving, ['2026-01-12T19:00'], 'Only the missed paid class is visible after a student stops attending');
+assert.equal(paidPeriod.missedClasses, afterLeaving.length);
+const unpaidMisses = [];
+courseCreditBalance(course, schedules, [], [], [{ attendedAt: '2026-01-05T19:00:00' }],
+  new Date('2026-09-12T12:00:00Z'), undefined, slot => unpaidMisses.push(slot));
+assert.deepEqual(unpaidMisses, [], 'Attendance without a payment never creates missed-class logs');

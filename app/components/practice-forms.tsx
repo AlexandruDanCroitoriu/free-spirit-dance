@@ -5,12 +5,12 @@ import { formatLogDate, schoolToday } from '../lib/student-activity';
 import TimeSelector from './time-selector';
 export type SessionDraft = { date: string; time: string; durationMinutes: number; offset: string };
 export const newSession = (): SessionDraft => ({ date: schoolToday(), time: '20:00', durationMinutes: 120, offset: '' });
-export function SessionFields({ value, onChange }: { value: SessionDraft; onChange: (value: SessionDraft) => void }) {
+export function SessionFields({ value, onChange, dateReadOnly = false }: { value: SessionDraft; onChange: (value: SessionDraft) => void; dateReadOnly?: boolean }) {
   const change = (patch: Partial<SessionDraft>) => onChange({ ...value, ...patch });
   let end = '', problem = '';
   try { end = sessionEnd(parseSession(value)); } catch (e) { problem = (e as Error).message; }
   return <div className="grid gap-3 sm:grid-cols-2">
-    <label>Date<input required type="date" min="1900-01-01" max="9999-12-30" className={eventInput} value={value.date} onChange={e => change({ date: e.target.value })} /></label>
+    <label>Date<input required type="date" readOnly={dateReadOnly} min="1900-01-01" max="9999-12-30" className={eventInput} value={value.date} onChange={e => change({ date: e.target.value })} /></label>
     <TimeSelector label="Start time (Bucharest)" value={value.time} onChange={time => change({ time })} />
     <label>Duration (minutes)<input required type="number" min={1} max={1440} step={1} className={eventInput} value={value.durationMinutes} onChange={e => change({ durationMinutes: Number(e.target.value) })} /></label>
     {(problem.includes('twice') || value.offset) && <label>Daylight-saving time<select required className={eventInput} value={value.offset} onChange={e => change({ offset: e.target.value })}><option value="">Choose which time</option><option value="summer">Summer time (UTC+3)</option><option value="winter">Winter time (UTC+2)</option></select></label>}

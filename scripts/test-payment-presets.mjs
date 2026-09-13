@@ -72,6 +72,8 @@ assert.equal((await item.PATCH(request({...input,name:'Updated',amount:'250',all
 assert.equal((await item.DELETE(request({}),context(preset.id))).status,204);
 assert.deepEqual(sqlite.prepare('SELECT * FROM student_payments').all(),originalPayment);assert.deepEqual(sqlite.prepare('SELECT * FROM payment_course_allowances').all(),originalAllowances);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM payment_preset_courses').get().n,1);
+assert.equal((await courseItem.DELETE(new Request('https://example.test/api/courses/3', { method: 'DELETE' }), context(3))).status,204);
+assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM payment_presets WHERE course_id = 3").get().n,0);
 assert.equal((await item.DELETE(request({}),context(preset.id))).status,404);
 assert.equal((await item.PATCH(request(input),context(999))).status,404);
 assert.equal((await item.DELETE(request({}),context('bad'))).status,400);

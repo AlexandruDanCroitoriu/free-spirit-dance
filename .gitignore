@@ -10,3 +10,9 @@ next-env.d.ts
 !.dev.vars.example
 !.env.example
 tsconfig.tsbuildinfo
+
+# Private student workbooks and database copies stay on this computer.
+/docs/*.xlsx
+/docs/*.sqlite
+/docs/*.sqlite-*
+/docs/historical-import-checklist.md

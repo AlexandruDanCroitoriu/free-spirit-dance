@@ -10,6 +10,7 @@ import StudentCard from "../components/student-card";
 type Student = { id: number; firstName: string; lastName: string; email: string; phone: string; birthDate: string | null; picture: string | null; active: boolean; courseIds?: number[] };
 type FormState = Omit<Student, "id"> & { courseIds: number[] };
 type ApiError = { error?: string };
+type StudentSort = "newest" | "firstName" | "lastName";
 const emptyForm: FormState = { firstName: "", lastName: "", email: "", phone: "", birthDate: null, picture: null, active: true, courseIds: [] };
 
 export default function StudentsPage() {
@@ -31,6 +32,7 @@ export default function StudentsPage() {
   const [coursesError, setCoursesError] = useState("");
   const [courseRetry, setCourseRetry] = useState(0);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [sortBy, setSortBy] = useState<StudentSort>("newest");
 
   useEffect(() => {
     const id = Number(new URLSearchParams(window.location.search).get("student"));
@@ -138,6 +140,13 @@ export default function StudentsPage() {
       .some((value) => value.toLocaleLowerCase().includes(normalizedSearch));
     return matchesStatus && matchesSearch && (courseFilter === "all" || student.courseIds?.includes(Number(courseFilter)));
   });
+  const sortedStudents = [...filteredStudents].sort((first, second) => {
+    if (sortBy === "newest") return second.id - first.id;
+    const primary = sortBy === "firstName" ? first.firstName.localeCompare(second.firstName, undefined, { sensitivity: "base" }) : first.lastName.localeCompare(second.lastName, undefined, { sensitivity: "base" });
+    if (primary) return primary;
+    const secondary = sortBy === "firstName" ? first.lastName.localeCompare(second.lastName, undefined, { sensitivity: "base" }) : first.firstName.localeCompare(second.firstName, undefined, { sensitivity: "base" });
+    return secondary || first.id - second.id;
+  });
 
   return <main className="flex-1 px-6 py-6 text-slate-800 md:px-12"><div className="mx-auto max-w-5xl">
     {formOpen && <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/70 p-4 md:left-64" role="presentation"><div aria-labelledby="student-dialog-title" aria-modal="true" className="mx-auto w-full max-w-3xl rounded-xl border border-stone-200 bg-white p-6 shadow-2xl" role="dialog"><form onSubmit={saveStudent} className="grid min-w-0 gap-4 md:grid-cols-2"><div className="flex items-center justify-between md:col-span-2"><h2 className="m-0 text-xl font-normal" id="student-dialog-title">Add student</h2><button aria-label="Close dialog" type="button" onClick={closeForm} className="rounded-md border border-stone-300 px-3 py-2 font-sans text-xs font-semibold">×</button></div>
@@ -166,9 +175,10 @@ export default function StudentsPage() {
       <label className="relative col-span-2 min-w-0 flex-1 font-sans"><span className="sr-only">Search students</span><svg aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-current text-slate-400" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, phone, or email" className="w-full rounded-lg border border-stone-300 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-lime-600" /></label>
       <label className="min-w-0 font-sans"><span className="sr-only">Filter students by course</span><select value={courseFilter} onChange={(event) => setCourseFilter(event.target.value)} className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-lime-600 sm:max-w-60"><option value="all">All courses</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.name}</option>)}</select></label>
       <label className="min-w-0 font-sans"><span className="sr-only">Filter students by status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "all" | "active" | "inactive")} className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-lime-600 sm:w-40"><option value="all">All students</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+      <label className="min-w-0 font-sans"><span className="sr-only">Arrange students by</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as StudentSort)} className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-lime-600 sm:w-44"><option value="newest">Newest added</option><option value="firstName">First name A–Z</option><option value="lastName">Last name A–Z</option></select></label>
     </div>
     {coursesError && <p role="alert" className="font-sans text-sm text-red-700">{coursesError} <button type="button" onClick={() => setCourseRetry((value) => value + 1)} className="underline">Retry</button></p>}
-    <section className="overflow-hidden rounded-xl border border-stone-200 bg-white">{loading ? <p className="p-8 text-center font-sans text-sm text-slate-400">Loading students...</p> : students.length === 0 ? <div className="p-10 text-center"><h2 className="m-0 text-xl font-normal">No students yet</h2><p className="mt-2 font-sans text-sm text-slate-400">Add your first student to begin building the directory.</p></div> : filteredStudents.length === 0 ? <div className="p-10 text-center"><h2 className="m-0 text-xl font-normal">No matching students</h2><p className="mt-2 font-sans text-sm text-slate-400">Adjust your search, status, or course filter.</p></div> : <div className="divide-y divide-stone-200">{filteredStudents.map((student) => <StudentCard key={student.id} student={student} courses={(student.courseIds ?? []).map((id) => ({ id, name: courses.find((course) => course.id === id)?.name ?? `Course #${id}` }))} onOpen={() => setSelectedStudentId(student.id)} />)}</div>}</section>
+    <section className="overflow-hidden rounded-xl border border-stone-200 bg-white">{loading ? <p className="p-8 text-center font-sans text-sm text-slate-400">Loading students...</p> : students.length === 0 ? <div className="p-10 text-center"><h2 className="m-0 text-xl font-normal">No students yet</h2><p className="mt-2 font-sans text-sm text-slate-400">Add your first student to begin building the directory.</p></div> : sortedStudents.length === 0 ? <div className="p-10 text-center"><h2 className="m-0 text-xl font-normal">No matching students</h2><p className="mt-2 font-sans text-sm text-slate-400">Adjust your search, status, or course filter.</p></div> : <div className="divide-y divide-stone-200">{sortedStudents.map((student) => <StudentCard key={student.id} student={student} courses={(student.courseIds ?? []).map((id) => ({ id, name: courses.find((course) => course.id === id)?.name ?? `Course #${id}` }))} onOpen={() => setSelectedStudentId(student.id)} />)}</div>}</section>
     {selectedStudentId !== null && <StudentPanel key={selectedStudentId} id={selectedStudentId} onClose={closeStudentPanel} onUpdate={(updated) => setStudents((current) => current.map((student) => student.id === updated.id ? { ...student, ...updated } : student))} onDelete={(id) => { setStudents((current) => current.filter((student) => student.id !== id)); closeStudentPanel(); }} />}
   </div></main>;
 }

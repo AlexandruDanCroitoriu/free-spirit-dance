@@ -69,7 +69,7 @@ function sheetXml(table: ExportTable) {
 function readUint16(bytes: Uint8Array, offset: number) { return bytes[offset] | (bytes[offset + 1] << 8); }
 function readUint32(bytes: Uint8Array, offset: number) { return (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0; }
 
-function unzipStored(bytes: Uint8Array) {
+async function unzip(bytes: Uint8Array) {
   const files = new Map<string, string>();
   const decoder = new TextDecoder();
   let offset = 0;
@@ -78,11 +78,14 @@ function unzipStored(bytes: Uint8Array) {
     const size = readUint32(bytes, offset + 22);
     const nameLength = readUint16(bytes, offset + 26);
     const extraLength = readUint16(bytes, offset + 28);
-    if (compression !== 0) throw new Error("Choose a database export created by this app.");
     const name = decoder.decode(bytes.slice(offset + 30, offset + 30 + nameLength));
     const start = offset + 30 + nameLength + extraLength;
     if (start + size > bytes.length) throw new Error("The export file is incomplete.");
-    files.set(name, decoder.decode(bytes.slice(start, start + size)));
+    const compressed = bytes.slice(start, start + size);
+    const content = compression === 0 ? compressed : compression === 8
+      ? new Uint8Array(await new Response(new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer())
+      : (() => { throw new Error("Choose a database export created by this app."); })();
+    files.set(name, decoder.decode(content));
     offset = start + size;
   }
   return files;
@@ -124,7 +127,7 @@ function parseSheet(xml: string) {
 }
 
 export async function readWorkbook(file: File): Promise<ExportTable[]> {
-  const files = unzipStored(new Uint8Array(await file.arrayBuffer()));
+  const files = await unzip(new Uint8Array(await file.arrayBuffer()));
   const workbook = files.get("xl/workbook.xml");
   if (!workbook) throw new Error("Choose a database export created by this app.");
   const sheets = Array.from(parseXml(workbook).getElementsByTagName("sheet"));

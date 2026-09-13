@@ -36,11 +36,11 @@ export function validPaymentDate(value: unknown, allowFuture = false): value is 
 export function validPastDate(value: unknown): value is string {
   return validPaymentDate(value);
 }
-export function parseAmount(value: unknown): number | null {
+export function parseAmount(value: unknown, allowZero = false): number | null {
   if (typeof value !== "string" || !/^\d{1,6}(?:[.,]\d{1,2})?$/.test(value.trim())) return null;
   const [whole, fraction = ""] = value.trim().replace(",", ".").split(".");
   const minor = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
-  return minor > 0 ? minor : null;
+  return minor > 0 || (allowZero && minor === 0) ? minor : null;
 }
 export function formatMoney(minor: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "RON" }).format(minor / 100);
@@ -55,18 +55,29 @@ export function formatLogDate(value: string) {
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Bucharest", dateStyle: "short", timeStyle: "short" }).format(date);
 }
 
+// Imported catalogs record absences explicitly. Blank cells are not evidence that
+// a student was enrolled, and must not become years of inferred missed classes.
+export async function readHistoricalAbsences(db: D1Database, studentId?: number) {
+  const exists = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'history_absences'").first();
+  if (!exists) return undefined;
+  const query = "SELECT CAST(student_id AS INTEGER) AS studentId, CAST(course_id AS INTEGER) AS courseId, class_date || 'T' || start_time AS startsAt FROM history_absences";
+  const statement = studentId === undefined ? db.prepare(query) : db.prepare(query + " WHERE CAST(student_id AS INTEGER) = ?").bind(studentId);
+  return (await statement.all<{ studentId: number; courseId: number; startsAt: string }>()).results;
+}
+
 // Each payment covers consecutive non-cancelled classes from the earliest unpaid attendance.
 // Payment dates are date-only, so classes on the payment date are eligible.
 export function courseCreditBalance(
   course: { courseId: number; courseName: string; startDate: string | null; endDate: string | null },
   schedules: { day: string; startTime: string }[],
   occurrences: { classDate: string; startTime: string; cancelled: number }[],
-  payments: { paymentId?: number; paidOn: string; allowance: number }[],
+  payments: { paymentId?: number; paidOn: string; allowance: number; coverageThrough?: string | null }[],
   attendance: { attendedAt: string; complimentary?: number }[],
   now = new Date(),
   onCoverage?: (paymentId: number, coverage: PaymentCoverage) => void,
   onMissed?: (startsAt: string) => void,
   onCancelled?: (startsAt: string) => void,
+  recordedAbsences?: readonly string[],
 ) {
   const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Bucharest", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(now);
   const part = (type: string) => parts.find((p) => p.type === type)!.value;
@@ -79,8 +90,8 @@ export function courseCreditBalance(
   const ordered = [...payments].filter((payment) => payment.paidOn <= horizon).sort((a, b) => a.paidOn.localeCompare(b.paidOn));
   const paidAllowance = ordered.reduce((sum, payment) => sum + payment.allowance, 0);
   const slots = new Map<string, boolean>();
-  const first = [...ordered.map((payment) => payment.paidOn), ...[...attended].map((slot) => slot.slice(0, 10))].sort()[0];
-  if (first) {
+  const first = [...ordered.map((payment) => payment.paidOn), ...[...attended, ...(recordedAbsences ?? [])].map((slot) => slot.slice(0, 10))].sort()[0];
+  if (first && recordedAbsences === undefined) {
     const start = course.startDate && course.startDate > first ? course.startDate : first;
     // Recompute through the latest recorded attendance or today; retain unused credits.
     const end = course.endDate && course.endDate < horizon ? course.endDate : horizon;
@@ -89,11 +100,17 @@ export function courseCreditBalance(
       for (const schedule of schedules) if (schedule.day === weekdays[date.getUTCDay()]) slots.set(`${date.toISOString().slice(0, 10)}T${schedule.startTime}`, true);
     }
   }
-  for (const slot of occurrences) slots.set(`${slot.classDate}T${slot.startTime}`, !slot.cancelled);
+  if (recordedAbsences !== undefined) {
+    for (const slot of [...recordedAbsences, ...attended]) slots.set(slot.slice(0, 16), true);
+  }
+  for (const slot of occurrences) {
+    const key = `${slot.classDate}T${slot.startTime}`;
+    if (recordedAbsences === undefined || slots.has(key)) slots.set(key, !slot.cancelled);
+  }
   for (const slot of attended) if (!slots.has(slot)) slots.set(slot, true);
   // Cancellations are known events, including upcoming classes after the student first participated.
   const firstActivity = [...payments.map((payment) => payment.paidOn), ...[...attended].map((slot) => slot.slice(0, 10))].sort()[0];
-  if (firstActivity && onCancelled) for (const [slot, active] of slots) {
+  if (recordedAbsences === undefined && firstActivity && onCancelled) for (const [slot, active] of slots) {
     const date = slot.slice(0, 10);
     if (!active && date >= firstActivity && (!course.startDate || date >= course.startDate) && (!course.endDate || date <= course.endDate)) onCancelled(slot);
   }
@@ -118,12 +135,13 @@ export function courseCreditBalance(
   // Later recorded attendance establishes that earlier covered classes have been passed.
   const attendanceCutoff = [current, ...attended].sort().at(-1)!;
   const used = [...covered].filter((slot) => slot <= attendanceCutoff).length;
-  const missed = [...covered].filter((slot) => slot <= attendanceCutoff && !attended.has(slot));
-  // The activity log includes absences between packages too; these do not consume credits.
-  if (first && onMissed) for (const slot of held) {
-    const date = slot.slice(0, 10);
-    if (slot <= attendanceCutoff && !attended.has(slot) && date >= first && (!course.startDate || date >= course.startDate) && (!course.endDate || date <= course.endDate)) onMissed(slot);
-  }
+  // A workbook-backed absence is an explicit historical fact, but it is only
+  // a visible missed class when a payment covers that class. Blank workbook
+  // cells still never become inferred absences.
+  const missed = recordedAbsences === undefined
+    ? [...covered].filter((slot) => slot <= attendanceCutoff && !attended.has(slot))
+    : [...covered].filter((slot) => slot <= attendanceCutoff && new Set(recordedAbsences.map((item) => item.slice(0, 16))).has(slot));
+  if (onMissed) for (const slot of missed) onMissed(slot);
   const missedClasses = missed.length;
   const unpaidAttendance = held.filter((slot) => attended.has(slot) && !covered.has(slot)).length;
   return { courseId: course.courseId, courseName: course.courseName, attendanceCount: attendance.length, paidAllowance,

@@ -34,11 +34,15 @@
     "deploy": "vinext-cloudflare deploy --config dist/server/wrangler.json",
     "preview": "npm run build && npm run start --",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv ./worker-configuration.d.ts",
+    "cf-typegen:local": "wrangler types --config wrangler.local.json --env-interface LocalDevelopmentBindings --include-runtime=false local-configuration.d.ts",
     "typecheck": "tsc --noEmit",
     "test": "node scripts/test.mjs",
     "check": "npm run typecheck && npm test",
     "verify": "npm run check && npm run build",
-    "predev": "npm run db:local:migrate",
+    "predev": "npm run db:local:migrate && npm run db:catalog:prepare",
+    "db:catalog:prepare": "python3 scripts/prepare-catalog-db.py",
+    "historical:sync": "python3 scripts/sync-historical-catalog.py",
+    "historical:batch": "python3 scripts/batch-historical-import.py",
     "db:local:migrate": "wrangler d1 migrations apply LOCAL_DB --local --config wrangler.local.json"
   },
   "engines": {

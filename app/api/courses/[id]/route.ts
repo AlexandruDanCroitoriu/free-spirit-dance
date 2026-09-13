@@ -15,7 +15,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const ownedPreset = await db.prepare("SELECT id FROM payment_presets WHERE course_id = ?").bind(id).first<{ id: number }>();
     const presetStatements = parsed.paymentPreset ? (ownedPreset ? [
       db.prepare("UPDATE payment_presets SET name = ?, amount_minor = ? WHERE id = ?").bind(parsed.name, parsed.paymentPreset.amountMinor, ownedPreset.id),
-      db.prepare("UPDATE payment_preset_courses SET allowance = ? WHERE preset_id = ? AND course_id = ?").bind(parsed.paymentPreset.allowance, ownedPreset.id, id),
+      db.prepare("INSERT INTO payment_preset_courses (preset_id, course_id, allowance) VALUES (?, ?, ?) ON CONFLICT (preset_id, course_id) DO UPDATE SET allowance = excluded.allowance").bind(ownedPreset.id, id, parsed.paymentPreset.allowance),
     ] : [
       db.prepare("INSERT INTO payment_presets (name, amount_minor, course_id) VALUES (?, ?, ?)").bind(parsed.name, parsed.paymentPreset.amountMinor, id),
       db.prepare("INSERT INTO payment_preset_courses (preset_id, course_id, allowance) VALUES ((SELECT seq FROM sqlite_sequence WHERE name = 'payment_presets'), ?, ?)").bind(id, parsed.paymentPreset.allowance),
@@ -28,7 +28,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       db.prepare(`${courseQuery} WHERE c.id = ? ORDER BY s.id`).bind(id),
     ]);
     return Response.json(serializeCourses(result.at(-1)!.results as CourseRow[])[0]);
-  } catch (error) { console.error("Could not update course", error); return Response.json({ error: "Could not update course." }, { status: 500 }); }
+  } catch (error) {
+    if (String(error).includes("UNIQUE")) return Response.json({ error: "A different payment preset already uses this course name. Rename that preset first." }, { status: 409 });
+    console.error("Could not update course", error); return Response.json({ error: "Could not update course." }, { status: 500 });
+  }
 }
 
 const relationships = [
@@ -41,7 +44,9 @@ const relationships = [
 ] as const;
 
 async function courseRelationships(db: D1Database, id: number) {
-  const results = await db.batch<{ count: number }>(relationships.map(([table]) => db.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE course_id = ?`).bind(id)));
+  const results = await db.batch<{ count: number }>(relationships.map(([table]) => table === "payment_preset_courses"
+    ? db.prepare("SELECT COUNT(*) AS count FROM payment_preset_courses pc JOIN payment_presets p ON p.id = pc.preset_id WHERE pc.course_id = ? AND (p.course_id IS NULL OR p.course_id != ?)").bind(id, id)
+    : db.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE course_id = ?`).bind(id)));
   return relationships.map(([table, label], index) => ({ table, label, count: Number(results[index].results[0].count) }));
 }
 
@@ -64,13 +69,14 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   try {
     const db = env.DB;
     // Foreign keys also protect against relationships added after the popup loads.
-    // Remove the owned schedule and empty classes atomically; any blocker rolls it back.
+    // Remove the owned preset, schedule and empty classes atomically; any blocker rolls it back.
     const results = await db.batch([
+      db.prepare("DELETE FROM payment_presets WHERE course_id = ?").bind(id),
       db.prepare("DELETE FROM course_schedule WHERE course_id = ?").bind(id),
       db.prepare("DELETE FROM classes WHERE course_id = ? AND NOT EXISTS (SELECT 1 FROM attendance WHERE class_id = classes.id)").bind(id),
       db.prepare("DELETE FROM courses WHERE id = ?").bind(id),
     ]);
-    const result = results[2];
+    const result = results[3];
     if (result.meta.changes === 0) return Response.json({ error: "Course not found." }, { status: 404 });
     return new Response(null, { status: 204 });
   } catch (error) {

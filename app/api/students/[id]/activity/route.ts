@@ -1,5 +1,5 @@
 import { env } from "../../../../lib/storage";
-import { courseCreditBalance, activityPageSize, activityLogPageSize, activityLogPageSizes, parseAmount, validPaymentDate, canRecordFuturePayments, type StudentActivity, type PaymentCoverage } from "../../../../lib/student-activity";
+import { courseCreditBalance, readHistoricalAbsences, activityPageSize, activityLogPageSize, activityLogPageSizes, parseAmount, validPaymentDate, canRecordFuturePayments, type StudentActivity, type PaymentCoverage } from "../../../../lib/student-activity";
 
 type Context = { params: Promise<{ id: string }> };
 const headers = { "Cache-Control": "no-store" };
@@ -16,16 +16,23 @@ function actor(request: Request) {
 export async function GET(request: Request, context: Context) {
   const id = Number((await context.params).id);
   const url = new URL(request.url);
-  const logsPageSize = Number(url.searchParams.get("logsPageSize") ?? activityLogPageSize);
+  const requestedLogsPageSize = url.searchParams.get("logsPageSize");
+  const requestedLogsPage = url.searchParams.get("logsPage");
+  const logsPageSize = requestedLogsPageSize === null ? (requestedLogsPage === null ? 100000 : activityLogPageSize) : Number(requestedLogsPageSize);
   const logsPage = page(url.searchParams.get("logsPage"));
   const attendancePage = page(url.searchParams.get("attendancePage")), paymentsPage = page(url.searchParams.get("paymentsPage"));
   const requestedPaymentId = url.searchParams.has("paymentId") ? Number(url.searchParams.get("paymentId")) : null;
-  if (!Number.isSafeInteger(id) || id < 1 || attendancePage === null || paymentsPage === null || logsPage === null || !activityLogPageSizes.includes(logsPageSize) || (requestedPaymentId !== null && (!Number.isSafeInteger(requestedPaymentId) || requestedPaymentId < 1))) return json({ error: "Invalid student or page." }, 400);
+  if (!Number.isSafeInteger(id) || id < 1 || attendancePage === null || paymentsPage === null || logsPage === null || (requestedLogsPageSize !== null && !activityLogPageSizes.includes(logsPageSize)) || (requestedPaymentId !== null && (!Number.isSafeInteger(requestedPaymentId) || requestedPaymentId < 1))) return json({ error: "Invalid student or page." }, 400);
   try {
     const db = env.DB;
     if (!await db.prepare("SELECT id FROM students WHERE id = ?").bind(id).first()) return json({ error: "Student not found." }, 404);
+    const historicalAbsences = await readHistoricalAbsences(db, id);
+    const hasHistoricalPaymentPeriods = Boolean(await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'history_payment_periods'").first());
+    const coverageThrough = hasHistoricalPaymentPeriods
+      ? "(SELECT coverage_through FROM history_payment_periods hp WHERE CAST(hp.review_payment_id AS INTEGER) = p.id LIMIT 1)"
+      : "NULL";
     const results = await db.batch([
-      db.prepare("SELECT c.id AS courseId, c.name AS courseName, c.start_date AS startDate, c.end_date AS endDate FROM courses c WHERE c.id IN (SELECT course_id FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = ? UNION SELECT course_id FROM attendance WHERE student_id = ?)").bind(id, id),
+      db.prepare("SELECT c.id AS courseId, c.name AS courseName, c.start_date AS startDate, c.end_date AS endDate FROM courses c WHERE c.id IN (SELECT course_id FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = ? UNION SELECT course_id FROM attendance WHERE student_id = ? UNION SELECT value FROM json_each(?))").bind(id, id, JSON.stringify([...new Set(historicalAbsences?.map((row) => row.courseId) ?? [])])),
       db.prepare(`SELECT ${attendanceColumns} FROM attendance WHERE student_id = ? ORDER BY attended_at DESC, id DESC LIMIT ? OFFSET ?`).bind(id, activityPageSize, (attendancePage - 1) * activityPageSize),
       db.prepare(`SELECT ${paymentColumns} FROM student_payments WHERE student_id = ? AND (? IS NULL OR id = ?) ORDER BY paid_on DESC, id DESC LIMIT ? OFFSET ?`).bind(id, requestedPaymentId, requestedPaymentId, activityPageSize, (paymentsPage - 1) * activityPageSize),
       db.prepare("SELECT a.payment_id AS paymentId, a.course_id AS courseId, a.course_name AS courseName, a.allowance FROM payment_course_allowances a WHERE a.payment_id IN (SELECT id FROM student_payments WHERE student_id = ? AND (? IS NULL OR id = ?) ORDER BY paid_on DESC, id DESC LIMIT ? OFFSET ?) ORDER BY a.course_id").bind(id, requestedPaymentId, requestedPaymentId, activityPageSize, (paymentsPage - 1) * activityPageSize),
@@ -38,7 +45,7 @@ export async function GET(request: Request, context: Context) {
         SELECT p.id, p.given_to_school AS givenToSchool, p.received_method AS receivedMethod, 0 AS complimentary, NULL AS complimentaryBy, NULL AS complimentaryAt, NULL AS courseId, 'payment', paid_on, paid_on, NULL, amount_minor, notes, recorded_by, recorded_at,
           (SELECT json_group_array(json_object('courseId', a.course_id, 'courseName', a.course_name, 'allowance', a.allowance)) FROM payment_course_allowances a WHERE a.payment_id = p.id)
         FROM student_payments p WHERE student_id = ?
-      ) ORDER BY eventDate DESC, eventTime DESC, recordedAt DESC, kind DESC, id DESC LIMIT ? OFFSET ?`).bind(id, id, logsPage * logsPageSize, 0),
+      ) ORDER BY eventDate DESC, CASE kind WHEN 'payment' THEN 1 ELSE 0 END DESC, eventTime DESC, recordedAt DESC, kind DESC, id DESC LIMIT ? OFFSET ?`).bind(id, id, logsPage * logsPageSize, 0),
     ]);
     const eventRows = await db.prepare(`SELECT a.id, 'practice_attendance' AS kind, s.id AS practiceId, s.starts_at AS eventDate,
       'Practice party' AS courseName, a.donation_amount_minor AS amountMinor,
@@ -50,7 +57,7 @@ export async function GET(request: Request, context: Context) {
     const creditData = await db.batch([
       db.prepare("SELECT course_id AS courseId, day_of_week AS day, start_time AS startTime FROM course_schedule"),
       db.prepare("SELECT course_id AS courseId, class_date AS classDate, start_time AS startTime, cancelled FROM classes"),
-      db.prepare("SELECT p.id AS paymentId, a.course_id AS courseId, p.paid_on AS paidOn, a.allowance FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = ? ORDER BY p.paid_on, p.id").bind(id),
+      db.prepare(`SELECT p.id AS paymentId, a.course_id AS courseId, p.paid_on AS paidOn, a.allowance, ${coverageThrough} AS coverageThrough FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = ? ORDER BY p.paid_on, p.id`).bind(id),
       db.prepare("SELECT course_id AS courseId, attended_at AS attendedAt, complimentary FROM attendance WHERE student_id = ?").bind(id),
     ]);
     type CourseCredit = Parameters<typeof courseCreditBalance>[0];
@@ -67,6 +74,7 @@ export async function GET(request: Request, context: Context) {
       (paymentId, detail) => coverage.set(`${paymentId}:${course.courseId}`, detail),
       (startsAt) => calculatedLogs.push({ id: course.courseId, kind: "missed", courseId: course.courseId, courseName: course.courseName, eventDate: `${startsAt}:00`, amountMinor: null, notes: "", recordedBy: "Automatic", recordedAt: null, allocations: [] }),
       (startsAt) => calculatedLogs.push({ id: course.courseId, kind: "cancelled", courseId: course.courseId, courseName: course.courseName, eventDate: `${startsAt}:00`, amountMinor: null, notes: "", recordedBy: "—", recordedAt: null, allocations: [] }),
+      historicalAbsences?.filter((row) => row.courseId === course.courseId).map((row) => row.startsAt),
     )).sort((a, b) => a.courseName.localeCompare(b.courseName));
     const summary: StudentActivity["summary"] = balances.reduce((sum, b) => ({ ...sum, missedClasses: sum.missedClasses + b.missedClasses, attendanceCount: sum.attendanceCount + b.attendanceCount, paidAllowance: sum.paidAllowance + b.paidAllowance, remainingAllowance: sum.remainingAllowance + b.remainingAllowance, excessAttendance: sum.excessAttendance + b.excessAttendance }), { missedClasses: 0, attendanceCount: 0, paidAllowance: 0, remainingAllowance: 0, excessAttendance: 0, ...results[4].results[0] as { paymentCount: number; totalPaidMinor: number } });
     summary.missedClasses = calculatedLogs.filter((row) => row.kind === "missed").length;
@@ -78,6 +86,7 @@ export async function GET(request: Request, context: Context) {
     summary.totalPaidMinor += summary.donationsMinor;
     // Merge calculated absences before pagination so no entries are skipped between pages.
     const logs = [...recordedLogs, ...calculatedLogs, ...eventLogs].sort((a, b) =>
+      b.eventDate.slice(0, 10).localeCompare(a.eventDate.slice(0, 10)) || Number(b.kind === "payment") - Number(a.kind === "payment") ||
       b.eventDate.localeCompare(a.eventDate) || (b.recordedAt ?? "").localeCompare(a.recordedAt ?? "") || b.kind.localeCompare(a.kind) || b.id - a.id,
     ).slice((logsPage - 1) * logsPageSize, logsPage * logsPageSize);
     const paymentMethods = actor(request) ? await db.prepare("SELECT method FROM administrator_payment_methods WHERE email = ? ORDER BY method COLLATE NOCASE").bind(actor(request)).all<{ method: string }>() : { results: [] };
@@ -97,8 +106,8 @@ export async function POST(request: Request, context: Context) {
   if (!input || input.kind !== "payment" || typeof input.requestKey !== "string" || !/^[a-zA-Z0-9-]{16,80}$/.test(input.requestKey) || typeof input.notes !== "string" || input.notes.length > 1000 || typeof input.receivedMethod !== "string") return json({ error: "Enter a valid record with notes of up to 1,000 characters." }, 400);
   let payload: Record<string, unknown>;
   {
-    const amountMinor = parseAmount(input.amount);
-    if (amountMinor === null || !validPaymentDate(input.paidOn, canRecordFuturePayments(email)) || !Array.isArray(input.allocations) || input.allocations.length < 1 || input.allocations.length > 100) return json({ error: canRecordFuturePayments(email) ? "Enter a positive RON amount, a valid payment date, and course allowances." : "Enter a positive RON amount, a payment date up to today, and course allowances." }, 400);
+    const amountMinor = parseAmount(input.amount, true);
+    if (amountMinor === null || !validPaymentDate(input.paidOn, canRecordFuturePayments(email)) || !Array.isArray(input.allocations) || input.allocations.length < 1 || input.allocations.length > 100) return json({ error: canRecordFuturePayments(email) ? "Enter a RON amount of zero or more, a valid payment date, and course allowances." : "Enter a RON amount of zero or more, a payment date up to today, and course allowances." }, 400);
     const allocations: { courseId: number; allowance: number }[] = [];
     for (const item of input.allocations) {
       if (!item || !Number.isSafeInteger(item.courseId) || item.courseId < 1 || !Number.isInteger(item.allowance) || item.allowance < 1 || item.allowance > 10000 || allocations.some((a) => a.courseId === item.courseId)) return json({ error: "Select each course once and enter 1–10,000 classes per course." }, 400);

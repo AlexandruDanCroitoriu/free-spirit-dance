@@ -1,10 +1,11 @@
 import { env } from "../../../lib/storage";
-import { courseCreditBalance } from "../../../lib/student-activity";
+import { courseCreditBalance, readHistoricalAbsences } from "../../../lib/student-activity";
 
 export async function GET() {
   const headers = { "Cache-Control": "no-store" };
   try {
     const db = env.DB;
+    const historicalAbsences = await readHistoricalAbsences(db);
     const data = await db.batch([
       db.prepare("SELECT id, first_name AS firstName, last_name AS lastName, picture FROM students ORDER BY last_name COLLATE NOCASE, first_name COLLATE NOCASE, id"),
       db.prepare("SELECT id AS courseId, name AS courseName, start_date AS startDate, end_date AS endDate FROM courses"),
@@ -25,14 +26,15 @@ export async function GET() {
     const classes = group(data[3].results as (Args[2][number] & { courseId: number })[], (r) => String(r.courseId));
     const payments = group(data[4].results as (Args[3][number] & { studentId: number; courseId: number })[], (r) => `${r.studentId}:${r.courseId}`);
     const attendance = group(data[5].results as (Args[4][number] & { studentId: number; courseId: number })[], (r) => `${r.studentId}:${r.courseId}`);
+    const absences = group(historicalAbsences ?? [], (r) => `${r.studentId}:${r.courseId}`);
     const balances = new Map<number, ReturnType<typeof courseCreditBalance>[]>();
     const now = new Date();
     const assigned = (data[6].results as { studentId: number; courseId: number }[]).map((row) => `${row.studentId}:${row.courseId}`);
-    for (const key of new Set([...assigned, ...payments.keys(), ...attendance.keys()])) {
+    for (const key of new Set([...assigned, ...payments.keys(), ...attendance.keys(), ...absences.keys()])) {
       const [studentId, courseId] = key.split(":").map(Number);
       const course = courses.get(courseId);
       if (!course) continue;
-      const balance = courseCreditBalance(course, schedules.get(String(courseId)) ?? [], classes.get(String(courseId)) ?? [], payments.get(key) ?? [], attendance.get(key) ?? [], now);
+      const balance = courseCreditBalance(course, schedules.get(String(courseId)) ?? [], classes.get(String(courseId)) ?? [], payments.get(key) ?? [], attendance.get(key) ?? [], now, undefined, undefined, undefined, historicalAbsences === undefined ? undefined : (absences.get(key) ?? []).map((row) => row.startsAt));
       const list = balances.get(studentId) ?? [];
       list.push(balance); balances.set(studentId, list);
     }

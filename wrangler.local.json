@@ -9,12 +9,23 @@
       "database_id": "00000000-0000-0000-0000-000000000001",
       "remote": false,
       "migrations_dir": "migrations"
+    },
+    {
+      "binding": "CATALOG_DB",
+      "database_name": "free-spirit-dance-catalog",
+      "database_id": "00000000-0000-0000-0000-000000000002",
+      "remote": false
     }
   ],
   "r2_buckets": [
     {
       "binding": "LOCAL_IMAGES",
       "bucket_name": "free-spirit-dance-local-images",
+      "remote": false
+    },
+    {
+      "binding": "CATALOG_IMAGES",
+      "bucket_name": "free-spirit-dance-catalog-images",
       "remote": false
     }
   ]

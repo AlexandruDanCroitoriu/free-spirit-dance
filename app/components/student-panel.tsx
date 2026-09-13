@@ -21,7 +21,7 @@ const editableFields: Array<{ key: EditableTextField; label: string; type?: stri
 ];
 const emptyDrafts: Drafts = { firstName: "", lastName: "", email: "", phone: "", birthDate: "" };
 
-export default function StudentPanel({ id, onClose, onUpdate, onDelete, editPaymentId }: { id: number; onClose: () => void; onUpdate: (student: Student) => void; onDelete: (id: number) => void; editPaymentId?: number }) {
+export default function StudentPanel({ id, onClose, onUpdate, onDelete, editPaymentId, attendanceDate }: { id: number; onClose: () => void; onUpdate: (student: Student) => void; onDelete: (id: number) => void; editPaymentId?: number; attendanceDate?: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const pendingSaves = useRef(0);
   useEffect(() => {
@@ -56,11 +56,8 @@ export default function StudentPanel({ id, onClose, onUpdate, onDelete, editPaym
   }, [id]);
 
   function closePanel() {
-    if (saving || pendingSaves.current) return;
+    if (saving) return;
     if (deleteConfirmOpen) { setDeleteConfirmOpen(false); return; }
-    const current = studentRef.current;
-    const hasDraft = (current && (editableFields.some(({ key }) => drafts[key] !== current[key]) || activeDraft !== String(current.active)));
-    if (hasDraft && !window.confirm("Close this student and discard unsaved profile changes?")) return;
     onClose();
   }
 
@@ -162,7 +159,7 @@ export default function StudentPanel({ id, onClose, onUpdate, onDelete, editPaym
     </section>
     </div>
     <div id="student-panel-logs" role="tabpanel" aria-labelledby="student-tab-logs" hidden={activeTab !== "logs"}>
-      {activeTab === "logs" && <StudentActivity key={`activity-${student.id}`} studentId={student.id} initialPaymentId={editPaymentId} />}
+      {activeTab === "logs" && <StudentActivity key={`activity-${student.id}`} studentId={student.id} initialPaymentId={editPaymentId} targetAttendanceDate={attendanceDate} />}
     </div>
     {deleteConfirmOpen && <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 p-5" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setDeleteConfirmOpen(false); }}>
       <div aria-labelledby="delete-student-title" aria-describedby="delete-student-description" aria-modal="true" className="w-full max-w-sm overflow-hidden rounded-xl border border-red-800 bg-red-50 shadow-2xl" role="alertdialog">

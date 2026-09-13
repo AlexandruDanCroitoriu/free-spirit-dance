@@ -35,8 +35,9 @@ export async function PATCH(request: Request) {
   if (input.name.trim().length > 100) return Response.json({ error: "Name must be 100 characters or fewer." }, { status: 400 });
   if (input.picture !== null && typeof input.picture !== "string") return Response.json({ error: "Picture must be an image URL or empty." }, { status: 400 });
   if (typeof input.picture === "string" && !imageKey(input.picture)) return Response.json({ error: "Invalid administrator image." }, { status: 400 });
-  const methods = paymentMethods(input.paymentMethods);
-  if (!methods) return Response.json({ error: "Enter up to 30 payment methods, each 50 characters or fewer." }, { status: 400 });
+  const suppliedMethods = paymentMethods(input.paymentMethods);
+  if (!suppliedMethods) return Response.json({ error: "Enter up to 30 payment methods, each 50 characters or fewer." }, { status: 400 });
+  const methods = ["CASH", ...suppliedMethods.filter((method) => method.toLocaleLowerCase() !== "cash")];
 
   try {
     const bindings = env;

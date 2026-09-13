@@ -34,3 +34,8 @@ Free Spirit Dance is a Brazilian Zouk dance school. This app is an admin-only st
 - Keep changes focused and follow the patterns already present in `app/`.
 - Run `npm run build` to verify production builds.
 - Run `npm run dev` for local development.
+
+## Historical Imports
+
+- Historical student imports and their Catalog reconciliation must run only against the dedicated local Catalog D1 copy.
+- Never run historical imports, reconciliation, or related validation against production, a remote Cloudflare D1 database, or any Cloudflare-hosted database.
