@@ -58,7 +58,7 @@ export default function ClassAttendancePanel({
     return () => {
       element?.close();
       document.body.style.overflow = overflow;
-      window.scrollTo(0, window.scrollY);
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => window.scrollTo(0, window.scrollY)));
     };
   }, []);
   useEffect(() => {

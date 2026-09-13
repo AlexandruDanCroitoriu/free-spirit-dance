@@ -29,7 +29,7 @@ export default function StudentPanel({ id, onClose, onUpdate, onDelete, editPaym
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     element?.showModal();
-    return () => { element?.close(); document.body.style.overflow = previousOverflow; window.scrollTo(0, window.scrollY); };
+    return () => { element?.close(); document.body.style.overflow = previousOverflow; window.requestAnimationFrame(() => window.requestAnimationFrame(() => window.scrollTo(0, window.scrollY))); };
   }, []);
   const [activeTab, setActiveTab] = useState<(typeof studentTabs)[number][0]>("logs");
   const [student, setStudent] = useState<Student | null>(null);

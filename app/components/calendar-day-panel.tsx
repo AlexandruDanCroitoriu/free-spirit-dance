@@ -26,7 +26,7 @@ export default function CalendarDayPanel({ date, courses, onClose }: { date: str
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     element?.showModal();
-    return () => { element?.close(); document.body.style.overflow = overflow; window.scrollTo(0, window.scrollY); };
+    return () => { element?.close(); document.body.style.overflow = overflow; window.requestAnimationFrame(() => window.requestAnimationFrame(() => window.scrollTo(0, window.scrollY))); };
   }, []);
 
   return <dialog ref={dialog} aria-labelledby="calendar-day-title" className="fixed inset-0 m-0 box-border h-dvh max-h-none w-auto max-w-none overflow-y-auto border-0 bg-stone-50 p-0 text-slate-800 shadow-2xl backdrop:bg-slate-950/60 md:inset-y-0 md:left-auto md:w-full md:max-w-xl" onCancel={event => { event.preventDefault(); if (!busy) onClose(); }} onClick={event => {
