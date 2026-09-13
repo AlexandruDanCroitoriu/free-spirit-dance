@@ -25,8 +25,8 @@
 	"d1_databases": [
 		{
 			"binding": "DB",
-			"database_name": "free-spirit-dance-db",
-			"database_id": "1b6b1660-4abe-4735-91f0-c570d9f7193e",
+			"database_name": "FS-Dance",
+			"database_id": "5c15ead5-18f8-49ec-a634-d89d2fd00daa",
 			"remote": true
 		}
 	],
