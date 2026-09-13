@@ -1,135 +1,80 @@
 "use client";
-
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { readJson } from "../lib/http";
-import { formatLogDate, formatMoney, validPaymentDate } from "../lib/student-activity";
-import PaymentTransferCheckbox from "./payment-transfer-checkbox";
+import { formatLogDate, formatMoney } from "../lib/student-activity";
 import StudentPanel from "./student-panel";
-
-type Payments = { collectors: { email: string; name: string | null }[]; methods: { method: string }[]; payments: { id: number; purpose?: string; practiceId?: number; practiceDescription?: string; studentId: number; firstName: string; lastName: string; studentEmail: string | null; studentPicture: string | null; administratorName: string | null; administratorPicture: string | null; paidOn: string; amountMinor: number; recordedBy: string; receivedMethod: string; givenToSchool: number }[]; count: number; totals: { pendingMinor: number; givenMinor: number } };
-const filterStorageKey = "free-spirit-dance.payment-transfers.filters.v1";
-const button = "rounded-md border border-stone-300 bg-white px-3 py-2 text-xs disabled:opacity-50";
-
-export default function PaymentTransfersWidget() {
-  const [data, setData] = useState<Payments | null>(null);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [status, setStatus] = useState("all");
-  const [collectors, setCollectors] = useState<string[]>([]);
-  const [collectorsOpen, setCollectorsOpen] = useState(false);
-  const [methods, setMethods] = useState<string[]>([]);
-  const [methodsOpen, setMethodsOpen] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
-  const [editingPayment, setEditingPayment] = useState<{ studentId: number; paymentId: number } | null>(null);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [filtersLoaded, setFiltersLoaded] = useState(false);
-  const [reload, setReload] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    try {
-      const saved: unknown = JSON.parse(window.localStorage.getItem(filterStorageKey) ?? "null");
-      if (saved && typeof saved === "object") {
-        const values = saved as Record<string, unknown>;
-        if (values.status === "all" || values.status === "pending" || values.status === "given") setStatus(values.status);
-        if (Array.isArray(values.collectors) && values.collectors.length <= 90 && values.collectors.every((email) => typeof email === "string" && email.trim() && email.length <= 254)) setCollectors([...new Set(values.collectors as string[])]);
-        if (Array.isArray(values.methods) && values.methods.length <= 30 && values.methods.every((method) => typeof method === "string" && method.trim() && method.length <= 50)) setMethods([...new Set(values.methods as string[])]);
-        const savedFrom = validPaymentDate(values.from, true) ? values.from : "";
-        const savedTo = validPaymentDate(values.to, true) ? values.to : "";
-        if (!savedFrom || !savedTo || savedFrom <= savedTo) {
-          setFrom(savedFrom); setTo(savedTo);
-        }
-      }
-    } catch {
-      // Invalid or unavailable storage must not prevent using the widget.
-    }
-    setFiltersLoaded(true);
-  }, []);
-  useEffect(() => {
-    // Restore saved filters before persisting the current selection.
-    if (!filtersLoaded) return;
-    try {
-      window.localStorage.setItem(filterStorageKey, JSON.stringify({ status, from, to, collectors, methods }));
-    } catch {
-      // Filters still work when browser storage is blocked or full.
-    }
-  }, [filtersLoaded, status, from, to, collectors, methods]);
-  useEffect(() => {
-    const refresh = () => setReload((value) => value + 1);
-    window.addEventListener("student-activity-updated", refresh);
-    window.addEventListener("payment-transfer-updated", refresh);
-    window.addEventListener("administrator-updated", refresh);
-    window.addEventListener("focus", refresh);
-    return () => {
-      window.removeEventListener("student-activity-updated", refresh);
-      window.removeEventListener("payment-transfer-updated", refresh);
-      window.removeEventListener("administrator-updated", refresh);
-      window.removeEventListener("focus", refresh);
-    };
-  }, []);
-  useEffect(() => {
-    if (!filtersLoaded) return;
-    const controller = new AbortController();
-    setLoading(true); setError("");
-    if (from && to && from > to) {
-      setError("From must be on or before To."); setLoading(false);
-      return () => controller.abort();
-    }
-    const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize), status, from, to });
-    collectors.forEach((email) => query.append("collector", email));
-    methods.forEach((method) => query.append("method", method));
-    fetch(`/api/students/payments?${query}`, { signal: controller.signal }).then(async (response) => {
-      const body = await readJson<Payments & { error?: string }>(response);
-      if (!response.ok) throw new Error(body.error ?? "Could not load payments.");
-      if (!controller.signal.aborted) {
-        const lastPage = Math.max(1, Math.ceil(body.count / pageSize));
-        if (page > lastPage) setPage(lastPage);
-        else setData(body);
-      }
-    }).catch((reason) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load payments."); })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
-  }, [filtersLoaded, page, pageSize, status, from, to, collectors, methods, reload]);
-  return <section aria-busy={loading} aria-labelledby="payment-transfers-title" className="min-w-0 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm lg:col-span-full">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="payment-transfers-title" className="m-0 text-lg font-normal">Payments & school transfers</h2><select aria-label="Transfer status" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} className={button}><option value="all">All payments</option><option value="pending">Not confirmed as given</option><option value="given">Give to school</option></select></div>
-    <div className="my-4 flex flex-wrap items-end gap-3 font-sans text-xs">
-      <label className="flex flex-col gap-1">From (payment date)<input type="date" min="1900-01-01" max={to || "9999-12-31"} value={from} onChange={(event) => { setFrom(event.target.value); setPage(1); }} className={button} /></label>
-      <label className="flex flex-col gap-1">To (payment date)<input type="date" min={from || "1900-01-01"} max="9999-12-31" value={to} onChange={(event) => { setTo(event.target.value); setPage(1); }} className={button} /></label>
-      <div className="relative flex flex-col gap-1">
-        <span id="collector-filter-label">Collected by</span>
-        <button type="button" aria-expanded={collectorsOpen} aria-haspopup="listbox" aria-labelledby="collector-filter-label" className={`${button} flex min-w-64 items-center justify-between gap-3 text-left`} onClick={() => setCollectorsOpen((open) => !open)}>
-          <span>{collectors.length ? `${collectors.length} administrator${collectors.length === 1 ? "" : "s"} selected` : "All administrators"}</span><span aria-hidden="true">⌄</span>
-        </button>
-        {collectorsOpen && <div role="listbox" aria-label="Collected by administrators" aria-multiselectable="true" className="absolute left-0 top-full z-10 mt-1 max-h-64 w-72 max-w-[80vw] overflow-y-auto rounded-md border border-stone-200 bg-white p-2 shadow-lg">
-          {(data?.collectors ?? []).map((collector) => {
-            const selected = collectors.includes(collector.email);
-            return <button key={collector.email} type="button" role="option" aria-selected={selected} className={`flex w-full items-start gap-2 rounded p-2 text-left hover:bg-stone-50 ${selected ? "bg-lime-50" : ""}`} onClick={() => { setCollectors((current) => selected ? current.filter((email) => email !== collector.email) : [...current, collector.email]); setMethods([]); setPage(1); }}>
-              <span aria-hidden="true" className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${selected ? "border-lime-600 bg-lime-600 text-white" : "border-stone-400"}`}>{selected ? "✓" : ""}</span>
-              <span className="min-w-0 break-words">{collector.name?.trim() || collector.email}{collector.name?.trim() && <span className="block text-slate-500">{collector.email}</span>}</span>
-            </button>;
-          })}
-          {!data && <p className="p-2 text-slate-500">{error ? "Could not load administrators. Use Retry below." : "Loading administrators…"}</p>}
-          {data && !data.collectors.length && <p className="p-2 text-slate-500">No collecting administrators yet.</p>}
-        </div>}
-      </div>
-      {!!collectors.length && <div className="relative flex flex-col gap-1"><span id="method-filter-label">Received via</span><button type="button" aria-expanded={methodsOpen} aria-haspopup="listbox" aria-labelledby="method-filter-label" className={`${button} flex min-w-48 items-center justify-between gap-3 text-left`} onClick={() => setMethodsOpen((open) => !open)}><span>{methods.length ? `${methods.length} method${methods.length === 1 ? "" : "s"} selected` : "All methods"}</span><span aria-hidden="true">⌄</span></button>{methodsOpen && <div role="listbox" aria-label="Payment methods" aria-multiselectable="true" className="absolute left-0 top-full z-10 mt-1 max-h-64 w-64 max-w-[80vw] overflow-y-auto rounded-md border border-stone-200 bg-white p-2 shadow-lg">{(data?.methods ?? []).map(({ method }) => { const selected = methods.includes(method); return <button key={method} type="button" role="option" aria-selected={selected} className={`flex w-full items-center gap-2 rounded p-2 text-left hover:bg-stone-50 ${selected ? "bg-lime-50" : ""}`} onClick={() => { setMethods((current) => selected ? current.filter((item) => item !== method) : [...current, method]); setPage(1); }}><span aria-hidden="true" className={`flex h-4 w-4 items-center justify-center rounded border ${selected ? "border-lime-600 bg-lime-600 text-white" : "border-stone-400"}`}>{selected ? "✓" : ""}</span>{method}</button>; })}{data && !data.methods.length && <p className="p-2 text-slate-500">No payment methods have been used by the selected administrators.</p>}</div>}</div>}
-      <button type="button" className={button} disabled={!from && !to && status === "all" && !collectors.length && !methods.length} onClick={() => { setFrom(""); setTo(""); setStatus("all"); setCollectors([]); setMethods([]); setPage(1); }}>Clear filters</button>
-    </div>
-    {error && <p role="alert" className="font-sans text-sm text-red-700">{error} <button className={button} onClick={() => setReload((value) => value + 1)}>Retry</button></p>}
-    {loading && <p role="status" className={data ? "sr-only" : "font-sans text-xs text-slate-500"}>Loading payments…</p>}
-    {data && <><div className="mb-4 flex flex-wrap gap-4 font-sans text-sm"><p className="m-0 rounded-lg bg-amber-50 p-3 text-amber-900">Unconfirmed handovers: <strong>{formatMoney(data.totals.pendingMinor)}</strong></p><p className="m-0 rounded-lg bg-lime-50 p-3 text-lime-900">Given to school: <strong>{formatMoney(data.totals.givenMinor)}</strong></p></div>
-      <div className="overflow-x-auto"><table className="w-full text-left font-sans text-sm"><caption className="sr-only">Payments from all students, newest first</caption><thead className="bg-stone-50 text-xs text-slate-500"><tr>{["Date", "Student", "Amount", "Collected by", "Received via", "School transfer", ""].map((label, index) => <th key={label || index} scope="col" className="p-3">{label || <span className="sr-only">Actions</span>}</th>)}</tr></thead><tbody className="divide-y divide-stone-200">{data.payments.map((payment) => <tr key={`${payment.purpose}-${payment.id}`}><td className="whitespace-nowrap p-3">{formatLogDate(payment.paidOn)}</td><td className="p-3"><button type="button" aria-haspopup="dialog" className="flex items-center gap-2 text-left underline" onClick={() => setSelectedStudentId(payment.studentId)}><PaymentAvatar picture={payment.studentPicture} name={payment.firstName.trim() || payment.studentEmail || "Student"} /><span>{payment.firstName.trim() ? `${payment.firstName} ${payment.lastName}`.trim() : payment.studentEmail || "Student"}</span></button></td><td className="whitespace-nowrap p-3">{formatMoney(payment.amountMinor)}{payment.purpose === "practice_donation" && <p className="text-xs">Donation · Practice party</p>}</td><td className="p-3 text-xs"><span className="flex items-center gap-2" title={payment.recordedBy}><PaymentAvatar picture={payment.administratorPicture} name={payment.administratorName?.trim() || payment.recordedBy} /><span className="break-words">{payment.administratorName?.trim() || payment.recordedBy}</span></span></td><td className="p-3 text-xs"><span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-slate-700">{payment.receivedMethod || "CASH"}</span></td><td className="p-3"><PaymentTransferCheckbox paymentId={payment.id} studentId={payment.studentId} checked={payment.givenToSchool === 1} disabled={loading || !!error} purpose={payment.purpose === "practice_donation" ? "practice_donation" : undefined} practiceId={payment.practiceId} /></td><td className="p-3 text-right">{payment.purpose === "practice_donation" ? <span className="text-xs text-slate-400">—</span> : <button type="button" className={button} onClick={() => setEditingPayment({ studentId: payment.studentId, paymentId: payment.id })}>Edit</button>}</td></tr>)}{!data.payments.length && <tr><td colSpan={7} className="p-6 text-center text-slate-500">No payments match this filter.</td></tr>}</tbody></table></div>
-      <nav aria-label="Payment pages" className="mt-3 flex flex-wrap items-center justify-between gap-3 font-sans"><label className="flex items-center gap-2 text-xs text-slate-500">Rows per page<select value={pageSize} disabled={loading} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }} className={button}>{[10, 20, 30, 40, 50].map((size) => <option key={size} value={size}>{size}</option>)}</select></label><button className={button} disabled={loading || !!error || page <= 1} onClick={() => setPage((value) => value - 1)}>Previous</button><span className="text-xs text-slate-500">Page {page} of {Math.max(1, Math.ceil(data.count / pageSize))} · {data.count} payments</span><button className={button} disabled={loading || !!error || page * pageSize >= data.count} onClick={() => setPage((value) => value + 1)}>Next</button></nav>
-    </>}
-    {selectedStudentId !== null && <StudentPanel key={selectedStudentId} id={selectedStudentId} onClose={() => { setSelectedStudentId(null); setReload((value) => value + 1); }} onUpdate={() => setReload((value) => value + 1)} onDelete={() => { setSelectedStudentId(null); setReload((value) => value + 1); }} />}
-    {editingPayment && <StudentPanel key={`payment-${editingPayment.paymentId}`} id={editingPayment.studentId} editPaymentId={editingPayment.paymentId} onClose={() => { setEditingPayment(null); setReload((value) => value + 1); }} onUpdate={() => setReload((value) => value + 1)} onDelete={() => { setEditingPayment(null); setReload((value) => value + 1); }} />}
-  </section>;
+type Filter={id:number;collectorName:string|null;collectorEmail:string;fromDate:string|null;toDate:string|null;paymentTypes:string;totalMinor:number;paymentCount:number;allGiven:number};type Payment={purpose:"course"|"practice_donation";receivedMethod:string;practiceDescription:string|null;id:number;studentId:number;firstName:string;lastName:string;studentEmail:string|null;studentPicture:string|null;paidOn:string;amountMinor:number;givenToSchool:number};type Collector={email:string;name:string|null;picture:string|null};type Data={filters:Filter[];collectors:Collector[]};
+export default function PaymentTransfersWidget(){const dragId=useRef<number|null>(null), requestVersion=useRef(0), orderBusy=useRef(false); const [ordering,setOrdering]=useState(false); const[data,setData]=useState<Data|null>(null),[error,setError]=useState(""),[open,setOpen]=useState<number|null>(null),[payments,setPayments]=useState<Payment[]>([]),[removing,setRemoving]=useState<number|null>(null),[student,setStudent]=useState<{studentId:number;paymentId:number;purpose:"course"|"practice_donation"}|null>(null);const load=async()=>{try{const r=await fetch("/api/payment-transfer-filters"),b=await readJson<Data&{error?:string}>(r);if(!r.ok)throw Error(b.error);setData(b);setError("")}catch(e){setError(e instanceof Error?e.message:"Could not load saved transfer filters.")}};useEffect(()=>{void load()},[]);async function toggle(f:Filter){
+const version=++requestVersion.current;
+if(open===f.id){setOpen(null);return}
+setOpen(f.id);setPayments([]);setError("");
+try{const r=await fetch(`/api/payment-transfer-filters?id=${f.id}`),b=await readJson<{payments?:Payment[];error?:string}>(r);
+if(version!==requestVersion.current)return;
+if(!r.ok||!b.payments)throw Error(b.error??"Could not load payments.");
+setPayments(b.payments);
+}catch(e){if(version===requestVersion.current)setError(e instanceof Error?e.message:"Could not load payments.");}
 }
+async function reorder(source:number,target:number){
+if(!data||source===target||orderBusy.current)return;
+const previous=data, rows=[...data.filters],from=rows.findIndex(f=>f.id===source),to=rows.findIndex(f=>f.id===target);
+if(from<0||to<0)return;
+const [moved]=rows.splice(from,1);rows.splice(to,0,moved);
+orderBusy.current=true;setOrdering(true);setData({...data,filters:rows});setError("");
+try{const r=await fetch("/api/payment-transfer-filters",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({order:rows.map(f=>f.id)})});
+const b=await readJson<{error?:string}>(r);if(!r.ok)throw Error(b.error??"Could not save report order.");
+}catch(e){setData(previous);setError(e instanceof Error?e.message:"Could not save report order.");}
+finally{orderBusy.current=false;setOrdering(false);}
+}async function remove(){if(removing===null)return;const r=await fetch(`/api/payment-transfer-filters?id=${removing}`,{method:"DELETE"});setRemoving(null);if(!r.ok)setError("Could not remove report.");else void load()}return <section className="min-w-0 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm"><h2 className="m-0 text-lg font-normal">Raports</h2>{error&&<p className="text-sm text-red-700">{error}</p>}<div className="mt-4 overflow-x-auto"><table className="w-full min-w-[720px] text-left font-sans text-sm"><thead className="bg-[#286653] text-xs text-white"><tr><th className="w-12 p-3"><span className="sr-only">Reorder reports</span></th><th className="p-3">Collected by</th><th className="p-3">From</th><th className="p-3">To</th><th className="p-3">Types</th><th className="p-3 text-right">Total collected</th><th className="p-3">Given to school</th><th className="p-3"/></tr></thead><tbody>{data?.filters.map(f=><Fragment key={f.id}><tr key={f.id} className="cursor-pointer border-b border-stone-200 hover:bg-lime-50" onClick={()=>void toggle(f)} onDragOver={e=>{if(dragId.current!==null&&!ordering){e.preventDefault();e.dataTransfer.dropEffect="move";}}} onDrop={e=>{e.preventDefault();const source=dragId.current;dragId.current=null;if(source!==null)void reorder(source,f.id);}}><td className="p-2"><button type="button" draggable={!ordering} disabled={ordering} aria-label={`Reorder report for ${f.collectorName||f.collectorEmail}; use up or down arrow keys`} title="Drag to rearrange; arrow keys also move this report" className="cursor-grab rounded border border-stone-300 px-2 py-2 text-lg text-slate-600 active:cursor-grabbing disabled:opacity-50" onClick={e=>e.stopPropagation()} onDragStart={e=>{dragId.current=f.id;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(f.id));}} onDragEnd={()=>{dragId.current=null;}} onKeyDown={e=>{if(e.key!=="ArrowUp"&&e.key!=="ArrowDown")return;e.preventDefault();e.stopPropagation();const index=data!.filters.findIndex(x=>x.id===f.id),target=data!.filters[index+(e.key==="ArrowUp"?-1:1)];if(target)void reorder(f.id,target.id);}}>⋮⋮</button></td><EditableReportFields filter={f} collectors={data.collectors} onSaved={async()=>{
+await load();
+if(open===f.id){
+const version=++requestVersion.current;
+try{const r=await fetch(`/api/payment-transfer-filters?id=${f.id}`),body=await readJson<{payments?:Payment[];error?:string}>(r);if(!r.ok||!body.payments)throw Error(body.error??"Could not refresh payments.");if(version===requestVersion.current)setPayments(body.payments);}
+catch(e){if(version===requestVersion.current){setPayments([]);setError(e instanceof Error?e.message:"Could not refresh payments.");}}
+}
+}} /><td className="p-3 text-right"><button type="button" aria-expanded={open===f.id} className="whitespace-nowrap" aria-label={`${open===f.id?"Collapse":"Expand"} payments for report ${f.id}`}>{open===f.id?"▾ ":"▸ "}{formatMoney(f.totalMinor)} ({f.paymentCount})</button></td><td className="p-3">{f.allGiven?"✓":"□"}</td><td className="p-3"><button className="rounded bg-red-700 px-3 py-2 text-xs font-bold text-white hover:bg-red-800" onClick={e=>{e.stopPropagation();setRemoving(f.id)}}>Remove</button></td></tr>{open===f.id&&<tr key={`${f.id}-items`}><td colSpan={8} className="bg-stone-50 p-3">{payments.map(p=><button key={`${p.purpose}-${p.id}`} className="mb-2 flex w-full items-center gap-3 rounded border border-stone-200 bg-white p-3 text-left hover:bg-lime-50" onClick={()=>setStudent({studentId:p.studentId,paymentId:p.id,purpose:p.purpose})}>{p.studentPicture?<img src={p.studentPicture} alt="" className="h-8 w-8 rounded-full object-cover"/>:<span className="flex h-8 w-8 items-center justify-center rounded-full bg-lime-100">{(p.firstName||"?")[0]}</span>}<span>{`${p.firstName} ${p.lastName}`.trim()||p.studentEmail} · {formatLogDate(p.paidOn)}<span className="block text-xs text-slate-500">{p.purpose==="practice_donation"?"Practice party donation":"Course payment"} · {p.receivedMethod||"CASH"} · {p.givenToSchool?"Given to school":"Pending school transfer"}</span></span><strong className="ml-auto">{formatMoney(p.amountMinor)}</strong></button>)}</td></tr>}</Fragment>)}{!data?.filters.length&&<tr><td colSpan={8} className="p-8 text-center text-slate-500">No saved reports.</td></tr>}</tbody></table></div>{removing!==null&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><div className="rounded-xl border border-red-300 bg-red-50 p-5"><h3 className="m-0 text-red-950">Remove saved report?</h3><p className="text-sm text-red-900">Payments will not be deleted.</p><div className="flex justify-end gap-2"><button className="rounded border px-3 py-2 text-xs" onClick={()=>setRemoving(null)}>Cancel</button><button className="rounded bg-red-700 px-3 py-2 text-xs font-bold text-white" onClick={()=>void remove()}>Remove report</button></div></div></div>}{student&&<StudentPanel key={`${student.studentId}-${student.purpose}-${student.paymentId}`} id={student.studentId} targetPaymentId={student.paymentId} targetPaymentKind={student.purpose==="practice_donation"?"practice_attendance":"payment"} onClose={()=>setStudent(null)} onUpdate={()=>void load()} onDelete={()=>setStudent(null)}/>}</section>}
 
-function PaymentAvatar({ picture, name }: { picture: string | null; name: string }) {
-  const [failedPicture, setFailedPicture] = useState<string | null>(null);
-  return <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-100 font-sans text-xs font-semibold text-lime-800">
-    {picture && picture !== failedPicture ? <img src={picture} alt="" width={32} height={32} loading="lazy" className="h-full w-full object-cover" onError={() => setFailedPicture(picture)} /> : name.charAt(0).toUpperCase()}
-  </span>;
+
+type ReportDraft = {collectorEmail:string;fromDate:string;toDate:string;paymentTypes:string[]};
+const reportControl="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-xs disabled:opacity-50";
+function EditableReportFields({filter,collectors,onSaved}:{filter:Filter;collectors:Collector[];onSaved:()=>Promise<void>}){
+  const initial=():ReportDraft=>({collectorEmail:filter.collectorEmail,fromDate:filter.fromDate??"",toDate:filter.toDate??"",paymentTypes:filter.paymentTypes.split(",")});
+  const [draft,setDraft]=useState<ReportDraft>(initial);
+  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[saved,setSaved]=useState(false);
+  const lock=useRef(false);
+  const collectorMenu=useRef<HTMLDetailsElement>(null);
+  useEffect(()=>{if(!lock.current)setDraft(initial());},[filter.collectorEmail,filter.fromDate,filter.toDate,filter.paymentTypes]);
+  async function change(patch:Partial<ReportDraft>){
+    if(lock.current)return;
+    const next={...draft,...patch};setDraft(next);setSaved(false);setError("");
+    if(!next.paymentTypes.length){setError("Select at least one payment type.");return;}
+    if(next.fromDate&&next.toDate&&next.fromDate>next.toDate){setError("From must be on or before To. Change either date to save.");return;}
+    if([next.fromDate,next.toDate].some(date=>date&&(date<"1900-01-01"||!/^\d{4}-\d{2}-\d{2}$/.test(date)))){setError("Enter a complete date from 1900 onwards.");return;}
+    lock.current=true;setBusy(true);
+    try{
+      const response=await fetch("/api/payment-transfer-filters",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:filter.id,...next})});
+      const body=await readJson<{error?:string}>(response);
+      if(!response.ok)throw Error(body.error??"Could not save report.");
+      await onSaved();setSaved(true);
+    }catch(reason){setError(reason instanceof Error?reason.message:"Could not save report.");}
+    finally{lock.current=false;setBusy(false);}
+  }
+  const selected=collectors.find(c=>c.email===draft.collectorEmail)??{email:draft.collectorEmail,name:filter.collectorName,picture:null};
+  const stop=(event:{stopPropagation:()=>void})=>event.stopPropagation();
+  return <>
+    <td className="p-3 align-top" onClick={stop} onKeyDown={stop}>
+      <details ref={collectorMenu} className="min-w-40 rounded-md border border-stone-300 bg-white">
+        <summary aria-label="Collected by" className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs"><ReportAvatar collector={selected}/><span>{selected.name||selected.email}</span><span aria-hidden="true" className="ml-auto">⌄</span></summary>
+        <div className="max-h-60 overflow-y-auto p-1">{collectors.map(c=><button type="button" disabled={busy} key={c.email} aria-pressed={c.email===draft.collectorEmail} className="flex w-full items-center gap-2 rounded p-2 text-left text-xs hover:bg-lime-50 disabled:opacity-50" onClick={()=>{collectorMenu.current?.removeAttribute("open");void change({collectorEmail:c.email});}}><ReportAvatar collector={c}/>{c.name||c.email}</button>)}</div>
+      </details>
+      <span role="status" className="mt-1 block text-xs text-slate-500">{busy?"Saving…":saved?"Saved":""}</span>
+      {error&&<div role="alert" className="mt-1 max-w-60 text-xs text-red-700">{error} <button type="button" className="underline" onClick={()=>void change({})}>Retry</button></div>}
+    </td>
+    <td className="p-3 align-top" onClick={stop} onKeyDown={stop}><input aria-label="From date" type="date" min="1900-01-01" max={draft.toDate||"9999-12-31"} className={reportControl} value={draft.fromDate} disabled={busy} onChange={e=>void change({fromDate:e.target.value})}/></td>
+    <td className="p-3 align-top" onClick={stop} onKeyDown={stop}><input aria-label="To date" type="date" min={draft.fromDate||"1900-01-01"} max="9999-12-31" className={reportControl} value={draft.toDate} disabled={busy} onChange={e=>void change({toDate:e.target.value})}/></td>
+    <td className="p-3 align-top" onClick={stop} onKeyDown={stop}><details className="min-w-36 rounded-md border border-stone-300 bg-white"><summary aria-label="Payment types" className="cursor-pointer px-3 py-2 text-xs">{draft.paymentTypes.map(type=>type==="course"?"Courses":"Practice party").join(" + ")||"Select types"}</summary><div className="p-2">{["course","practice_party"].map(type=><label className="flex items-center gap-2 p-1 text-xs" key={type}><input type="checkbox" disabled={busy} checked={draft.paymentTypes.includes(type)} onChange={()=>void change({paymentTypes:draft.paymentTypes.includes(type)?draft.paymentTypes.filter(t=>t!==type):[...draft.paymentTypes,type]})}/>{type==="course"?"Courses":"Practice party"}</label>)}</div></details></td>
+  </>;
+}
+function ReportAvatar({collector}:{collector:Collector}){
+ const [failed,setFailed]=useState<string|null>(null);
+ return <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-100 text-xs">{collector.picture&&failed!==collector.picture?<img src={collector.picture} alt="" className="h-full w-full object-cover" onError={()=>setFailed(collector.picture)}/>: (collector.name||collector.email).charAt(0).toUpperCase()}</span>;
 }

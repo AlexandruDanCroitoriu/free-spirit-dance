@@ -14,7 +14,7 @@ async function readResponse(response: Response): Promise<unknown> {
   return body;
 }
 
-export default function StudentActivity({ studentId, initialPaymentId, targetPaymentId, targetAttendanceDate }: { studentId: number; initialPaymentId?: number; targetPaymentId?: number; targetAttendanceDate?: string }) {
+export default function StudentActivity({ studentId, initialPaymentId, targetPaymentId, targetPaymentKind = "payment", targetAttendanceDate }: { studentId: number; initialPaymentId?: number; targetPaymentId?: number; targetPaymentKind?: "payment" | "practice_attendance"; targetAttendanceDate?: string }) {
   const [data, setData] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -249,7 +249,7 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
               <tr>{["Type", "Date", "Class / event", "Attendance / amount", "Recorded by", "School transfer", "Actions"].map((label) => <th key={label} scope="col" className="px-3 py-3 font-semibold">{label}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
-              {data.logs.map((row, rowIndex) => { const paymentTargeted = row.kind === "payment" && row.id === targetPaymentId; const attendanceTargeted = rowIndex === firstTargetAttendance; return <tr key={`${row.kind}-${row.id}-${row.eventDate}`} ref={paymentTargeted ? paymentTarget : attendanceTargeted ? attendanceTarget : undefined} className={`align-top ${paymentTargeted ? "bg-cyan-50/70" : attendanceTargeted ? "bg-lime-50/70" : ""}`}>
+              {data.logs.map((row, rowIndex) => { const paymentTargeted = row.kind === targetPaymentKind && row.id === targetPaymentId; const attendanceTargeted = rowIndex === firstTargetAttendance; return <tr key={`${row.kind}-${row.id}-${row.eventDate}`} ref={paymentTargeted ? paymentTarget : attendanceTargeted ? attendanceTarget : undefined} className={`align-top ${paymentTargeted ? "bg-cyan-50/70" : attendanceTargeted ? "bg-lime-50/70" : ""}`}>
                 <td className="relative px-3 py-4" style={{ paddingLeft: 12 + connectorWidth }}>
                   {positionedConnections.map((connection) => rowIndex >= connection.first && rowIndex <= connection.last && <span key={connection.paymentId} aria-hidden="true">
                     <span className="pointer-events-none absolute border-l-2 border-lime-600" style={{ left: 10 + connection.lane * 10, top: rowIndex === connection.first ? 28 : -1, bottom: rowIndex === connection.last ? "calc(100% - 28px)" : -1 }} />

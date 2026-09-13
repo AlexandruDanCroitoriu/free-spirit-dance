@@ -2,7 +2,7 @@ import { env } from "../../../lib/storage";
 import { tableColumns } from "../export/route";
 
 const ownerEmail = "croitoriu.alexandru.code@gmail.com";
-const protectedTables = new Set(["admin_profiles", "administrator_permissions", "administrator_payment_methods"]);
+const protectedTables = new Set(["admin_profiles", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters"]);
 const tableNames = (Object.keys(tableColumns) as Array<keyof typeof tableColumns>).filter((name) => !protectedTables.has(name));
 const insertOrder = ["students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance"] as const;
 const legacyNullableColumns: Partial<Record<keyof typeof tableColumns, readonly string[]>> = {

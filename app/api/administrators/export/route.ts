@@ -14,6 +14,7 @@ export const tableColumns = {
   payment_course_allowances: ["payment_id", "course_id", "course_name", "allowance"],
   payment_preset_courses: ["preset_id", "course_id", "allowance"],
   payment_presets: ["id", "name", "amount_minor", "course_id"],
+  payment_transfer_filters: ["id", "administrator_email", "collector_email", "from_date", "to_date", "payment_kind", "created_at"],
   practice_attendance: ["id", "student_id", "practice_id", "recorded_by", "recorded_at", "notes", "donation_amount_minor", "donation_paid_on", "donation_notes", "donation_recorded_by", "donation_recorded_at", "donation_given_to_school", "donation_received_method"],
   practice_parties: ["id", "starts_at", "starts_utc", "duration_minutes", "cancelled", "revision", "recorded_by", "recorded_at", "request_key", "request_hash", "last_request_key", "last_request_hash", "location", "rent_cost_minor", "rent_paid"],
   qr_codes: ["id", "slug", "name", "destination_url", "active", "image_mode", "image_path", "module_shape", "foreground_color", "eye_shape", "eye_color", "logo_size", "logo_shape"],
