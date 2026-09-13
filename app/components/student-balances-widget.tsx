@@ -92,8 +92,8 @@ export default function StudentBalancesWidget() {
   const validRemaining = /^\d+$/.test(remaining) && Number.isSafeInteger(Number(remaining));
   const remainingSummary = [...new Set([...selectedRemaining, ...(validRemaining ? [Number(remaining)] : [])])].sort((a, b) => a - b);
   const filterSummary = [showUnpaid ? "Unpaid" : "", remainingSummary.length ? `${remainingSummary.join(", ")} left` : ""].filter(Boolean).join(" · ") || "No balances selected";
-  const matches = students.map((student) => ({ ...student, balances: student.balances.filter((balance) => (courseIds.length === 0 || courseIds.includes(String(balance.courseId))) && ((showUnpaid && balance.excessAttendance > 0) || selectedRemaining.includes(balance.remainingAllowance) || (validRemaining && balance.remainingAllowance === Number(remaining)))) })).filter((student) => student.balances.length > 0);
-  return <section aria-labelledby="student-balances-title" className="w-full max-w-3xl self-start rounded-xl border border-stone-200 bg-white shadow-sm">
+  const matches = students.filter((student) => student.active).map((student) => ({ ...student, balances: student.balances.filter((balance) => (courseIds.length === 0 || courseIds.includes(String(balance.courseId))) && ((showUnpaid && balance.excessAttendance > 0) || selectedRemaining.includes(balance.remainingAllowance) || (validRemaining && balance.remainingAllowance === Number(remaining)))) })).filter((student) => student.balances.length > 0);
+  return <section aria-labelledby="student-balances-title" className="flex h-full w-full max-w-3xl self-start flex-col rounded-xl border border-stone-200 bg-white shadow-sm">
     <div className="border-b border-stone-200 px-3 py-2.5">
       <h2 id="student-balances-title" className="m-0 text-base font-normal">Student balances</h2>
       <details className="mt-2" onToggle={(event) => { if (!event.currentTarget.open) setCoursesOpen(false); }}>
@@ -129,7 +129,7 @@ export default function StudentBalancesWidget() {
     {error ? <div role="alert" className="p-4 font-sans text-sm text-red-700">{error}<button type="button" onClick={refresh} className="ml-2 underline">Retry</button></div> : loading && !hasLoaded ? <p role="status" className="p-4 font-sans text-sm text-slate-500">Loading balances…</p> : <>
       <p role="status" className="m-0 px-3 py-2 font-sans text-xs text-slate-500">{matches.length} {matches.length === 1 ? "student" : "students"}</p>
       {!matches.length && <p className="m-0 px-3 pb-3 font-sans text-sm text-slate-500">{!showUnpaid && selectedRemaining.length === 0 && !validRemaining ? "Select a balance filter to show students." : "No students match the selected balances."}</p>}
-      <ul className="m-0 max-h-56 list-none divide-y divide-stone-100 overflow-y-auto p-0">{matches.map((student) => <li key={student.id}>
+      <ul className="m-0 min-h-0 flex-1 list-none divide-y divide-stone-100 overflow-y-auto p-0">{matches.map((student) => <li key={student.id}>
         <button type="button" aria-haspopup="dialog" onClick={() => setSelectedId(student.id)} className="block w-full border-0 bg-white px-3 py-2.5 text-left hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-lime-600">
           <span className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-200 font-sans text-xs font-bold text-slate-800">

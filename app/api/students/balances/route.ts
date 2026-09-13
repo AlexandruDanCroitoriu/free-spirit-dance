@@ -7,7 +7,7 @@ export async function GET() {
     const db = env.DB;
     const historicalAbsences = await readHistoricalAbsences(db);
     const data = await db.batch([
-      db.prepare("SELECT id, first_name AS firstName, last_name AS lastName, picture FROM students ORDER BY last_name COLLATE NOCASE, first_name COLLATE NOCASE, id"),
+      db.prepare("SELECT id, first_name AS firstName, last_name AS lastName, picture, active FROM students WHERE active = 1 ORDER BY last_name COLLATE NOCASE, first_name COLLATE NOCASE, id"),
       db.prepare("SELECT id AS courseId, name AS courseName, start_date AS startDate, end_date AS endDate FROM courses"),
       db.prepare("SELECT course_id AS courseId, day_of_week AS day, start_time AS startTime FROM course_schedule"),
       db.prepare("SELECT course_id AS courseId, class_date AS classDate, start_time AS startTime, cancelled FROM classes"),
@@ -38,9 +38,9 @@ export async function GET() {
       const list = balances.get(studentId) ?? [];
       list.push(balance); balances.set(studentId, list);
     }
-    const students = (data[0].results as { id: number; firstName: string; lastName: string; picture: string | null }[])
+    const students = (data[0].results as { id: number; firstName: string; lastName: string; picture: string | null; active: number }[])
       .filter((student) => balances.has(student.id))
-      .map((student) => ({ ...student, balances: balances.get(student.id)!.map(({ courseId, courseName, remainingAllowance, excessAttendance }) => ({ courseId, courseName, remainingAllowance, excessAttendance })).sort((a, b) => a.courseName.localeCompare(b.courseName)) }));
+      .map((student) => ({ ...student, active: student.active === 1, balances: balances.get(student.id)!.map(({ courseId, courseName, remainingAllowance, excessAttendance }) => ({ courseId, courseName, remainingAllowance, excessAttendance })).sort((a, b) => a.courseName.localeCompare(b.courseName)) }));
     return Response.json({ students, courses: [...courses.values()].map(({ courseId, courseName }) => ({ id: courseId, name: courseName })).sort((a, b) => a.name.localeCompare(b.name)) }, { headers });
   } catch (error) {
     console.error("Could not load student balances", error);
