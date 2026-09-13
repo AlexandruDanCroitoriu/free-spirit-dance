@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Panels must never leave the document horizontally scrolled after closing. */
+html,
+body {
+	max-width: 100%;
+	overflow-x: clip;
+}
+
 /* A neutral gray workspace gives the white administration panels clear separation. */
 .app-background {
 	background-color: #e5e7eb;

@@ -93,7 +93,7 @@ export default function StudentBalancesWidget() {
   const remainingSummary = [...new Set([...selectedRemaining, ...(validRemaining ? [Number(remaining)] : [])])].sort((a, b) => a - b);
   const filterSummary = [showUnpaid ? "Unpaid" : "", remainingSummary.length ? `${remainingSummary.join(", ")} left` : ""].filter(Boolean).join(" · ") || "No balances selected";
   const matches = students.map((student) => ({ ...student, balances: student.balances.filter((balance) => (courseIds.length === 0 || courseIds.includes(String(balance.courseId))) && ((showUnpaid && balance.excessAttendance > 0) || selectedRemaining.includes(balance.remainingAllowance) || (validRemaining && balance.remainingAllowance === Number(remaining)))) })).filter((student) => student.balances.length > 0);
-  return <section aria-labelledby="student-balances-title" className="min-w-0 self-start rounded-xl border border-stone-200 bg-white shadow-sm">
+  return <section aria-labelledby="student-balances-title" className="w-full max-w-3xl self-start rounded-xl border border-stone-200 bg-white shadow-sm">
     <div className="border-b border-stone-200 px-3 py-2.5">
       <h2 id="student-balances-title" className="m-0 text-base font-normal">Student balances</h2>
       <details className="mt-2" onToggle={(event) => { if (!event.currentTarget.open) setCoursesOpen(false); }}>
