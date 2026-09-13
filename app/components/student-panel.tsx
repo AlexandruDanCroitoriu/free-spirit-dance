@@ -132,7 +132,7 @@ export default function StudentPanel({ id, onClose, onUpdate, onDelete, editPaym
     finally { setSaving(false); }
   }
 
-  return <dialog ref={dialog} aria-label={student ? `${student.firstName} ${student.lastName}` : "Student details"} aria-modal="true" className="fixed inset-y-0 right-0 left-auto m-0 box-border h-dvh max-h-none w-dvw max-w-none overflow-y-auto border-0 bg-stone-50 p-0 text-slate-800 shadow-2xl backdrop:bg-slate-950/60 md:w-full md:max-w-3xl" onCancel={(event) => { event.preventDefault(); closePanel(); }} onClick={(event) => {
+  return <dialog ref={dialog} aria-label={student ? `${student.firstName} ${student.lastName}` : "Student details"} aria-modal="true" className="fixed inset-0 m-0 box-border h-dvh max-h-none w-auto max-w-none overflow-y-auto border-0 bg-stone-50 p-0 text-slate-800 shadow-2xl backdrop:bg-slate-950/60 md:inset-y-0 md:left-auto md:w-full md:max-w-3xl" onCancel={(event) => { event.preventDefault(); closePanel(); }} onClick={(event) => {
     if (event.target !== event.currentTarget) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closePanel();
