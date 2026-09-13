@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Keep absolutely positioned accessibility labels inside their scroll region.
+   Otherwise labels in wide tables can enlarge the mobile layout viewport even
+   though the table itself is clipped by overflow-x-auto. */
+.overflow-x-auto {
+	position: relative;
+}
+
 /* Panels must never leave the document horizontally scrolled after closing. */
 html,
 body {
