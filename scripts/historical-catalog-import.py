@@ -20,6 +20,9 @@ SHEETS = {
     "Prezenta Grupa Mica": (1, "Beginners", 2024), "Prezenta Grupa Mica 2025": (1, "Beginners", 2025), "incepatori 26": (1, "Beginners", 2026),
     "Prezenta grupa intermediari": (2, "Intermediates", 2023), "Prezenta grupa intermediari 202": (2, "Intermediates", 2025), "intermed 26": (2, "Intermediates", 2026),
 }
+# Workbook headings occasionally contain a confirmed spelling variant. These
+# aliases are deliberately narrow and require an explicit identity review.
+WORKBOOK_HEADING_ALIASES = {"alexandrina niculescu": {"alexandrina nicolescu"}}
 
 def student_key(value): return " ".join(value.casefold().split())
 def column(reference): return re.match(r"[A-Z]+", reference).group(0)
@@ -31,6 +34,7 @@ def backup(source, target):
 
 def extract(args):
     target = student_key(args.student)
+    accepted_headings = {target, *WORKBOOK_HEADING_ALIASES.get(target, set())}
     review = pathlib.Path(args.review_dir)
     review.mkdir(parents=True, exist_ok=True)
     workbook = zipfile.ZipFile(ROOT / "docs" / "Catalog FSD.xlsx")
@@ -51,7 +55,7 @@ def extract(args):
             if cell is None: return ""
             raw = cell.findtext("m:v", default="", namespaces=NS)
             return strings[int(raw)] if cell.attrib.get("t") == "s" and raw else raw
-        matches = [reference for reference in cells if student_key(value(reference)) == target]
+        matches = [reference for reference in cells if student_key(value(reference)) in accepted_headings]
         if len(matches) > 1: raise ValueError(f"Ambiguous student headings in {name}: {matches}")
         if not matches: continue
         student_column = column(matches[0]); course_id, course_name, year = SHEETS[name]; month = None; previous_day = None
@@ -107,8 +111,9 @@ def plan(args):
     student = database.execute("SELECT id, first_name || ' ' || last_name AS name FROM students WHERE lower(first_name || ' ' || last_name) = lower(?)", (args.student,)).fetchall()
     if len(student) != 1: raise ValueError(f"Expected one student named {args.student!r}, found {len(student)}")
     student_id, student_name = student[0]["id"], student[0]["name"]
-    if any(database.execute(f"SELECT 1 FROM {table} WHERE student_id = ? LIMIT 1", (student_id,)).fetchone() for table in ("attendance", "student_payments")):
-        raise ValueError("Student already has activity; prepare a correction rather than an import plan")
+    # A correction may add newly confirmed workbook cells to an existing
+    # history. Every generated insert remains keyed by its source cell or
+    # request key, making an already-imported row a no-op.
     in_scope = [record for record in records if record["date"] <= cutoff]
     if not in_scope: raise ValueError("No source records fall within the requested import window")
     marks = {"p", "pc", "a", "am"}

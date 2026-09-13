@@ -66,7 +66,8 @@ export async function readHistoricalAbsences(db: D1Database, studentId?: number)
 }
 
 // Each payment covers consecutive non-cancelled classes from the earliest unpaid attendance.
-// Payment dates are date-only, so classes on the payment date are eligible.
+// A payment-date class counts only when the student attended it; an unattended
+// same-day class must not create a missed record or consume the new credit.
 export function courseCreditBalance(
   course: { courseId: number; courseName: string; startDate: string | null; endDate: string | null },
   schedules: { day: string; startTime: string }[],
@@ -105,7 +106,11 @@ export function courseCreditBalance(
   }
   for (const slot of occurrences) {
     const key = `${slot.classDate}T${slot.startTime}`;
-    if (recordedAbsences === undefined || slots.has(key)) slots.set(key, !slot.cancelled);
+    // Historical workbooks record only explicit attendance and absences, but a
+    // historical payment still expires after its next held classes. Retain
+    // every stored occurrence for credit consumption; blank workbook cells
+    // remain invisible because missed logs below use explicit absences only.
+    slots.set(key, !slot.cancelled);
   }
   for (const slot of attended) if (!slots.has(slot)) slots.set(slot, true);
   // Cancellations are known events, including upcoming classes after the student first participated.
@@ -126,6 +131,7 @@ export function courseCreditBalance(
     for (const slot of held) {
       if (!remaining) break;
       if (slot < start || covered.has(slot)) continue;
+      if (slot.slice(0, 10) === payment.paidOn && !attended.has(slot)) continue;
       covered.add(slot);
       classes.push({ startsAt: slot, attended: attended.has(slot) });
       remaining--;
@@ -135,12 +141,10 @@ export function courseCreditBalance(
   // Later recorded attendance establishes that earlier covered classes have been passed.
   const attendanceCutoff = [current, ...attended].sort().at(-1)!;
   const used = [...covered].filter((slot) => slot <= attendanceCutoff).length;
-  // A workbook-backed absence is an explicit historical fact, but it is only
-  // a visible missed class when a payment covers that class. Blank workbook
-  // cells still never become inferred absences.
-  const missed = recordedAbsences === undefined
-    ? [...covered].filter((slot) => slot <= attendanceCutoff && !attended.has(slot))
-    : [...covered].filter((slot) => slot <= attendanceCutoff && new Set(recordedAbsences.map((item) => item.slice(0, 16))).has(slot));
+  // A covered held class without an attendance record is missed. This also
+  // applies to historical imports: the workbook does not need a separate
+  // absence mark once the payment consumed that class credit.
+  const missed = [...covered].filter((slot) => slot <= attendanceCutoff && !attended.has(slot));
   if (onMissed) for (const slot of missed) onMissed(slot);
   const missedClasses = missed.length;
   const unpaidAttendance = held.filter((slot) => attended.has(slot) && !covered.has(slot)).length;

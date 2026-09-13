@@ -199,4 +199,10 @@ const sameDay = await read(4, '?logsPageSize=50');
 assert.deepEqual(sameDay.logs.slice(0, 2).map(row => [row.kind, row.eventDate]), [['payment', '2026-09-01'], ['attendance', '2026-09-01T18:30:00']]);
 console.log('PASS: date-only payments precede same-day attendance in the activity log.');
 
+sqlite.exec("INSERT INTO students(id,first_name,last_name,email) VALUES(5,'Absent same day','Payment','absent-same-day@example.test'); INSERT INTO classes (course_id,class_date,start_time) VALUES (1,'2026-09-11','18:30'); INSERT INTO student_payments(id,student_id,paid_on,amount_minor,notes,recorded_by,recorded_at,request_key,request_payload) VALUES(102,5,'2026-09-11',100,'','history@example.test','2026-09-11','absent-same-day-payment','{}'); INSERT INTO payment_course_allowances VALUES(102,1,'New name',1);");
+const absentSameDay = await read(5, '?logsPageSize=50');
+assert.equal(absentSameDay.summary.missedClasses, 0, 'an unattended class on the payment date is not missed');
+assert.equal(absentSameDay.balances[0].remainingAllowance, 1, 'the same-day absence does not consume the new credit');
+console.log('PASS: an unattended class on the payment date neither creates a missed record nor uses a credit.');
+
 assert.equal((await api.POST(request(payment({amount:'0',allocations:[{courseId:1,allowance:8}]})),context())).status,201, 'Zero-value class-credit payments must be accepted');

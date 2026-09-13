@@ -39,11 +39,10 @@
     "test": "node scripts/test.mjs",
     "check": "npm run typecheck && npm test",
     "verify": "npm run check && npm run build",
-    "predev": "npm run db:local:migrate && npm run db:catalog:prepare",
+    "predev": "npm run db:catalog:prepare",
     "db:catalog:prepare": "python3 scripts/prepare-catalog-db.py",
     "historical:sync": "python3 scripts/sync-historical-catalog.py",
-    "historical:batch": "python3 scripts/batch-historical-import.py",
-    "db:local:migrate": "wrangler d1 migrations apply LOCAL_DB --local --config wrangler.local.json"
+    "historical:batch": "python3 scripts/batch-historical-import.py"
   },
   "engines": {
     "node": ">=24.0.0"

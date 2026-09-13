@@ -4,13 +4,6 @@
   "compatibility_date": "2026-09-03",
   "d1_databases": [
     {
-      "binding": "LOCAL_DB",
-      "database_name": "free-spirit-dance-local",
-      "database_id": "00000000-0000-0000-0000-000000000001",
-      "remote": false,
-      "migrations_dir": "migrations"
-    },
-    {
       "binding": "CATALOG_DB",
       "database_name": "free-spirit-dance-catalog",
       "database_id": "00000000-0000-0000-0000-000000000002",
@@ -18,11 +11,6 @@
     }
   ],
   "r2_buckets": [
-    {
-      "binding": "LOCAL_IMAGES",
-      "bucket_name": "free-spirit-dance-local-images",
-      "remote": false
-    },
     {
       "binding": "CATALOG_IMAGES",
       "bucket_name": "free-spirit-dance-catalog-images",

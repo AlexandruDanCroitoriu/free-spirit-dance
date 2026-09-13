@@ -10,7 +10,7 @@ After a historical student has passed source validation, reconcile only that stu
 
 For checklist-order batch work, run `npm run historical:batch -- --apply`. It processes only unchecked entries and stops at the first data, identity, or local-Catalog conflict. It can safely regenerate audit-only source-cell rows when no historical activity exists, or preserve already-imported history only when its in-window workbook facts exactly match. A student is checked only after the local Catalog sync succeeds. Same-surname profiles remain a deliberate review stop.
 
-The preparation command uses only the `CATALOG_DB` binding with `--local`. It preserves the prepared schema, including zero-value historical payments and the supplementary history tables. It does not overwrite Local or Production, and refuses to overwrite an incomplete or unrecognized Catalog database. If the private source file is missing, ordinary local development remains available and the Catalog button is disabled until preparation succeeds.
+The preparation command uses only the `CATALOG_DB` binding with `--local`. It preserves the prepared schema, including zero-value historical payments and the supplementary history tables. It does not overwrite Production, and refuses to overwrite an incomplete or unrecognized Catalog database. Catalog is the sole local development store; if the private source file is missing, preparation is skipped only when a prepared Catalog copy already exists.
 
 Only the owner can switch databases during development. Other administrators accessing the development tunnel continue to use Production, as before. The selector is unavailable in a production build.
 

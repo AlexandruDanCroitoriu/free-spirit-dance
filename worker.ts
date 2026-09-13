@@ -27,13 +27,6 @@ function forbidden(pathname: string) {
 
 type DevelopmentEnv = CloudflareEnv & Partial<LocalDevelopmentBindings> & { LOCAL_STORAGE_ENABLED?: string; PRODUCTION_IMAGES?: R2Bucket };
 
-async function catalogReady(env: DevelopmentEnv) {
-  if (!env.CATALOG_DB || !env.CATALOG_IMAGES) return false;
-  try {
-    return Boolean(await env.CATALOG_DB.prepare("SELECT source_sha256 FROM _fsd_catalog_import LIMIT 1").first());
-  } catch { return false; }
-}
-
 const application = {
   async fetch(request: Request, env, ctx) {
     const url = new URL(request.url);
@@ -85,26 +78,22 @@ export default {
     // Only the owner can opt into the separate local development store.
     const tunnelAdministrator = development && url.hostname === "dev-free-spirit-dance.alexandru-croitoriu.dev" &&
       Boolean(email) && email !== restrictedAdministrator;
-    const preference = /(?:^|;\s*)fsd-storage=(local|catalog|production)(?:;|$)/.exec(request.headers.get("Cookie") ?? "")?.[1];
-    const selected = tunnelAdministrator ? "production" : canSwitch ? preference ?? "local" : "local";
+    const preference = /(?:^|;\s*)fsd-storage=(catalog|production)(?:;|$)/.exec(request.headers.get("Cookie") ?? "")?.[1];
+    const selected = tunnelAdministrator ? "production" : canSwitch ? preference ?? "catalog" : "catalog";
     if (url.pathname === "/api/development-storage") {
       const headers = new Headers({ "Cache-Control": "no-store" });
       if (!canSwitch) return Response.json({ available: false }, { headers });
-      if (request.method === "GET") return Response.json({ available: true, selected, catalogAvailable: await catalogReady(env) }, { headers });
+      if (request.method === "GET") return Response.json({ available: true, selected }, { headers });
       if (request.method !== "POST") return new Response(null, { status: 405, headers });
       if (request.headers.get("Origin") !== url.origin) return new Response(null, { status: 403, headers });
       const input = await request.json().catch(() => null) as { selected?: unknown } | null;
-      if (input?.selected !== "local" && input?.selected !== "catalog" && input?.selected !== "production") return Response.json({ error: "Choose Local, Catalog or Production." }, { status: 400, headers });
-      if (input.selected === "catalog" && !await catalogReady(env)) return Response.json({ error: "Catalog is not ready. Restart npm run dev to prepare it." }, { status: 409, headers });
+      if (input?.selected !== "catalog" && input?.selected !== "production") return Response.json({ error: "Choose Catalog or Production." }, { status: 400, headers });
       headers.set("Set-Cookie", `fsd-storage=${input.selected}; Path=/; HttpOnly; SameSite=Strict${url.protocol === "https:" ? "; Secure" : ""}`);
       return Response.json({ available: true, selected: input.selected }, { headers });
     }
     if (!development) return application.fetch(request, env, ctx);
-    if (!env.LOCAL_DB || !env.LOCAL_IMAGES) return new Response("Local storage is not configured.", { status: 503 });
-    if (selected === "catalog" && !await catalogReady(env)) return new Response("Catalog is not ready. Restart npm run dev, or select Local in the development database selector.", { status: 503, headers: { "Cache-Control": "no-store" } });
-    // Local imports can copy profile and QR images from the production binding.
-    // This extra binding is never present in production requests.
-    const scoped = selected === "production" ? env : { ...env, DB: selected === "catalog" ? env.CATALOG_DB! : env.LOCAL_DB, STUDENT_IMAGES: selected === "catalog" ? env.CATALOG_IMAGES! : env.LOCAL_IMAGES, PRODUCTION_IMAGES: env.STUDENT_IMAGES };
+    if (!env.CATALOG_DB || !env.CATALOG_IMAGES) return new Response("Catalog storage is not configured.", { status: 503 });
+    const scoped = selected === "production" ? env : { ...env, DB: env.CATALOG_DB, STUDENT_IMAGES: env.CATALOG_IMAGES, PRODUCTION_IMAGES: env.STUDENT_IMAGES };
     const response = await withStorage(scoped, () => application.fetch(request, scoped, ctx));
     // Image URLs and record IDs can overlap across stores; never reuse cached data.
     const result = new Response(response.body, response);

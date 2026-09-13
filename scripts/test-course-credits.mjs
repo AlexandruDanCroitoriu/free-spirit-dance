@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 const { courseCreditBalance } = await import('data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(readFileSync('app/lib/student-activity.ts', 'utf8'))).toString('base64'));
 
-// Historical blanks, including a student's gap and time after leaving, are not absences.
+// A historical payment consumes held classes; covered blanks become automatic misses.
 {
   const missed = [], covered = [], cancelled = [];
   const history = ['2024-01-11T19:00', '2024-02-08T19:00', '2026-03-12T19:00'];
@@ -16,11 +16,11 @@ const { courseCreditBalance } = await import('data:text/javascript;base64,' + Bu
     new Date('2026-09-12T12:00:00Z'), (_, detail) => covered.push(...detail.classes.map(c => c.startsAt)),
     slot => missed.push(slot), slot => cancelled.push(slot), history,
   );
-  assert.deepEqual(missed, history);
+  assert.deepEqual(missed, [...history.slice(0, 2), '2025-06-10T19:00', history[2]]);
   assert.equal(result.attendanceCount, 3);
-  assert.equal(result.missedClasses, 3);
+  assert.equal(result.missedClasses, 4);
   assert.deepEqual(cancelled, []);
-  assert.equal(covered.length, 6, 'Coverage includes only actual p/a records, including a return after a long gap');
+  assert.equal(covered.length, 7, 'Historical credits consume the next held occurrences and render uncovered slots as missed.');
   const noHistory = [];
   courseCreditBalance({ courseId: 1, courseName: 'Historical', startDate: null, endDate: null },
     [{ day: 'Tuesday', startTime: '19:00' }], [], [], presence, new Date('2026-09-12T12:00:00Z'),

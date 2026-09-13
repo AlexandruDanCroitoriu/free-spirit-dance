@@ -14,7 +14,7 @@ async function readResponse(response: Response): Promise<unknown> {
   return body;
 }
 
-export default function StudentActivity({ studentId, initialPaymentId, targetAttendanceDate }: { studentId: number; initialPaymentId?: number; targetAttendanceDate?: string }) {
+export default function StudentActivity({ studentId, initialPaymentId, targetPaymentId, targetAttendanceDate }: { studentId: number; initialPaymentId?: number; targetPaymentId?: number; targetAttendanceDate?: string }) {
   const [data, setData] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -43,7 +43,9 @@ export default function StudentActivity({ studentId, initialPaymentId, targetAtt
   const submitted = useRef<string | null>(null);
   const initialPaymentOpened = useRef<number | null>(null);
   const attendanceTarget = useRef<HTMLTableRowElement>(null);
+  const paymentTarget = useRef<HTMLTableRowElement>(null);
   const scrolledAttendanceTarget = useRef("");
+  const scrolledPaymentTarget = useRef<number | null>(null);
   const url = `/api/students/${studentId}/activity`;
 
   useEffect(() => {
@@ -136,6 +138,16 @@ export default function StudentActivity({ studentId, initialPaymentId, targetAtt
     }, 0);
     return () => window.clearTimeout(timeout);
   }, [data, targetAttendanceDate]);
+  useEffect(() => {
+    if (!data || !targetPaymentId || scrolledPaymentTarget.current === targetPaymentId) return;
+    const target = paymentTarget.current;
+    if (!target) return;
+    const timeout = window.setTimeout(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      scrolledPaymentTarget.current = targetPaymentId;
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [data, targetPaymentId]);
   async function deletePayment() {
     if (saving.current || !editingPaymentId) return;
     saving.current = true; setBusy(true); setFormError("");
@@ -237,7 +249,7 @@ export default function StudentActivity({ studentId, initialPaymentId, targetAtt
               <tr>{["Type", "Date", "Class / event", "Attendance / amount", "Recorded by", "School transfer", "Actions"].map((label) => <th key={label} scope="col" className="px-3 py-3 font-semibold">{label}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
-              {data.logs.map((row, rowIndex) => <tr key={`${row.kind}-${row.id}-${row.eventDate}`} ref={rowIndex === firstTargetAttendance ? attendanceTarget : undefined} className={`align-top ${rowIndex === firstTargetAttendance ? "bg-lime-50/70" : ""}`}>
+              {data.logs.map((row, rowIndex) => { const paymentTargeted = row.kind === "payment" && row.id === targetPaymentId; const attendanceTargeted = rowIndex === firstTargetAttendance; return <tr key={`${row.kind}-${row.id}-${row.eventDate}`} ref={paymentTargeted ? paymentTarget : attendanceTargeted ? attendanceTarget : undefined} className={`align-top ${paymentTargeted ? "bg-cyan-50/70" : attendanceTargeted ? "bg-lime-50/70" : ""}`}>
                 <td className="relative px-3 py-4" style={{ paddingLeft: 12 + connectorWidth }}>
                   {positionedConnections.map((connection) => rowIndex >= connection.first && rowIndex <= connection.last && <span key={connection.paymentId} aria-hidden="true">
                     <span className="pointer-events-none absolute border-l-2 border-lime-600" style={{ left: 10 + connection.lane * 10, top: rowIndex === connection.first ? 28 : -1, bottom: rowIndex === connection.last ? "calc(100% - 28px)" : -1 }} />
@@ -251,7 +263,7 @@ export default function StudentActivity({ studentId, initialPaymentId, targetAtt
                 <td className="px-3 py-4 text-xs text-slate-500"><span className="block max-w-40 truncate" title={row.recordedBy}>{row.recordedBy}</span>{row.recordedAt && <time className="mt-1 block whitespace-nowrap" dateTime={row.recordedAt}>{formatLogDate(row.recordedAt)}</time>}</td>
                 <td className="px-3 py-4">{row.kind === "payment" ? <PaymentTransferCheckbox paymentId={row.id} studentId={studentId} checked={row.givenToSchool === 1} disabled={loading || busy} /> : "—"}</td>
                 <td className="px-3 py-4">{row.practiceId ? <a className={button} href={`/practice-parties/${row.practiceId}`}>View practice</a> : row.kind === "payment" ? <button type="button" className={button + " whitespace-nowrap"} disabled={loading || busy} onClick={() => editPayment(row)}>Edit payment</button> : row.kind === "missed" || row.kind === "cancelled" ? <span className="text-slate-400">—</span> : <button type="button" aria-label={`Free attendance for ${row.courseName} on ${formatLogDate(row.eventDate.slice(0, 10))}`} aria-pressed={row.complimentary === 1} disabled={loading || busy || !row.courseId} onClick={() => void toggleFreeAttendance(row)} className={`${button.replace("bg-white", "").replace("border-stone-300", "")} whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-green-600 ${row.complimentary === 1 ? "border-green-600 bg-green-600 text-white hover:bg-green-700" : "border-stone-300 bg-white text-slate-600 hover:border-green-500"}`}>{row.complimentary === 1 ? "✓ Free attendance" : "Free attendance"}</button>}</td>
-              </tr>)}
+              </tr>; })}
               {!data.logs.length && <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-500">No attendance or payment logs yet.</td></tr>}
             </tbody>
           </table>
