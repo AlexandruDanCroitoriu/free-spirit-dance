@@ -34,7 +34,7 @@ try {
   const roster = await load('app/api/practice-parties/[id]/roster/route.ts', 'roster');
   const activity = await load('app/api/students/[id]/activity/route.ts', 'activity');
   const payments = await load('app/api/students/payments/route.ts', 'payments');
-  sqlite.exec("INSERT INTO students (first_name,last_name,email,phone) VALUES ('Ana','Student','ana@test','0700000001'),('Ben','Student','ben@test','0700000002'); INSERT INTO admin_profiles(email,name) VALUES ('admin@test','Admin'); INSERT INTO administrator_payment_methods(email,method) VALUES ('admin@test','Cash');");
+  sqlite.exec("INSERT INTO students (first_name,last_name,email,phone) VALUES ('Ana','Student','ana@test','0700000001'),('Ben','Student','ben@test','0700000002'); INSERT INTO admin_profiles(email,name) VALUES ('admin@test','Admin');");
   let requestNumber = 0;
   const request = (body, method = 'POST', path = '/api/practice-parties/1') => new Request(`https://school.test${path}`, { method, headers: { 'Content-Type': 'application/json', 'cf-access-authenticated-user-email': 'admin@test' }, ...(body ? { body: JSON.stringify(body) } : {}) });
   const context = (id = 1) => ({ params: Promise.resolve({ id: String(id) }) });
@@ -54,6 +54,8 @@ try {
   await expect(party.POST(request(attendance), context()), 200);
   const recorded = sqlite.prepare('SELECT * FROM practice_attendance').get();
   assert.equal(recorded.student_id, 1); assert.equal(recorded.donation_amount_minor, 3050); assert.equal(recorded.donation_paid_on, '2026-01-07');
+  const rosterWithSelection = await expect(roster.GET(request(null, 'GET', '/api/practice-parties/1/roster'), context()), 200);
+  assert.equal(rosterWithSelection.students[0].id, 1, 'Selected students appear before unselected students in the roster.');
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM sqlite_schema WHERE type = 'table' AND name IN ('practice_requests', 'practice_changes', 'practice_donations')").get().count, 0);
 
   const detail = await expect(party.GET(request(null, 'GET'), context()), 200);

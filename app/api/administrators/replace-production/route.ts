@@ -116,6 +116,10 @@ export async function POST(request: Request) {
     const legacyTables = new Set(existing.results.map((row) => row.name));
     const statements = [
       ...legacyEventDeleteOrder.filter((name) => legacyTables.has(name)).map((name) => `DELETE FROM "${name}"`),
+      // practice_attendance owns its optional donation fields. The database
+      // prevents deleting attendance while a donation remains, so clear those
+      // fields before deleting the old snapshot.
+      "UPDATE practice_attendance SET donation_amount_minor = NULL, donation_paid_on = NULL, donation_notes = '', donation_recorded_by = NULL, donation_recorded_at = NULL, donation_received_method = '', donation_given_to_school = 0 WHERE donation_amount_minor IS NOT NULL",
       ...deleteOrder.map((name) => `DELETE FROM "${name}"`),
       ...insertOrder.flatMap((name) => insertStatements(name, tables.get(name)!).map((statement) => statement.slice(0, -1))),
     ];

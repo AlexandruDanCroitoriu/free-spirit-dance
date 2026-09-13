@@ -29,7 +29,7 @@ export default function CalendarDayPanel({ date, courses, onClose }: { date: str
     return () => { element?.close(); document.body.style.overflow = overflow; };
   }, []);
 
-  return <dialog ref={dialog} aria-labelledby="calendar-day-title" className="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-full max-w-xl overflow-y-auto border-0 bg-stone-50 p-0 text-slate-800 shadow-2xl backdrop:bg-slate-950/60" onCancel={event => { event.preventDefault(); if (!busy) onClose(); }} onClick={event => {
+  return <dialog ref={dialog} aria-labelledby="calendar-day-title" className="fixed inset-y-0 right-0 left-auto m-0 box-border h-dvh max-h-none w-dvw max-w-none overflow-y-auto border-0 bg-stone-50 p-0 text-slate-800 shadow-2xl backdrop:bg-slate-950/60 md:w-full md:max-w-xl" onCancel={event => { event.preventDefault(); if (!busy) onClose(); }} onClick={event => {
     if (busy || event.target !== event.currentTarget) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose();

@@ -93,10 +93,10 @@ export default function StudentBalancesWidget() {
   const remainingSummary = [...new Set([...selectedRemaining, ...(validRemaining ? [Number(remaining)] : [])])].sort((a, b) => a - b);
   const filterSummary = [showUnpaid ? "Unpaid" : "", remainingSummary.length ? `${remainingSummary.join(", ")} left` : ""].filter(Boolean).join(" · ") || "No balances selected";
   const matches = students.map((student) => ({ ...student, balances: student.balances.filter((balance) => (courseIds.length === 0 || courseIds.includes(String(balance.courseId))) && ((showUnpaid && balance.excessAttendance > 0) || selectedRemaining.includes(balance.remainingAllowance) || (validRemaining && balance.remainingAllowance === Number(remaining)))) })).filter((student) => student.balances.length > 0);
-  return <section aria-labelledby="student-balances-title" className="min-w-0 self-start rounded-2xl border border-stone-200 bg-white shadow-sm">
-    <div className="border-b border-stone-200 p-4">
-      <h2 id="student-balances-title" className="m-0 text-lg font-normal">Student balances</h2>
-      <details className="mt-3" onToggle={(event) => { if (!event.currentTarget.open) setCoursesOpen(false); }}>
+  return <section aria-labelledby="student-balances-title" className="min-w-0 self-start rounded-xl border border-stone-200 bg-white shadow-sm">
+    <div className="border-b border-stone-200 px-3 py-2.5">
+      <h2 id="student-balances-title" className="m-0 text-base font-normal">Student balances</h2>
+      <details className="mt-2" onToggle={(event) => { if (!event.currentTarget.open) setCoursesOpen(false); }}>
         <summary className="cursor-pointer rounded-md font-sans text-xs font-semibold text-slate-600 focus-visible:outline-lime-600">Filters
           <span className="mt-1 block break-words font-normal text-slate-500">{filterSummary} · {selectedCourseNames || "All courses"}</span>
         </summary>
@@ -127,17 +127,17 @@ export default function StudentBalancesWidget() {
       </details>
     </div>
     {error ? <div role="alert" className="p-4 font-sans text-sm text-red-700">{error}<button type="button" onClick={refresh} className="ml-2 underline">Retry</button></div> : loading && !hasLoaded ? <p role="status" className="p-4 font-sans text-sm text-slate-500">Loading balances…</p> : <>
-      <p role="status" className="m-0 px-4 py-3 font-sans text-xs text-slate-500">{matches.length} {matches.length === 1 ? "student" : "students"}</p>
-      {!matches.length && <p className="m-0 px-4 pb-4 font-sans text-sm text-slate-500">{!showUnpaid && selectedRemaining.length === 0 && !validRemaining ? "Select a balance filter to show students." : "No students match the selected balances."}</p>}
-      <ul className="m-0 max-h-80 list-none divide-y divide-stone-100 overflow-y-auto p-0">{matches.map((student) => <li key={student.id}>
-        <button type="button" aria-haspopup="dialog" onClick={() => setSelectedId(student.id)} className="block w-full border-0 bg-white p-4 text-left hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-lime-600">
-          <span className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-200 font-sans text-sm font-bold text-slate-800">
+      <p role="status" className="m-0 px-3 py-2 font-sans text-xs text-slate-500">{matches.length} {matches.length === 1 ? "student" : "students"}</p>
+      {!matches.length && <p className="m-0 px-3 pb-3 font-sans text-sm text-slate-500">{!showUnpaid && selectedRemaining.length === 0 && !validRemaining ? "Select a balance filter to show students." : "No students match the selected balances."}</p>}
+      <ul className="m-0 max-h-56 list-none divide-y divide-stone-100 overflow-y-auto p-0">{matches.map((student) => <li key={student.id}>
+        <button type="button" aria-haspopup="dialog" onClick={() => setSelectedId(student.id)} className="block w-full border-0 bg-white px-3 py-2.5 text-left hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-lime-600">
+          <span className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-200 font-sans text-xs font-bold text-slate-800">
               {student.picture ? <img src={student.picture} alt="" loading="lazy" className="h-full w-full object-cover" /> : `${student.firstName[0] ?? ""}${student.lastName[0] ?? ""}`}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block break-words font-sans text-sm font-semibold text-slate-800">{student.firstName} {student.lastName}</span>
-              {student.balances.map((balance) => <span key={balance.courseId} className="mt-1 flex flex-wrap justify-between gap-1 font-sans text-xs"><span className="break-words text-slate-500">{balance.courseName}</span><span className={balance.excessAttendance > 0 ? "font-semibold text-red-700" : "font-semibold text-lime-700"}>{balance.excessAttendance > 0 ? `${balance.excessAttendance} unpaid` : `${balance.remainingAllowance} remaining`}</span></span>)}
+              {student.balances.map((balance) => <span key={balance.courseId} className="mt-0.5 flex flex-wrap justify-between gap-1 font-sans text-xs"><span className="break-words text-slate-500">{balance.courseName}</span><span className={balance.excessAttendance > 0 ? "font-semibold text-red-700" : "font-semibold text-lime-700"}>{balance.excessAttendance > 0 ? `${balance.excessAttendance} unpaid` : `${balance.remainingAllowance} remaining`}</span></span>)}
             </span>
           </span>
         </button>
