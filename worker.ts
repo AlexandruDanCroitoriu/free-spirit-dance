@@ -80,7 +80,7 @@ export default {
     const tunnelAdministrator = development && url.hostname === "dev-free-spirit-dance.alexandru-croitoriu.dev" &&
       Boolean(email) && email !== restrictedAdministrator;
     const preference = /(?:^|;\s*)fsd-storage=(catalog|working|copy[2-8]|production)(?:;|$)/.exec(request.headers.get("Cookie") ?? "")?.[1];
-    const selected = tunnelAdministrator ? "production" : canSwitch && preference !== "production" ? preference ?? "catalog" : "catalog";
+    const selected = tunnelAdministrator ? "production" : canSwitch ? preference ?? "catalog" : "catalog";
     if (url.pathname === "/api/development-storage") {
       const headers = new Headers({ "Cache-Control": "no-store" });
       if (!canSwitch) return Response.json({ available: false }, { headers });
@@ -89,7 +89,7 @@ export default {
       if (request.headers.get("Origin") !== url.origin) return new Response(null, { status: 403, headers });
       const input = await request.json().catch(() => null) as { selected?: unknown } | null;
       const copies = env.WORKING_DB ? await listCopies(env.WORKING_DB) : [];
-      if (!input || (input.selected !== "catalog" && !copies.some((copy) => copy.id === input.selected))) return Response.json({ error: "Choose an available local database." }, { status: 400, headers });
+      if (!input || (input.selected !== "catalog" && input.selected !== "production" && !copies.some((copy) => copy.id === input.selected))) return Response.json({ error: "Choose an available database." }, { status: 400, headers });
       headers.set("Set-Cookie", `fsd-storage=${input.selected}; Path=/; HttpOnly; SameSite=Strict${url.protocol === "https:" ? "; Secure" : ""}`);
       return Response.json({ available: true, selected: input.selected }, { headers });
     }

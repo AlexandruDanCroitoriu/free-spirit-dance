@@ -24,9 +24,9 @@ async function request({ development = true, email = owner, cookie = '', method 
     DB: 'production-db', STUDENT_IMAGES: 'production-images', PUBLIC_QR_BASE_URL: 'https://go.example.com',
   }, {});
 }
-test('database and images switch together, defaulting to Catalog only in development', async () => {
+test('database and images switch together, defaulting to Catalog in development', async () => {
   assert.deepEqual(await (await request()).json(), { db: 'catalog-db', images: 'catalog-images' });
-  assert.deepEqual(await (await request({ cookie: 'fsd-storage=production' })).json(), { db: 'catalog-db', images: 'catalog-images' });
+  assert.deepEqual(await (await request({ cookie: 'fsd-storage=production' })).json(), { db: 'production-db', images: 'production-images' });
   assert.deepEqual(await (await request({ development: false, cookie: 'fsd-storage=local' })).json(), { db: 'production-db', images: 'production-images' });
   assert.equal((await request()).headers.get('Cache-Control'), 'no-store');
 });
@@ -66,7 +66,7 @@ test('localhost has main administrator identity and can switch without signing i
     const options = { host, email: '' };
     assert.deepEqual(await (await request({ ...options, path: '/api/development-storage' })).json(), { available: true, selected: 'catalog', copies: [] });
     assert.deepEqual(await (await request({ ...options, path: '/api/local-identity-test' })).json(), { email: owner });
-    assert.deepEqual(await (await request({ ...options, cookie: 'fsd-storage=production' })).json(), { db: 'catalog-db', images: 'catalog-images' });
+    assert.deepEqual(await (await request({ ...options, cookie: 'fsd-storage=production' })).json(), { db: 'production-db', images: 'production-images' });
     const response = await request({ ...options, path: '/api/development-storage', method: 'POST', origin: 'https://' + host, body: { selected: 'catalog' } });
     assert.equal(response.status, 200);
     assert.match(response.headers.get('Set-Cookie'), /fsd-storage=catalog/);
@@ -129,7 +129,7 @@ test('unregistered local stores cannot be selected', async () => {
   assert.deepEqual(await (await request({ path: '/api/development-storage' })).json(), { available: true, selected: 'catalog', copies: [] });
 });
 
-test('registered copies route records and images together, while selection rejects production', async () => {
+test('registered copies and production route records and images together', async () => {
   const copy = { id: 'copy2', name: 'September review', createdAt: '2026-09-13T00:00:00Z' };
   const env = { LOCAL_STORAGE_ENABLED: 'true', DB: 'production-db', STUDENT_IMAGES: 'production-images', CATALOG_DB: 'catalog-db', CATALOG_IMAGES: 'catalog-images',
     WORKING_DB: { prepare: () => ({ run: async () => ({}), all: async () => ({ results: [copy] }) }) },
@@ -138,7 +138,7 @@ test('registered copies route records and images together, while selection rejec
   const headers = { 'cf-access-authenticated-user-email': owner, Origin: origin, Cookie: 'fsd-storage=copy2' };
   const response = await exports.default.fetch(new Request(origin + '/api/admin-profile', { headers }), env, {});
   assert.deepEqual(await response.json(), { db: 'copy2-db', images: 'copy2-images' });
-  for (const [selected, status] of [['copy2', 200], ['copy3', 400], ['production', 400]]) {
+  for (const [selected, status] of [['copy2', 200], ['copy3', 400], ['production', 200]]) {
     const response = await exports.default.fetch(new Request(origin + '/api/development-storage', { method: 'POST', headers, body: JSON.stringify({ selected }) }), env, {});
     assert.equal(response.status, status);
   }
