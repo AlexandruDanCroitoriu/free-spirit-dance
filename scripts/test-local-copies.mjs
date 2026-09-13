@@ -20,12 +20,12 @@ function database() {
   }, async batch(statements) { sqlite.exec('BEGIN'); try { const results = statements.map(s => s.execute()); sqlite.exec('COMMIT'); return results; } catch (error) { sqlite.exec('ROLLBACK'); throw error; } } }; return db;
 }
 const bucket = () => { const items = new Map(); return { items, async get(key) { return items.has(key) ? { body: items.get(key), httpMetadata: {} } : null; }, async put(key, value) { items.set(key, value); }, async list({ limit }) { return { objects: [...items.keys()].slice(0, limit).map(key => ({ key })) }; }, async delete(keys) { for (const key of keys) items.delete(key); } }; };
-const production = database(), first = database(), second = database();
-const productionImages = bucket(), firstImages = bucket(), secondImages = bucket();
+const production = database(), first = database(), second = database(), catalog = database();
+const productionImages = bucket(), firstImages = bucket(), secondImages = bucket(), catalogImages = bucket();
 production.sqlite.exec("INSERT INTO students (first_name,last_name,email,picture) VALUES ('Source','Student','','/api/student-images/student-test')");
 production.sqlite.exec("INSERT INTO admin_profiles (email,name) VALUES ('collector@example.test','Collector'); INSERT INTO administrator_payment_methods (email,method) VALUES ('collector@example.test','Transfer')");
 await productionImages.put('student-test', 'original-image');
-globalThis.copyTestEnv = { WORKING_DB: first, WORKING_IMAGES: firstImages, COPY2_DB: second, COPY2_IMAGES: secondImages, PRODUCTION_DB: production, PRODUCTION_IMAGES: productionImages };
+globalThis.copyTestEnv = { WORKING_DB: first, WORKING_IMAGES: firstImages, COPY2_DB: second, COPY2_IMAGES: secondImages, CATALOG_DB: catalog, CATALOG_IMAGES: catalogImages, PRODUCTION_DB: production, PRODUCTION_IMAGES: productionImages };
 // Reimport after environment initialization: each isolated test module captures its bindings.
 const source = readFileSync('app/api/development-copy-production/route.ts', 'utf8').replace('import { env } from "../../lib/storage";', 'const env = globalThis.copyTestEnv;').replace('"../../lib/local-copies"', JSON.stringify(helper)).replace('"../administrators/export/route"', JSON.stringify(exporter));
 const api = await import(moduleUrl(source + '\n// initialized'));
@@ -43,6 +43,9 @@ assert.equal(second.sqlite.prepare('SELECT first_name FROM students').get().firs
 assert.equal(production.sqlite.prepare('SELECT first_name FROM students').get().first_name, 'Source');
 assert.equal(firstImages.items.get('student-test'), 'local-image');
 assert.equal(secondImages.items.get('student-test'), 'original-image');
+const catalogCopy = await api.PUT(request('PUT', { source: 'working' })); assert.equal(catalogCopy.status, 200);
+assert.equal(catalog.sqlite.prepare('SELECT first_name FROM students').get().first_name, 'Edited locally');
+assert.equal(catalogImages.items.get('student-test'), 'local-image');
 assert.equal((await api.PATCH(request('PATCH', { id: 'copy2', name: 'September review' }))).status, 200);
 assert.equal((await api.PATCH(request('PATCH', { id: 'copy2', name: ' ' }))).status, 400);
 assert.equal(first.sqlite.prepare("SELECT name FROM local_database_copies WHERE id='copy2'").get().name, 'September review');

@@ -78,6 +78,27 @@ async function copyImages(source: R2Bucket, target: R2Bucket, tables: ExportTabl
   return { copied, missing };
 }
 
+async function clearImages(bucket: R2Bucket) {
+  for (;;) {
+    const page = await bucket.list({ limit: 100 });
+    if (!page.objects.length) return;
+    await bucket.delete(page.objects.map((object) => object.key));
+  }
+}
+
+async function replaceDatabase(target: D1Database, tables: ExportTable[]) {
+  const existing = await target.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${legacyEventDeleteOrder.map(() => "?").join(", ")})`).bind(...legacyEventDeleteOrder).all<{ name: string }>();
+  const legacyTables = new Set(existing.results.map((row) => row.name));
+  const rows = new Map(tables.map((table) => [table.name, table.rows as Record<string, DatabaseValue>[]]));
+  const statements = [
+    ...legacyEventDeleteOrder.filter((name) => legacyTables.has(name)).map((name) => `DELETE FROM "${name}"`),
+    "UPDATE practice_attendance SET donation_amount_minor = NULL, donation_paid_on = NULL, donation_notes = '', donation_recorded_by = NULL, donation_recorded_at = NULL, donation_received_method = '', donation_given_to_school = 0 WHERE donation_amount_minor IS NOT NULL",
+    ...deleteOrder.map((name) => `DELETE FROM "${name}"`),
+    ...insertOrder.flatMap((name) => insertStatements(name, rows.get(name) ?? []).map((statement) => statement.slice(0, -1))),
+  ];
+  await target.batch(statements.map((statement) => target.prepare(statement)));
+}
+
 export async function POST(request: Request) {
   const bindings = env as DevelopmentBindings;
   // These bindings exist exclusively in vite's local-development configuration.
@@ -99,16 +120,7 @@ export async function POST(request: Request) {
     const backupKey = `database-backups/${crypto.randomUUID()}.json`;
     await target.images.put(backupKey, JSON.stringify({ tables: await readTables(target.db) }), { httpMetadata: { contentType: "application/json" } });
     const images = await copyImages(bindings.PRODUCTION_IMAGES, target.images, tables);
-    const existing = await target.db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${legacyEventDeleteOrder.map(() => "?").join(", ")})`).bind(...legacyEventDeleteOrder).all<{ name: string }>();
-    const legacyTables = new Set(existing.results.map((row) => row.name));
-    const rows = new Map(tables.map((table) => [table.name, table.rows as Record<string, DatabaseValue>[]]));
-    const statements = [
-      ...legacyEventDeleteOrder.filter((name) => legacyTables.has(name)).map((name) => `DELETE FROM "${name}"`),
-      "UPDATE practice_attendance SET donation_amount_minor = NULL, donation_paid_on = NULL, donation_notes = '', donation_recorded_by = NULL, donation_recorded_at = NULL, donation_received_method = '', donation_given_to_school = 0 WHERE donation_amount_minor IS NOT NULL",
-      ...deleteOrder.map((name) => `DELETE FROM "${name}"`),
-      ...insertOrder.flatMap((name) => insertStatements(name, rows.get(name) ?? []).map((statement) => statement.slice(0, -1))),
-    ];
-    await target.db.batch(statements.map((statement) => target.db.prepare(statement)));
+    await replaceDatabase(target.db, tables);
     await registry.prepare("UPDATE local_database_copies SET ready=1 WHERE id=?").bind(reserved).run();
     return Response.json({ id: reserved, copies: await listCopies(registry), copied: tables.reduce((count, table) => count + table.rows.length, 0), imagesCopied: images.copied, imagesMissing: images.missing, backupKey }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
@@ -128,6 +140,28 @@ export async function PATCH(request: Request) {
   const result = await registry.prepare("UPDATE local_database_copies SET name=? WHERE id=? AND ready=1").bind(input.name.trim(), input.id).run();
   if (!result.meta.changes) return new Response(null, { status: 404 });
   return Response.json({ copies: await listCopies(registry) }, { headers: { "Cache-Control": "no-store" } });
+}
+
+export async function PUT(request: Request) {
+  const bindings = env as DevelopmentBindings;
+  if (!bindings.WORKING_DB || !bindings.CATALOG_DB || !bindings.CATALOG_IMAGES) return new Response(null, { status: 404 });
+  if (!canCopy(request)) return new Response(null, { status: 403 });
+  const input = await request.json().catch(() => null) as { source?: unknown } | null;
+  const sourceId = typeof input?.source === "string" ? input.source : "";
+  const source = copyBindings(bindings, sourceId);
+  const copies = await listCopies(bindings.WORKING_DB);
+  if (!source || !copies.some((copy) => copy.id === sourceId)) return Response.json({ error: "Choose a saved production copy." }, { status: 400 });
+  try {
+    const tables = await readTables(source.db);
+    // Catalog is a local-only store. This never reads from or writes to remote production.
+    await clearImages(bindings.CATALOG_IMAGES);
+    const images = await copyImages(source.images, bindings.CATALOG_IMAGES, tables);
+    await replaceDatabase(bindings.CATALOG_DB, tables);
+    return Response.json({ replaced: true, copied: tables.reduce((count, table) => count + table.rows.length, 0), imagesCopied: images.copied, imagesMissing: images.missing }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    console.error("Could not replace Catalog from local production copy", error);
+    return Response.json({ error: "Could not replace Catalog from the local production copy. The production database was not changed." }, { status: 500 });
+  }
 }
 
 export async function DELETE(request: Request) {
