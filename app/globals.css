@@ -29,6 +29,15 @@ body {
 	box-shadow: 0 16px 35px rgba(15, 23, 42, 0.1), 0 2px 6px rgba(15, 23, 42, 0.05);
 }
 
+/* The application header is a toolbar, not page content: keep its navigation
+   and title at the left edge and its utilities at the right edge. */
+.app-content > header > div {
+	width: 100%;
+	max-width: none;
+	margin-left: 0;
+	margin-right: 0;
+}
+
 .calendar-grid {
 	display: grid;
 	grid-template-columns: repeat(7, minmax(0, 1fr));
