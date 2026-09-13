@@ -105,7 +105,8 @@ assert.throws(()=>sqlite.exec('DELETE FROM courses WHERE id=1'),/FOREIGN KEY/);
 assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 console.log('PASS: unpaid attendance, per-course balances, payment allocations, exact money parsing, validation, atomic rollback, retries, log snapshots, pagination and preserved history.');
 
-const workerSource = readFileSync('worker.ts','utf8').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();').replace('import vinextHandler from "vinext/server/fetch-handler";', 'const vinextHandler = { fetch: () => new Response("allowed") };');
+const workerSource = readFileSync('worker.ts','utf8').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();')
+  .replace('import { copyBindings, listCopies } from "./app/lib/local-copies";', stripTypeScriptTypes(readFileSync('app/lib/local-copies.ts', 'utf8')).replaceAll('export ', '')).replace('import vinextHandler from "vinext/server/fetch-handler";', 'const vinextHandler = { fetch: () => new Response("allowed") };');
 const {default:worker} = await import(moduleUrl(workerSource));
 const workerEnv = { DB:db, PUBLIC_QR_BASE_URL:'https://go.example.test' };
 for (const method of ['GET','POST']) {

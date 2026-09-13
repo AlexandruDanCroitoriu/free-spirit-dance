@@ -8,6 +8,7 @@ import { stripTypeScriptTypes } from 'node:module';
 const code = stripTypeScriptTypes(readFileSync(new URL('../worker.ts', import.meta.url), 'utf8'))
   .replace('import vinextHandler from "vinext/server/fetch-handler";', '')
   .replace('import { withStorage } from "./app/lib/storage";', '')
+  .replace('import { copyBindings, listCopies } from "./app/lib/local-copies";', stripTypeScriptTypes(readFileSync('app/lib/local-copies.ts', 'utf8')).replaceAll('export ', ''))
   .replace('export default', 'exports.default =');
 const exports = {};
 vm.runInNewContext(code, { exports, Request, Response, URL, console,

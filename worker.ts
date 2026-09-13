@@ -1,5 +1,6 @@
 import { withStorage } from "./app/lib/storage";
 import vinextHandler from "vinext/server/fetch-handler";
+import { copyBindings, listCopies } from "./app/lib/local-copies";
 
 const restrictedAdministrator = "croitoriu.alexandru.code@gmail.com";
 
@@ -11,7 +12,7 @@ type Permission = "dashboard" | "students" | "courses" | "qrCodes" | "owner" | "
 
 function requiredPermission(pathname: string): Permission | null {
   if (pathname === "/practice-parties" || pathname.startsWith("/practice-parties/")) return "practiceParties";
-  if (pathname === "/administrators" || pathname === "/api/administrators" || pathname.startsWith("/api/administrators/")) return "owner";
+  if (pathname === "/administrators" || pathname === "/api/development-copy-production" || pathname === "/api/administrators" || pathname.startsWith("/api/administrators/")) return "owner";
   if (pathname === "/") return "dashboard";
   if (pathname.startsWith("/students")) return "students";
   if (pathname.startsWith("/courses")) return "courses";
@@ -25,7 +26,7 @@ function forbidden(pathname: string) {
   return new Response("<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>Access denied</title><body style=\"margin:0;background:#fafaf9;color:#1e293b;font-family:system-ui,sans-serif\"><main style=\"max-width:32rem;margin:12vh auto;padding:2rem\"><h1>Access denied</h1><p>This area is available only to the authorized administrator.</p><a href=\"/settings\">Go to Settings</a></main></body></html>", { status: 403, headers: { ...headers, "Content-Type": "text/html; charset=utf-8" } });
 }
 
-type DevelopmentEnv = CloudflareEnv & Partial<LocalDevelopmentBindings> & { LOCAL_STORAGE_ENABLED?: string; PRODUCTION_IMAGES?: R2Bucket };
+type DevelopmentEnv = CloudflareEnv & Partial<LocalDevelopmentBindings> & { LOCAL_STORAGE_ENABLED?: string };
 
 const application = {
   async fetch(request: Request, env, ctx) {
@@ -78,22 +79,25 @@ export default {
     // Only the owner can opt into the separate local development store.
     const tunnelAdministrator = development && url.hostname === "dev-free-spirit-dance.alexandru-croitoriu.dev" &&
       Boolean(email) && email !== restrictedAdministrator;
-    const preference = /(?:^|;\s*)fsd-storage=(catalog|production)(?:;|$)/.exec(request.headers.get("Cookie") ?? "")?.[1];
-    const selected = tunnelAdministrator ? "production" : canSwitch ? preference ?? "catalog" : "catalog";
+    const preference = /(?:^|;\s*)fsd-storage=(catalog|working|copy[2-8]|production)(?:;|$)/.exec(request.headers.get("Cookie") ?? "")?.[1];
+    const selected = tunnelAdministrator ? "production" : canSwitch && preference !== "production" ? preference ?? "catalog" : "catalog";
     if (url.pathname === "/api/development-storage") {
       const headers = new Headers({ "Cache-Control": "no-store" });
       if (!canSwitch) return Response.json({ available: false }, { headers });
-      if (request.method === "GET") return Response.json({ available: true, selected }, { headers });
+      if (request.method === "GET") return Response.json({ available: true, selected, copies: env.WORKING_DB ? await listCopies(env.WORKING_DB) : [] }, { headers });
       if (request.method !== "POST") return new Response(null, { status: 405, headers });
       if (request.headers.get("Origin") !== url.origin) return new Response(null, { status: 403, headers });
       const input = await request.json().catch(() => null) as { selected?: unknown } | null;
-      if (input?.selected !== "catalog" && input?.selected !== "production") return Response.json({ error: "Choose Catalog or Production." }, { status: 400, headers });
+      const copies = env.WORKING_DB ? await listCopies(env.WORKING_DB) : [];
+      if (!input || (input.selected !== "catalog" && !copies.some((copy) => copy.id === input.selected))) return Response.json({ error: "Choose an available local database." }, { status: 400, headers });
       headers.set("Set-Cookie", `fsd-storage=${input.selected}; Path=/; HttpOnly; SameSite=Strict${url.protocol === "https:" ? "; Secure" : ""}`);
       return Response.json({ available: true, selected: input.selected }, { headers });
     }
     if (!development) return application.fetch(request, env, ctx);
     if (!env.CATALOG_DB || !env.CATALOG_IMAGES) return new Response("Catalog storage is not configured.", { status: 503 });
-    const scoped = selected === "production" ? env : { ...env, DB: env.CATALOG_DB, STUDENT_IMAGES: env.CATALOG_IMAGES, PRODUCTION_IMAGES: env.STUDENT_IMAGES };
+    const copy = copyBindings(env, selected);
+    if (selected !== "catalog" && selected !== "production" && (!copy || !env.WORKING_DB || !(await listCopies(env.WORKING_DB)).some((item) => item.id === selected)) && url.pathname !== "/api/development-copy-production") return new Response("Local database is not available. Select Catalog.", { status: 503 });
+    const scoped = selected === "production" ? env : copy ? { ...env, DB: copy.db, STUDENT_IMAGES: copy.images } : { ...env, DB: env.CATALOG_DB, STUDENT_IMAGES: env.CATALOG_IMAGES, PRODUCTION_IMAGES: env.PRODUCTION_IMAGES ?? env.STUDENT_IMAGES };
     const response = await withStorage(scoped, () => application.fetch(request, scoped, ctx));
     // Image URLs and record IDs can overlap across stores; never reuse cached data.
     const result = new Response(response.body, response);

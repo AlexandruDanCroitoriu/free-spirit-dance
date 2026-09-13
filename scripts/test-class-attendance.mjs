@@ -91,7 +91,8 @@ const validCourse={name:'Zouk',startDate:'2026-09-09',endDate:'2026-09-16',sched
 assert.equal(typeof parseCourse(validCourse),'object');
 for(const dates of [{startDate:'2026-02-30'},{endDate:'2026-09-08'},{startDate:''}]) assert.equal(typeof parseCourse({...validCourse,...dates}),'string');
 sqlite.exec("INSERT INTO administrator_permissions (email,can_dashboard,can_students,can_courses) VALUES ('both@example.test',1,1,0),('dashboard@example.test',1,0,0),('students@example.test',0,1,0),('courses@example.test',0,0,1)");
-const {default:worker}=await import(moduleUrl(readFileSync('worker.ts','utf8').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();').replace('import vinextHandler from "vinext/server/fetch-handler";','const vinextHandler={fetch:()=>new Response("allowed")};')));
+const {default:worker}=await import(moduleUrl(readFileSync('worker.ts','utf8').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();')
+  .replace('import { copyBindings, listCopies } from "./app/lib/local-copies";', stripTypeScriptTypes(readFileSync('app/lib/local-copies.ts', 'utf8')).replaceAll('export ', '')).replace('import vinextHandler from "vinext/server/fetch-handler";','const vinextHandler={fetch:()=>new Response("allowed")};')));
 for(const method of ['GET','POST']) for(const email of [null,'dashboard@example.test','students@example.test','courses@example.test','both@example.test']) {
  const response=await worker.fetch(new Request('https://school.example.test/api/class-attendance',{method,headers:email?{'cf-access-authenticated-user-email':email}:{}}),{DB:db,PUBLIC_QR_BASE_URL:'https://go.example.test'},{});
  assert.equal(response.status,200);

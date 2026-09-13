@@ -8,12 +8,111 @@
       "database_name": "free-spirit-dance-catalog",
       "database_id": "00000000-0000-0000-0000-000000000002",
       "remote": false
+    },
+    {
+      "binding": "WORKING_DB",
+      "database_name": "free-spirit-dance-working-copy",
+      "database_id": "00000000-0000-0000-0000-000000000003",
+      "remote": false
+    },
+    {
+      "binding": "PRODUCTION_DB",
+      "database_name": "FS-Dance",
+      "database_id": "5c15ead5-18f8-49ec-a634-d89d2fd00daa",
+      "remote": true
+    },
+    {
+      "binding": "COPY2_DB",
+      "database_name": "free-spirit-dance-copy-2",
+      "database_id": "00000000-0000-0000-0000-000000000005",
+      "remote": false
+    },
+    {
+      "binding": "COPY3_DB",
+      "database_name": "free-spirit-dance-copy-3",
+      "database_id": "00000000-0000-0000-0000-000000000006",
+      "remote": false
+    },
+    {
+      "binding": "COPY4_DB",
+      "database_name": "free-spirit-dance-copy-4",
+      "database_id": "00000000-0000-0000-0000-000000000007",
+      "remote": false
+    },
+    {
+      "binding": "COPY5_DB",
+      "database_name": "free-spirit-dance-copy-5",
+      "database_id": "00000000-0000-0000-0000-000000000008",
+      "remote": false
+    },
+    {
+      "binding": "COPY6_DB",
+      "database_name": "free-spirit-dance-copy-6",
+      "database_id": "00000000-0000-0000-0000-000000000009",
+      "remote": false
+    },
+    {
+      "binding": "COPY7_DB",
+      "database_name": "free-spirit-dance-copy-7",
+      "database_id": "00000000-0000-0000-0000-000000000010",
+      "remote": false
+    },
+    {
+      "binding": "COPY8_DB",
+      "database_name": "free-spirit-dance-copy-8",
+      "database_id": "00000000-0000-0000-0000-000000000011",
+      "remote": false
     }
   ],
   "r2_buckets": [
     {
       "binding": "CATALOG_IMAGES",
       "bucket_name": "free-spirit-dance-catalog-images",
+      "remote": false
+    },
+    {
+      "binding": "WORKING_IMAGES",
+      "bucket_name": "free-spirit-dance-working-copy-images",
+      "remote": false
+    },
+    {
+      "binding": "PRODUCTION_IMAGES",
+      "bucket_name": "free-spirit-dance-student-images",
+      "remote": true
+    },
+    {
+      "binding": "COPY2_IMAGES",
+      "bucket_name": "free-spirit-dance-copy-2-images",
+      "remote": false
+    },
+    {
+      "binding": "COPY3_IMAGES",
+      "bucket_name": "free-spirit-dance-copy-3-images",
+      "remote": false
+    },
+    {
+      "binding": "COPY4_IMAGES",
+      "bucket_name": "free-spirit-dance-copy-4-images",
+      "remote": false
+    },
+    {
+      "binding": "COPY5_IMAGES",
+      "bucket_name": "free-spirit-dance-copy-5-images",
+      "remote": false
+    },
+    {
+      "binding": "COPY6_IMAGES",
+      "bucket_name": "free-spirit-dance-copy-6-images",
+      "remote": false
+    },
+    {
+      "binding": "COPY7_IMAGES",
+      "bucket_name": "free-spirit-dance-copy-7-images",
+      "remote": false
+    },
+    {
+      "binding": "COPY8_IMAGES",
+      "bucket_name": "free-spirit-dance-copy-8-images",
       "remote": false
     }
   ]

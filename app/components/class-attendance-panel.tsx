@@ -7,6 +7,7 @@ import {
   type ClassStudent,
 } from "../lib/class-attendance";
 import { formatLogDate, formatMoney } from "../lib/student-activity";
+import StudentPanel, { type Student } from "./student-panel";
 const button =
   "rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold disabled:opacity-50";
 async function readResponse<T>(response: Response): Promise<T> {
@@ -44,6 +45,7 @@ export default function ClassAttendancePanel({
   const [complimentaryReason, setComplimentaryReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [studentPanelId, setStudentPanelId] = useState<number | null>(null);
   const editable = data?.canEdit === true;
   const query = new URLSearchParams({
     courseId: String(slot.courseId),
@@ -169,7 +171,7 @@ export default function ClassAttendancePanel({
     }
   }
   const recorded = data?.students.filter((s) => s.attended) ?? [];
-  const assigned = data?.students.filter((s) => s.assigned && !s.attended) ?? [];
+  const assigned = data?.students.filter((s) => s.active && s.assigned && !s.attended) ?? [];
   const others = data?.students.filter((s) => !s.assigned && !s.attended) ?? [];
   function card(student: ClassStudent) {
     return (
@@ -179,6 +181,7 @@ export default function ClassAttendancePanel({
         selected={selected.includes(student.id)}
         disabled={busy || loading || !editable}
         onToggle={() => toggle(student.id)}
+        onOpenStudent={() => setStudentPanelId(student.id)}
         complimentary={student.attended ? complimentaryChanges[student.id] ?? student.complimentary === 1 : complimentary.includes(student.id)}
         onComplimentaryToggle={() => {
           if (student.attended) setComplimentaryChanges((current) => {
@@ -333,6 +336,7 @@ export default function ClassAttendancePanel({
           {busy ? "Saving…" : "Submit attendance"}
         </button>
       </footer>
+      {studentPanelId !== null && <StudentPanel id={studentPanelId} onClose={() => setStudentPanelId(null)} onUpdate={(updated: Student) => setData((current) => current ? { ...current, students: current.students.map((student) => student.id === updated.id ? { ...student, firstName: updated.firstName, lastName: updated.lastName, picture: updated.picture, active: updated.active ? 1 : 0 } : student) } : current)} onDelete={(id) => { setData((current) => current ? { ...current, students: current.students.filter((student) => student.id !== id) } : current); setStudentPanelId(null); }} />}
     </dialog>
   );
 }
@@ -341,6 +345,7 @@ export function AttendanceStudentCard({
   selected,
   disabled,
   onToggle,
+  onOpenStudent,
   complimentary = false,
   onComplimentaryToggle,
 }: {
@@ -348,19 +353,13 @@ export function AttendanceStudentCard({
   selected: boolean;
   disabled: boolean;
   onToggle: () => void;
+  onOpenStudent?: () => void;
   complimentary?: boolean;
   onComplimentaryToggle?: () => void;
 }) {
   const green = Boolean(student.attended) !== selected;
   return (
-    <div className={`flex items-center gap-2 overflow-hidden rounded-xl border ${green ? "border-green-500 bg-green-50 text-green-900" : "border-stone-200 bg-white hover:border-green-400"}`}>
-    <button
-      type="button"
-      aria-pressed={green}
-      disabled={disabled}
-      onClick={onToggle}
-      className="flex min-w-0 flex-1 items-center gap-3 border-0 bg-transparent p-3 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-600"
-    >
+    <div className={`flex items-center gap-2 overflow-hidden rounded-xl border p-3 ${green ? "border-green-500 bg-green-50 text-green-900" : "border-stone-200 bg-white hover:border-green-400"}`}>
       <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-200 font-sans font-bold text-slate-800">
         {student.picture ? (
           <img
@@ -372,7 +371,13 @@ export function AttendanceStudentCard({
           `${student.firstName[0] ?? ""}${student.lastName[0] ?? ""}`
         )}
       </span>
-      <span className="min-w-0 flex-1">
+      <button
+        type="button"
+        onClick={onOpenStudent}
+        className="min-w-0 flex-1 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-lime-600"
+        aria-label={`Open ${student.firstName} ${student.lastName}`}
+      >
+        <span className="min-w-0">
         <span className="block truncate font-sans text-sm font-semibold">
           {student.firstName} {student.lastName}
         </span>
@@ -382,12 +387,12 @@ export function AttendanceStudentCard({
             Inactive
           </span>
         )}
-      </span>
-      <span className="hidden font-sans text-xs font-semibold sm:block">
-        {selected ? (student.attended ? "Remove on submit" : "✓ Selected") : student.attended ? "✓ Recorded" : "Select"}
-      </span>
+        </span>
+      </button>
+      <button type="button" aria-pressed={green} disabled={disabled} onClick={onToggle} className="shrink-0 rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold text-slate-700 transition-colors hover:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-600 disabled:opacity-50">
+        {selected ? (student.attended ? "Remove" : "Selected") : student.attended ? "Recorded" : "Select"}
     </button>
-    {green && onComplimentaryToggle && <div className="shrink-0 pr-3">
+    {green && onComplimentaryToggle && <div className="shrink-0">
       <button type="button" aria-label={`Free attendance for ${student.firstName} ${student.lastName}`} aria-pressed={complimentary} disabled={disabled} onClick={onComplimentaryToggle} className={`rounded-md border px-3 py-2 font-sans text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 disabled:opacity-50 ${complimentary ? "border-green-600 bg-green-600 text-white hover:bg-green-700" : "border-stone-300 bg-white text-slate-600 hover:border-green-500"}`}>
         {complimentary ? "✓ Free attendance" : "Free attendance"}
       </button>

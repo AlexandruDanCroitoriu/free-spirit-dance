@@ -1,4 +1,5 @@
 import { env } from "../../../lib/storage";
+import { copyBindings, listCopies } from "../../../lib/local-copies";
 import { tableColumns, type ExportTable } from "../export/route";
 
 const ownerEmail = "croitoriu.alexandru.code@gmail.com";
@@ -53,19 +54,21 @@ function insertStatements(name: keyof typeof tableColumns, rows: Record<string, 
   const columns = tableColumns[name];
   const prefix = `INSERT INTO "${name}" (${columns.map((column) => `"${column}"`).join(", ")}) VALUES `;
   const statements: string[] = [];
+  // Profile insertion already creates CASH through the database trigger.
+  const suffix = name === "administrator_payment_methods" ? " ON CONFLICT(email, method) DO NOTHING;" : ";";
   let values: string[] = [];
   let length = prefix.length + 1;
   for (const row of rows) {
     const value = `(${columns.map((column) => sqlValue(row[column])).join(", ")})`;
     if (values.length && length + value.length + 1 > 90_000) {
-      statements.push(prefix + values.join(", ") + ";");
+      statements.push(prefix + values.join(", ") + suffix);
       values = [];
       length = prefix.length + 1;
     }
     values.push(value);
     length += value.length + 1;
   }
-  statements.push(prefix + values.join(", ") + ";");
+  statements.push(prefix + values.join(", ") + suffix);
   return statements;
 }
 
@@ -78,8 +81,7 @@ function imageKey(path: DatabaseValue) {
   } catch { return null; }
 }
 
-async function copyCatalogImages(tables: Map<keyof typeof tableColumns, Record<string, DatabaseValue>[]>, bindings: DevelopmentBindings) {
-  if (!bindings.CATALOG_IMAGES) throw new Error("Catalog image storage is not configured.");
+async function copyLocalImages(tables: Map<keyof typeof tableColumns, Record<string, DatabaseValue>[]>, sourceImages: R2Bucket, targetImages: R2Bucket) {
   const keys = new Set([
     ...tables.get("students")!.map((row) => imageKey(row.picture)),
     ...tables.get("admin_profiles")!.map((row) => imageKey(row.picture)),
@@ -88,9 +90,9 @@ async function copyCatalogImages(tables: Map<keyof typeof tableColumns, Record<s
   let copied = 0;
   let missing = 0;
   for (const key of keys) {
-    const image = await bindings.CATALOG_IMAGES.get(key);
+    const image = await sourceImages.get(key);
     if (!image) { missing++; continue; }
-    await env.STUDENT_IMAGES.put(key, image.body, { httpMetadata: image.httpMetadata });
+    await targetImages.put(key, image.body, { httpMetadata: image.httpMetadata });
     copied++;
   }
   return { copied, missing };
@@ -100,19 +102,23 @@ export async function POST(request: Request) {
   const bindings = env as DevelopmentBindings;
   // CATALOG_IMAGES exists only in the local development Worker. This makes the
   // destructive endpoint unreachable on the deployed production Worker.
-  if (!bindings.CATALOG_IMAGES) return new Response(null, { status: 404 });
+  if (!bindings.CATALOG_IMAGES || !bindings.WORKING_IMAGES || !bindings.PRODUCTION_DB || !bindings.PRODUCTION_IMAGES) return new Response(null, { status: 404 });
   if (!canReplace(request)) return Response.json({ error: "Only the main administrator can replace production data." }, { status: 403 });
-  const tables = parseTables((await request.json().catch(() => null) as { tables?: unknown } | null)?.tables);
-  if (!tables) return Response.json({ error: "The Catalog snapshot is not valid." }, { status: 400 });
+  const input = await request.json().catch(() => null) as { tables?: unknown; source?: unknown } | null;
+  const tables = parseTables(input?.tables);
+  const sourceId = typeof input?.source === "string" ? input.source : "";
+  const copies = bindings.WORKING_DB ? await listCopies(bindings.WORKING_DB) : [];
+  const sourceImages = sourceId === "catalog" ? bindings.CATALOG_IMAGES : copies.some((copy) => copy.id === sourceId) ? copyBindings(bindings, sourceId)?.images : null;
+  if (!tables || !sourceImages) return Response.json({ error: "The local database snapshot is not valid." }, { status: 400 });
 
   try {
     // Copy existing local images first. Historical Catalog snapshots can retain
     // image references whose local bucket objects are unavailable; those must
     // not prevent the requested SQL replacement.
-    const images = await copyCatalogImages(tables, bindings);
+    const images = await copyLocalImages(tables, sourceImages, bindings.PRODUCTION_IMAGES);
     // D1 batches are transactions. This avoids raw BEGIN/COMMIT statements,
     // which the local D1 runtime intentionally rejects.
-    const existing = await env.DB.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${legacyEventDeleteOrder.map(() => "?").join(", ")})`).bind(...legacyEventDeleteOrder).all<{ name: string }>();
+    const existing = await bindings.PRODUCTION_DB.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${legacyEventDeleteOrder.map(() => "?").join(", ")})`).bind(...legacyEventDeleteOrder).all<{ name: string }>();
     const legacyTables = new Set(existing.results.map((row) => row.name));
     const statements = [
       ...legacyEventDeleteOrder.filter((name) => legacyTables.has(name)).map((name) => `DELETE FROM "${name}"`),
@@ -123,7 +129,7 @@ export async function POST(request: Request) {
       ...deleteOrder.map((name) => `DELETE FROM "${name}"`),
       ...insertOrder.flatMap((name) => insertStatements(name, tables.get(name)!).map((statement) => statement.slice(0, -1))),
     ];
-    await env.DB.batch(statements.map((statement) => env.DB.prepare(statement)));
+    await bindings.PRODUCTION_DB.batch(statements.map((statement) => bindings.PRODUCTION_DB!.prepare(statement)));
     return Response.json({ replaced: true, ...images });
   } catch (error) {
     console.error("Could not replace production database from Catalog", error);

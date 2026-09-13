@@ -77,7 +77,8 @@ assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM payment_presets WHERE cou
 assert.equal((await item.DELETE(request({}),context(preset.id))).status,404);
 assert.equal((await item.PATCH(request(input),context(999))).status,404);
 assert.equal((await item.DELETE(request({}),context('bad'))).status,400);
-const workerSource=readFileSync('worker.ts','utf8').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();').replace('import vinextHandler from "vinext/server/fetch-handler";','const vinextHandler = { fetch: () => new Response("allowed") };');
+const workerSource=readFileSync('worker.ts','utf8').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();')
+  .replace('import { copyBindings, listCopies } from "./app/lib/local-copies";', stripTypeScriptTypes(readFileSync('app/lib/local-copies.ts', 'utf8')).replaceAll('export ', '')).replace('import vinextHandler from "vinext/server/fetch-handler";','const vinextHandler = { fetch: () => new Response("allowed") };');
 const {default:worker}=await import(moduleUrl(workerSource));
 sqlite.exec("INSERT INTO administrator_permissions (email,can_students,can_courses) VALUES ('students@example.test',1,0),('courses@example.test',0,1)");
 for(const path of ['/api/payment-presets','/api/payment-presets/1']) for(const method of ['GET','POST','PATCH','DELETE']) {
