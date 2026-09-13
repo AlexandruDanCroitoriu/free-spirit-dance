@@ -5,8 +5,8 @@ import { tableColumns, type ExportTable } from "../administrators/export/route";
 const ownerEmail = "croitoriu.alexandru.code@gmail.com";
 const tableNames = Object.keys(tableColumns) as Array<keyof typeof tableColumns>;
 const legacyEventDeleteOrder = ["event_refunds", "event_payment_handovers", "event_attendance", "event_session_changes", "event_cash_settlements", "event_requests", "event_sessions", "events"] as const;
-const deleteOrder = ["payment_preset_courses", "payment_course_allowances", "attendance", "practice_attendance", "student_payments", "student_courses", "course_schedule", "classes", "payment_presets", "practice_parties", "courses", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
-const insertOrder = ["admin_profiles", "administrator_permissions", "administrator_payment_methods", "students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance"] as const;
+const deleteOrder = ["payment_transfer_filters", "payment_preset_courses", "payment_course_allowances", "attendance", "practice_attendance", "student_payments", "student_courses", "course_schedule", "classes", "payment_presets", "practice_parties", "courses", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
+const insertOrder = ["admin_profiles", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance"] as const;
 type DatabaseValue = string | number | null;
 type DevelopmentBindings = Partial<LocalDevelopmentBindings>;
 

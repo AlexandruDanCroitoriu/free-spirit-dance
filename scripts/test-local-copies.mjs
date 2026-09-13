@@ -24,6 +24,7 @@ const production = database(), first = database(), second = database(), catalog 
 const productionImages = bucket(), firstImages = bucket(), secondImages = bucket(), catalogImages = bucket();
 production.sqlite.exec("INSERT INTO students (first_name,last_name,email,picture) VALUES ('Source','Student','','/api/student-images/student-test')");
 production.sqlite.exec("INSERT INTO admin_profiles (email,name) VALUES ('collector@example.test','Collector'); INSERT INTO administrator_payment_methods (email,method) VALUES ('collector@example.test','Transfer')");
+production.sqlite.exec("INSERT INTO admin_profiles (email,name) VALUES ('owner@example.test','Owner'); INSERT INTO payment_transfer_filters (administrator_email,collector_email,from_date,to_date,payment_kind,payment_types,sort_order,created_at) VALUES ('owner@example.test','collector@example.test','2026-09-01','2026-09-30','course','course',1,'2026-09-01T00:00:00.000Z')");
 await productionImages.put('student-test', 'original-image');
 globalThis.copyTestEnv = { WORKING_DB: first, WORKING_IMAGES: firstImages, COPY2_DB: second, COPY2_IMAGES: secondImages, CATALOG_DB: catalog, CATALOG_IMAGES: catalogImages, PRODUCTION_DB: production, PRODUCTION_IMAGES: productionImages };
 // Reimport after environment initialization: each isolated test module captures its bindings.
@@ -35,6 +36,7 @@ assert.equal((await api.POST(request('POST', null, 'other@example.test'))).statu
 assert.equal((await api.POST(request('POST', null, undefined, 'https://bad.example'))).status, 403);
 const one = await api.POST(request()); assert.equal(one.status, 200); assert.equal((await one.json()).id, 'working');
 assert.deepEqual(first.sqlite.prepare('SELECT email,method FROM administrator_payment_methods ORDER BY email,method').all(), production.sqlite.prepare('SELECT email,method FROM administrator_payment_methods ORDER BY email,method').all());
+assert.deepEqual(first.sqlite.prepare('SELECT administrator_email,collector_email,from_date,to_date,payment_types FROM payment_transfer_filters').all(), production.sqlite.prepare('SELECT administrator_email,collector_email,from_date,to_date,payment_types FROM payment_transfer_filters').all());
 first.sqlite.exec("UPDATE students SET first_name='Edited locally'");
 await firstImages.put('student-test', 'local-image');
 const two = await api.POST(request()); assert.equal(two.status, 200); assert.equal((await two.json()).id, 'copy2');
@@ -46,6 +48,7 @@ assert.equal(secondImages.items.get('student-test'), 'original-image');
 const catalogCopy = await api.PUT(request('PUT', { source: 'working' })); assert.equal(catalogCopy.status, 200);
 assert.equal(catalog.sqlite.prepare('SELECT first_name FROM students').get().first_name, 'Edited locally');
 assert.equal(catalogImages.items.get('student-test'), 'local-image');
+assert.deepEqual(catalog.sqlite.prepare('SELECT administrator_email,collector_email,from_date,to_date,payment_types FROM payment_transfer_filters').all(), first.sqlite.prepare('SELECT administrator_email,collector_email,from_date,to_date,payment_types FROM payment_transfer_filters').all());
 assert.equal((await api.PATCH(request('PATCH', { id: 'copy2', name: 'September review' }))).status, 200);
 assert.equal((await api.PATCH(request('PATCH', { id: 'copy2', name: ' ' }))).status, 400);
 assert.equal(first.sqlite.prepare("SELECT name FROM local_database_copies WHERE id='copy2'").get().name, 'September review');
