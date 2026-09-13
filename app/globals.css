@@ -48,6 +48,20 @@ body {
 	min-width: 0;
 }
 
+/* Historical matrices use the entire dashboard width, including when the
+   selected range is restored from browser storage. */
+.dashboard-grid:has([data-calendar-range="years"]) {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.dashboard-grid:has([data-calendar-range="years"]) > .dashboard-calendar-column {
+	display: contents;
+}
+
+.dashboard-grid:has([data-calendar-range="years"]) > .dashboard-calendar-column > * {
+	margin-block: 0;
+}
+
 /* A stretched grid item prevents the matrix header from sticking to the page
    while its own course rows scroll underneath it. */
 .calendar-widget-body > div > section > .grid {

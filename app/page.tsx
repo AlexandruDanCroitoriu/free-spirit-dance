@@ -10,11 +10,11 @@ const PaymentTransfersWidget = lazy(() => import("./components/payment-transfers
 export default function HomePage() {
   const { widgets, ready } = useDashboardWidgets();
   return <main className="flex-1 px-4 py-6 text-slate-800 md:px-12">
-    {ready && <div className="grid w-full grid-cols-1 items-start gap-4 lg:gap-5 xl:grid-cols-[minmax(0,70rem)_minmax(20rem,1fr)]">
+    {ready && <div className="dashboard-grid grid w-full grid-cols-1 items-start gap-4 lg:gap-5 xl:grid-cols-[minmax(0,70rem)_minmax(20rem,1fr)]">
       {/* On wide screens the report belongs beneath the calendar.  Keeping it
           in the left column prevents a tall balances list from creating a
           large, disconnected gap above it. */}
-      <div className="contents xl:block xl:min-w-0 xl:space-y-5">
+      <div className="dashboard-calendar-column contents xl:block xl:min-w-0 xl:space-y-5">
         <Suspense fallback={null}>{widgets.calendar && <div className="order-1 min-w-0 xl:[&>section]:!mx-0 xl:[&>section]:!max-w-none"><CourseCalendarWidget /></div>}</Suspense>
         <Suspense fallback={null}>{widgets.transfers && <div className="order-3 min-w-0"><PaymentTransfersWidget /></div>}</Suspense>
       </div>
