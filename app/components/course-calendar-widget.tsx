@@ -89,6 +89,7 @@ export default function CourseCalendarWidget() {
   const [error, setError] = useState("");
   const [selectedClass, setSelectedClass] = useState<SelectedClass | null>(null);
   const [calendarMode, setCalendarMode] = useState<"school" | "student">("school");
+  const [calendarModeBeforeYears, setCalendarModeBeforeYears] = useState<"school" | "student">("school");
   const [calendarRange, setCalendarRange] = useState<CalendarRange>("month");
   const [isDesktop, setIsDesktop] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
@@ -137,7 +138,7 @@ export default function CourseCalendarWidget() {
         setVisibleMonth(new Date(year, month - 1, 1));
       }
       const savedView = window.localStorage.getItem(viewStorageKey);
-      if (savedView === "school" || savedView === "student") setCalendarMode(savedView);
+      if (savedView === "school" || savedView === "student") { setCalendarMode(savedView); setCalendarModeBeforeYears(savedView); }
       const savedRange = window.localStorage.getItem(rangeStorageKey);
       if (savedRange === "month" || savedRange === "year" || (savedRange === "years" && window.matchMedia("(min-width: 1024px)").matches)) {
         setCalendarRange(savedRange);
@@ -156,10 +157,22 @@ export default function CourseCalendarWidget() {
   }, []);
 
   useEffect(() => {
-    if (!isDesktop && calendarRange === "years") setCalendarRange("year");
-  }, [isDesktop, calendarRange]);
+    if (!isDesktop && calendarRange === "years") {
+      setCalendarRange("year");
+      setCalendarMode(calendarModeBeforeYears);
+    }
+  }, [isDesktop, calendarRange, calendarModeBeforeYears]);
+  function changeCalendarRange(range: CalendarRange) {
+    if (range === "years") {
+      setCalendarModeBeforeYears(calendarMode);
+      setCalendarMode("student");
+    } else if (calendarRange === "years") {
+      setCalendarMode(calendarModeBeforeYears);
+    }
+    setCalendarRange(range);
+  }
   useEffect(() => {
-    if (calendarRange === "years" && calendarMode !== "student") setCalendarMode("student");
+    if (calendarRange !== "years") setCalendarModeBeforeYears(calendarMode);
   }, [calendarRange, calendarMode]);
 
   useEffect(() => {
@@ -172,7 +185,7 @@ export default function CourseCalendarWidget() {
   useEffect(() => {
     if (!monthRestored) return;
     try {
-      window.localStorage.setItem(viewStorageKey, calendarMode);
+      window.localStorage.setItem(viewStorageKey, calendarRange === "years" ? calendarModeBeforeYears : calendarMode);
       window.localStorage.setItem(rangeStorageKey, calendarRange);
       if (selectedStudentId !== null) window.localStorage.setItem(studentStorageKey, String(selectedStudentId));
       else window.localStorage.removeItem(studentStorageKey);
@@ -180,7 +193,7 @@ export default function CourseCalendarWidget() {
       window.localStorage.setItem(coursesStorageKey, JSON.stringify(selectedCourseIds));
       window.localStorage.setItem(yearsStorageKey, JSON.stringify(selectedYears));
     } catch { /* Selection still works without browser storage. */ }
-  }, [calendarMode, calendarRange, selectedStudentId, selectedStudentIds, selectedCourseIds, selectedYears, monthRestored]);
+  }, [calendarMode, calendarModeBeforeYears, calendarRange, selectedStudentId, selectedStudentIds, selectedCourseIds, selectedYears, monthRestored]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -458,7 +471,7 @@ export default function CourseCalendarWidget() {
       <div className="relative z-50 flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2 font-sans text-xs"><h2 className="sr-only" id="calendar-title">Calendar</h2>
           <label className="sr-only" htmlFor="calendar-range">Calendar range</label>
-          <select id="calendar-range" aria-label="Calendar range" className="h-8 rounded-md border border-stone-300 bg-white px-2 font-semibold text-slate-700 focus:ring-2 focus:ring-lime-600" value={calendarRange} onChange={(event) => { const range = event.target.value as CalendarRange; setCalendarRange(range); if (range === "years") setCalendarMode("student"); }}><option value="month">Month</option><option value="year">Whole year</option>{isDesktop && <option value="years">Multiple years</option>}</select>
+          <select id="calendar-range" aria-label="Calendar range" className="h-8 rounded-md border border-stone-300 bg-white px-2 font-semibold text-slate-700 focus:ring-2 focus:ring-lime-600" value={calendarRange} onChange={(event) => changeCalendarRange(event.target.value as CalendarRange)}><option value="month">Month</option><option value="year">Whole year</option>{isDesktop && <option value="years">Multiple years</option>}</select>
           {calendarRange !== "years" && <><label className="font-semibold text-slate-700" htmlFor="calendar-view">View</label>
           <select id="calendar-view" className="h-8 rounded-md border border-stone-300 bg-white px-2 font-semibold text-slate-700 focus:ring-2 focus:ring-lime-600" value={calendarMode} onChange={event => { setCalendarMode(event.target.value as "school" | "student"); setSelectedDay(null); setSelectedClass(null); setOpenedAttendanceDate(null); setOpenedPaymentId(null); }}><option value="school">School calendar</option><option value="student">Student</option></select></>}
           {calendarMode === "student" && <div ref={studentPickerRef} className="relative"><button type="button" aria-haspopup="listbox" aria-expanded={studentPickerOpen} className="flex h-8 min-w-52 items-center gap-2 rounded-md border border-stone-300 bg-white px-2 text-left font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-lime-600" onClick={() => setStudentPickerOpen(open => { const next = !open; if (next) { setStudentSearch(""); window.setTimeout(() => studentSearchInput.current?.focus(), 0); } return next; })}>{selectedStudent?.picture && calendarRange !== "years" ? <img className="h-5 w-5 rounded-full object-cover" alt="" src={selectedStudent.picture} /> : <span className="flex h-5 w-5 items-center justify-center rounded-full bg-lime-100 text-[9px] text-lime-800">{calendarRange === "years" ? selectedStudentIds.length : selectedStudent?.firstName.slice(0, 1) ?? "?"}</span>}<span className="flex-1 truncate">{calendarRange === "years" ? (selectedStudentIds.length ? `${selectedStudentIds.length} students selected` : "Choose students…") : selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : "Choose a student…"}</span><span aria-hidden="true">⌄</span></button>{studentPickerOpen && <div role="listbox" aria-label="Students" className="absolute z-30 mt-1 w-64 rounded-md border border-stone-300 bg-white p-1 shadow-lg"><input ref={studentSearchInput} type="search" aria-label="Filter students" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} placeholder="Type a student name…" className="mb-1 w-full rounded border border-stone-300 px-2 py-1.5 text-sm outline-none focus:border-lime-600 focus:ring-1 focus:ring-lime-600" />{calendarRange === "years" && <div className="mb-1 flex gap-1"><button type="button" className="flex-1 rounded border border-stone-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-lime-50" onClick={() => setSelectedStudentIds(students.map((student) => student.id))}>Select all</button><button type="button" className="flex-1 rounded border border-stone-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-stone-50" onClick={() => setSelectedStudentIds([])}>Clear all</button></div>}<div className="max-h-56 overflow-y-auto">{filteredStudents.map(student => <button role="option" aria-selected={calendarRange === "years" ? selectedStudentIds.includes(student.id) : student.id === selectedStudentId} type="button" key={student.id} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-lime-50 focus:bg-lime-50 focus:outline-none" onClick={() => { if (calendarRange === "years") setSelectedStudentIds((ids) => ids.includes(student.id) ? ids.filter((id) => id !== student.id) : [...ids, student.id]); else { setSelectedStudentId(student.id); setStudentPickerOpen(false); setStudentSearch(""); } }}>{student.picture ? <img className="h-7 w-7 rounded-full object-cover" alt="" src={student.picture} /> : <span className="flex h-7 w-7 items-center justify-center rounded-full bg-lime-100 text-[10px] font-bold text-lime-800">{student.firstName.slice(0, 1)}</span>}<span className="flex-1">{student.firstName} {student.lastName}</span>{calendarRange === "years" && selectedStudentIds.includes(student.id) && <span aria-hidden="true">✓</span>}</button>)}{filteredStudents.length === 0 && <p className="px-2 py-3 text-sm text-slate-500">No students found.</p>}</div></div>}</div>}

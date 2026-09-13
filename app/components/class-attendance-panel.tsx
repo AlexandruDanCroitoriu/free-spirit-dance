@@ -167,8 +167,9 @@ export default function ClassAttendancePanel({
       setBusy(false);
     }
   }
-  const assigned = data?.students.filter((s) => s.assigned) ?? [];
-  const others = data?.students.filter((s) => !s.assigned) ?? [];
+  const recorded = data?.students.filter((s) => s.attended) ?? [];
+  const assigned = data?.students.filter((s) => s.assigned && !s.attended) ?? [];
+  const others = data?.students.filter((s) => !s.assigned && !s.attended) ?? [];
   function card(student: ClassStudent) {
     return (
       <AttendanceStudentCard
@@ -267,6 +268,17 @@ export default function ClassAttendancePanel({
         )}
         {data && (
           <>
+            {!!recorded.length && (
+              <section aria-labelledby="selected-students-title">
+                <h3
+                  id="selected-students-title"
+                  className="mb-3 text-lg font-normal"
+                >
+                  Selected students ({recorded.length})
+                </h3>
+                <div className="space-y-2">{recorded.map(card)}</div>
+              </section>
+            )}
             <section aria-labelledby="assigned-students-title">
               <h3
                 id="assigned-students-title"

@@ -18,8 +18,8 @@ try {
   assert.match(html,/Free attendance for Recorded Student/);
   assert.match(html,/flex items-center gap-2 overflow-hidden rounded-xl/);
   assert.doesNotMatch(html,/px-3 pb-3/);
-  assert.match(html,/<dialog/);assert.match(html,/right-0 left-auto/);assert.match(html,/Assigned students \(1\)/);assert.match(html,/Other students \(2\)/);
-  assert.ok(html.indexOf('Assigned Student')<html.indexOf('Other Dancer'));assert.match(html,/2 changes · 1 recorded/);assert.match(html,/Submit attendance/);assert.match(html,/bg-green-50/);
+  assert.match(html,/<dialog/);assert.match(html,/right-0 left-auto/);assert.match(html,/Selected students \(1\)/);assert.match(html,/Assigned students \(1\)/);assert.match(html,/Other students \(1\)/);
+  assert.ok(html.indexOf('Recorded Student')<html.indexOf('Assigned Student'));assert.ok(html.indexOf('Assigned Student')<html.indexOf('Other Dancer'));assert.match(html,/2 changes · 1 recorded/);assert.match(html,/Submit attendance/);assert.match(html,/bg-green-50/);
   assert.match(html,/Recorded Student/);assert.match(html,/✓ Recorded/);
   const selected=renderToString(createElement(Card,{student:data.students[0],selected:true,disabled:false,onToggle(){}}));assert.match(selected,/aria-pressed="true"/);assert.match(selected,/border-green-500 bg-green-50/);
   const recorded=renderToString(createElement(Card,{student:data.students[2],selected:true,disabled:false,onToggle(){}}));assert.doesNotMatch(recorded,/disabled=""/);assert.match(recorded,/Remove on submit/);assert.match(recorded,/aria-pressed="false"/);
