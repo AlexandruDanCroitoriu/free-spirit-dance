@@ -12,6 +12,9 @@ type FormState = Omit<Student, "id"> & { courseIds: number[] };
 type ApiError = { error?: string };
 type StudentSort = "newest" | "firstName" | "lastName";
 const emptyForm: FormState = { firstName: "", lastName: "", email: "", phone: "", birthDate: null, picture: null, active: true, courseIds: [] };
+const filtersStorageKey = "free-spirit-dance:students-filters";
+
+type StoredFilters = { search?: unknown; courseFilter?: unknown; statusFilter?: unknown; sortBy?: unknown };
 
 export default function StudentsPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
@@ -33,11 +36,35 @@ export default function StudentsPage() {
   const [courseRetry, setCourseRetry] = useState(0);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [sortBy, setSortBy] = useState<StudentSort>("newest");
+  const [filtersInitialized, setFiltersInitialized] = useState(false);
 
   useEffect(() => {
     const id = Number(new URLSearchParams(window.location.search).get("student"));
     if (Number.isSafeInteger(id) && id > 0) setSelectedStudentId(id);
   }, []);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(filtersStorageKey) ?? "null") as StoredFilters | null;
+      if (saved && typeof saved === "object") {
+        if (typeof saved.search === "string") setSearch(saved.search.slice(0, 200));
+        if (saved.courseFilter === "all" || (typeof saved.courseFilter === "string" && /^[1-9]\d*$/.test(saved.courseFilter))) setCourseFilter(saved.courseFilter);
+        if (saved.statusFilter === "all" || saved.statusFilter === "active" || saved.statusFilter === "inactive") setStatusFilter(saved.statusFilter);
+        if (saved.sortBy === "newest" || saved.sortBy === "firstName" || saved.sortBy === "lastName") setSortBy(saved.sortBy);
+      }
+    } catch {
+      // Storage can be unavailable in a private or restricted browser context.
+    } finally {
+      setFiltersInitialized(true);
+    }
+  }, []);
+  useEffect(() => {
+    if (!filtersInitialized) return;
+    try {
+      window.localStorage.setItem(filtersStorageKey, JSON.stringify({ search, courseFilter, statusFilter, sortBy }));
+    } catch {
+      // Filtering remains usable when the browser declines local storage.
+    }
+  }, [courseFilter, filtersInitialized, search, sortBy, statusFilter]);
   function closeStudentPanel() {
     setSelectedStudentId(null);
     const url = new URL(window.location.href);

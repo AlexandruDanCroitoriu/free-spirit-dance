@@ -3,7 +3,8 @@ import { tableColumns, type ExportTable } from "../export/route";
 
 const ownerEmail = "croitoriu.alexandru.code@gmail.com";
 const tableNames = Object.keys(tableColumns) as Array<keyof typeof tableColumns>;
-const deleteOrder = ["payment_preset_courses", "payment_course_allowances", "attendance", "practice_attendance", "student_payments", "student_courses", "course_schedule", "classes", "payment_presets", "practice_parties", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
+const legacyEventDeleteOrder = ["event_refunds", "event_payment_handovers", "event_attendance", "event_session_changes", "event_cash_settlements", "event_requests", "event_sessions", "events"] as const;
+const deleteOrder = ["payment_preset_courses", "payment_course_allowances", "attendance", "practice_attendance", "student_payments", "student_courses", "course_schedule", "classes", "payment_presets", "practice_parties", "courses", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
 const insertOrder = ["admin_profiles", "administrator_permissions", "administrator_payment_methods", "students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance"] as const;
 type DatabaseValue = string | number | null;
 type DevelopmentBindings = CloudflareEnv & Partial<LocalDevelopmentBindings>;
@@ -84,11 +85,15 @@ async function copyCatalogImages(tables: Map<keyof typeof tableColumns, Record<s
     ...tables.get("admin_profiles")!.map((row) => imageKey(row.picture)),
     ...tables.get("qr_codes")!.map((row) => typeof row.image_path === "string" && row.image_path.startsWith("qr-") ? row.image_path : null),
   ].filter((key): key is string => key !== null));
+  let copied = 0;
+  let missing = 0;
   for (const key of keys) {
     const image = await bindings.CATALOG_IMAGES.get(key);
-    if (!image) throw new Error("A Catalog image referenced by the database could not be found.");
+    if (!image) { missing++; continue; }
     await env.STUDENT_IMAGES.put(key, image.body, { httpMetadata: image.httpMetadata });
+    copied++;
   }
+  return { copied, missing };
 }
 
 export async function POST(request: Request) {
@@ -101,13 +106,24 @@ export async function POST(request: Request) {
   if (!tables) return Response.json({ error: "The Catalog snapshot is not valid." }, { status: 400 });
 
   try {
-    // Copy first so an unavailable Catalog image cannot leave production SQL changed.
-    await copyCatalogImages(tables, bindings);
-    const statements = ["PRAGMA defer_foreign_keys = ON;", "BEGIN IMMEDIATE;", ...deleteOrder.map((name) => `DELETE FROM "${name}";`), ...insertOrder.flatMap((name) => insertStatements(name, tables.get(name)!)), "COMMIT;"];
-    await env.DB.exec(statements.join("\n"));
-    return Response.json({ replaced: true });
+    // Copy existing local images first. Historical Catalog snapshots can retain
+    // image references whose local bucket objects are unavailable; those must
+    // not prevent the requested SQL replacement.
+    const images = await copyCatalogImages(tables, bindings);
+    // D1 batches are transactions. This avoids raw BEGIN/COMMIT statements,
+    // which the local D1 runtime intentionally rejects.
+    const existing = await env.DB.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${legacyEventDeleteOrder.map(() => "?").join(", ")})`).bind(...legacyEventDeleteOrder).all<{ name: string }>();
+    const legacyTables = new Set(existing.results.map((row) => row.name));
+    const statements = [
+      ...legacyEventDeleteOrder.filter((name) => legacyTables.has(name)).map((name) => `DELETE FROM "${name}"`),
+      ...deleteOrder.map((name) => `DELETE FROM "${name}"`),
+      ...insertOrder.flatMap((name) => insertStatements(name, tables.get(name)!).map((statement) => statement.slice(0, -1))),
+    ];
+    await env.DB.batch(statements.map((statement) => env.DB.prepare(statement)));
+    return Response.json({ replaced: true, ...images });
   } catch (error) {
     console.error("Could not replace production database from Catalog", error);
-    return Response.json({ error: "Production data was not replaced. Check the development Worker log before trying again." }, { status: 500 });
+    const reason = error instanceof Error && error.message ? error.message.replace(/[\r\n]+/g, " ").slice(0, 300) : "an unexpected database error";
+    return Response.json({ error: `Production data was not replaced: ${reason}` }, { status: 500 });
   }
 }

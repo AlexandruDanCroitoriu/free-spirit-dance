@@ -25,6 +25,10 @@ FROM student_payments;
 
 DROP VIEW student_course_balances;
 DROP VIEW school_payment_records;
+-- Older Production data can include this legacy event view, which also reads
+-- student_payments. It is removed because the Catalog replacement clears the
+-- production-only event records and does not carry that retired subsystem.
+DROP VIEW IF EXISTS event_payment_totals;
 DROP TABLE student_payments;
 ALTER TABLE student_payments_rebuilt RENAME TO student_payments;
 

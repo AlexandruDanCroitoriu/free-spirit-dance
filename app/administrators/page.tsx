@@ -124,10 +124,10 @@ export default function AdministratorsPage() {
       const selectResponse = await fetch("/api/development-storage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ selected: "production" }) });
       if (!selectResponse.ok) throw new Error("Could not connect to the production database.");
       const response = await fetch("/api/administrators/replace-production", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tables: exported.tables }) });
-      const data = await readJson<{ replaced?: boolean } & ApiError>(response);
+      const data = await readJson<{ replaced?: boolean; copied?: number; missing?: number } & ApiError>(response);
       if (!response.ok || !data.replaced) throw new Error(data.error ?? "Could not replace production data.");
       setCatalogSelected(false);
-      setNotice("Production now matches this Catalog database. Production is selected for this development session.");
+      setNotice(`Production now matches this Catalog database. Production is selected for this development session.${data.missing ? ` ${data.missing} referenced Catalog image${data.missing === 1 ? " was" : "s were"} unavailable locally and could not be copied.` : ""}`);
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : "Could not replace production data.");
     } finally {

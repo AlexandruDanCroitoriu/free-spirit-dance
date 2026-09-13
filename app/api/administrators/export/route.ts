@@ -8,14 +8,14 @@ export const tableColumns = {
   administrator_payment_methods: ["email", "method"],
   administrator_permissions: ["email", "can_dashboard", "can_students", "can_courses", "can_qr_codes", "can_practice_parties"],
   attendance: ["id", "student_id", "course_id", "course_name", "attended_at", "recorded_by", "recorded_at", "notes", "request_key", "request_payload", "class_id", "complimentary", "complimentary_by", "complimentary_at"],
-  classes: ["id", "course_id", "class_date", "start_time", "end_time", "cancelled", "cancelled_by", "cancelled_at", "rent_cost_minor", "rent_paid"],
+  classes: ["id", "course_id", "class_date", "start_time", "end_time", "cancelled", "cancelled_by", "cancelled_at", "rent_cost_minor", "rent_paid", "location"],
   course_schedule: ["id", "course_id", "day_of_week", "start_time", "end_time", "rent_cost_minor"],
   courses: ["id", "name", "start_date", "end_date", "class_cost_minor"],
   payment_course_allowances: ["payment_id", "course_id", "course_name", "allowance"],
   payment_preset_courses: ["preset_id", "course_id", "allowance"],
   payment_presets: ["id", "name", "amount_minor", "course_id"],
   practice_attendance: ["id", "student_id", "practice_id", "recorded_by", "recorded_at", "notes", "donation_amount_minor", "donation_paid_on", "donation_notes", "donation_recorded_by", "donation_recorded_at", "donation_given_to_school", "donation_received_method"],
-  practice_parties: ["id", "starts_at", "starts_utc", "duration_minutes", "cancelled", "revision", "recorded_by", "recorded_at", "request_key", "request_hash", "last_request_key", "last_request_hash"],
+  practice_parties: ["id", "starts_at", "starts_utc", "duration_minutes", "cancelled", "revision", "recorded_by", "recorded_at", "request_key", "request_hash", "last_request_key", "last_request_hash", "location", "rent_cost_minor", "rent_paid"],
   qr_codes: ["id", "slug", "name", "destination_url", "active", "image_mode", "image_path", "module_shape", "foreground_color", "eye_shape", "eye_color", "logo_size", "logo_shape"],
   student_courses: ["student_id", "course_id"],
   student_payments: ["id", "student_id", "paid_on", "amount_minor", "notes", "recorded_by", "recorded_at", "request_key", "request_payload", "given_to_school", "received_method"],
@@ -34,7 +34,7 @@ function canExport(request: Request) {
 
 export async function readExportTables() {
   const tables = Object.entries(tableColumns);
-  const data = await env.DB.batch(tables.map(([name]) => env.DB.prepare(`SELECT * FROM "${name}"`)));
+  const data = await env.DB.batch(tables.map(([name, columns]) => env.DB.prepare(`SELECT ${columns.map((column) => `"${column}"`).join(", ")} FROM "${name}"`)));
   return tables.map(([name, columns], index) => ({ name, columns: [...columns], rows: data[index].results as TableRow[] })) satisfies ExportTable[];
 }
 
