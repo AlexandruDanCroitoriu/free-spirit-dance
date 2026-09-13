@@ -92,6 +92,7 @@ export default function CourseCalendarWidget() {
   const [calendarModeBeforeYears, setCalendarModeBeforeYears] = useState<"school" | "student">("school");
   const [calendarRange, setCalendarRange] = useState<CalendarRange>("month");
   const [isDesktop, setIsDesktop] = useState(false);
+  const [viewportReady, setViewportReady] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
@@ -127,6 +128,7 @@ export default function CourseCalendarWidget() {
     const desktop = window.matchMedia("(min-width: 1024px)");
     const updateDesktop = () => setIsDesktop(desktop.matches);
     updateDesktop();
+    setViewportReady(true);
     desktop.addEventListener("change", updateDesktop);
     return () => desktop.removeEventListener("change", updateDesktop);
   }, []);
@@ -140,7 +142,7 @@ export default function CourseCalendarWidget() {
       const savedView = window.localStorage.getItem(viewStorageKey);
       if (savedView === "school" || savedView === "student") { setCalendarMode(savedView); setCalendarModeBeforeYears(savedView); }
       const savedRange = window.localStorage.getItem(rangeStorageKey);
-      if (savedRange === "month" || savedRange === "year" || (savedRange === "years" && window.matchMedia("(min-width: 1024px)").matches)) {
+      if (savedRange === "month" || savedRange === "year" || savedRange === "years") {
         setCalendarRange(savedRange);
         if (savedRange === "years") setCalendarMode("student");
       }
@@ -156,12 +158,6 @@ export default function CourseCalendarWidget() {
     setMonthRestored(true);
   }, []);
 
-  useEffect(() => {
-    if (!isDesktop && calendarRange === "years") {
-      setCalendarRange("year");
-      setCalendarMode(calendarModeBeforeYears);
-    }
-  }, [isDesktop, calendarRange, calendarModeBeforeYears]);
   function changeCalendarRange(range: CalendarRange) {
     if (range === "years") {
       setCalendarModeBeforeYears(calendarMode);
@@ -174,6 +170,9 @@ export default function CourseCalendarWidget() {
   useEffect(() => {
     if (calendarRange !== "years") setCalendarModeBeforeYears(calendarMode);
   }, [calendarRange, calendarMode]);
+  useEffect(() => {
+    if (viewportReady && !isDesktop && calendarRange === "years" && selectedYears.length > 1) setSelectedYears([Math.max(...selectedYears)]);
+  }, [viewportReady, isDesktop, calendarRange, selectedYears]);
 
   useEffect(() => {
     if (!monthRestored) return;
@@ -376,7 +375,7 @@ export default function CourseCalendarWidget() {
   function changeMonth(amount: number) { setVisibleMonth((current) => new Date(current.getFullYear() + (calendarRange === "year" || calendarRange === "years" ? amount : 0), current.getMonth() + (calendarRange === "month" ? amount : 0), 1)); }
   function applyPreset(preset: { course: string; year: number; studentIds: readonly number[]; years?: readonly number[] }) {
     setSelectedStudentIds([...preset.studentIds]);
-    setSelectedYears([...(preset.years ?? [preset.year])]);
+    setSelectedYears(isDesktop ? [...(preset.years ?? [preset.year])] : [preset.year]);
     setSelectedCourseIds(courses.filter((course) => course.name === preset.course).map((course) => course.id));
     setPresetMenuOpen(false);
   }
@@ -398,10 +397,10 @@ export default function CourseCalendarWidget() {
     courseSelectionInitialized.current = true;
   }, [calendarRange, courses]);
   useEffect(() => {
-    if (calendarRange !== "years" || yearSelectionInitialized.current || multiYears.length === 0) return;
-    setSelectedYears(multiYears);
+    if (!viewportReady || calendarRange !== "years" || yearSelectionInitialized.current || multiYears.length === 0) return;
+    setSelectedYears(isDesktop ? multiYears : [multiYears[0]]);
     yearSelectionInitialized.current = true;
-  }, [calendarRange, multiYears]);
+  }, [viewportReady, calendarRange, isDesktop, multiYears]);
   function renderYearMonth(year: number, month: number) {
     const firstDate = new Date(year, month, 1);
     const leadingDays = (firstDate.getDay() + 6) % 7;
@@ -466,10 +465,20 @@ export default function CourseCalendarWidget() {
     const key = `${year}-${course.id}`;
     const firstScheduledMonth = months.findIndex((_, month) => matrixMonthHasClasses(year, month, course));
     const displayedMonths = firstScheduledMonth === -1 ? months.map((_, month) => month) : months.map((_, month) => month).slice(firstScheduledMonth);
-    return <section key={course.id} className="min-w-0 bg-white">{renderAttendanceMatrixHeader(year, course, matrixScrollOffsets[key] ?? 0)}<div className="overflow-x-auto" onScroll={(event) => { const scrollLeft = Math.round(event.currentTarget.scrollLeft); setMatrixScrollOffsets((offsets) => ({ ...offsets, [key]: scrollLeft })); }}>{displayedMonths.map((month) => renderAttendanceMatrix(year, month, course, false))}</div></section>;
+    return <section key={course.id} className="min-w-0 self-start bg-white"><div className="overflow-x-auto" onScroll={(event) => { const scrollLeft = Math.round(event.currentTarget.scrollLeft); setMatrixScrollOffsets((offsets) => ({ ...offsets, [key]: scrollLeft })); }}>{displayedMonths.map((month) => renderAttendanceMatrix(year, month, course, false))}</div></section>;
+  }
+  function renderYearMatrix(year: number) {
+    const yearCourses = coursesForYear(year);
+    const columns = yearCourses.length === 1 ? "grid-cols-1" : "grid-cols-2";
+    return <section key={year} className="overflow-visible rounded-xl border border-stone-200 bg-stone-50/50">
+      <h3 className="m-3 mb-0 border-b border-stone-200 pb-2 text-center font-sans text-lg font-bold text-slate-700">{year}</h3>
+      <div className={`sticky top-0 z-30 grid ${columns} gap-px bg-stone-200 shadow-sm`}>{yearCourses.map((course) => <div key={course.id} className="min-w-0 self-start">{renderAttendanceMatrixHeader(year, course, matrixScrollOffsets[`${year}-${course.id}`] ?? 0)}</div>)}</div>
+      <div className={`grid ${columns} items-start gap-px bg-stone-200`}>{yearCourses.map((course) => renderMatrixCourse(year, course))}</div>
+    </section>;
   }
 
   return <>
+    <style>{`@media (max-width: 1023px) { [role="menu"][aria-label="Student presets"] { width: calc(100vw - 2rem); grid-template-columns: 1fr; max-height: min(32rem, calc(100vh - 8rem)); overflow-y: auto; } [role="menu"][aria-label="Student presets"] > section { border-right: 0; border-bottom: 1px solid #e7e5e4; } [role="menu"][aria-label="Student presets"] > section:last-child { border-bottom: 0; } }`}</style>
     {selectedDay && <CalendarDayPanel date={selectedDay} courses={courses} onClose={() => setSelectedDay(null)} />}
     {selectedPractice !== null && <PracticePartyPanel id={selectedPractice} onClose={() => { setSelectedPractice(null); setCalendarReload(v => v + 1); }} />}
     {selectedClass && <ClassAttendancePanel courseName={selectedClass.course.name} slot={{ courseId: selectedClass.slot.courseId, classDate: `${selectedClass.date.getFullYear()}-${String(selectedClass.date.getMonth() + 1).padStart(2, "0")}-${String(selectedClass.date.getDate()).padStart(2, "0")}`, startTime: selectedClass.slot.startTime }} onClose={() => setSelectedClass(null)} />}
@@ -478,7 +487,7 @@ export default function CourseCalendarWidget() {
       <div className="relative z-50 flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2 font-sans text-xs"><h2 className="sr-only" id="calendar-title">Calendar</h2>
           <label className="sr-only" htmlFor="calendar-range">Calendar range</label>
-          <select id="calendar-range" aria-label="Calendar range" className="h-8 rounded-md border border-stone-300 bg-white px-2 font-semibold text-slate-700 focus:ring-2 focus:ring-lime-600" value={calendarRange} onChange={(event) => changeCalendarRange(event.target.value as CalendarRange)}><option value="month">Month</option><option value="year">Whole year</option>{isDesktop && <option value="years">Multiple years</option>}</select>
+          <select id="calendar-range" aria-label="Calendar range" className="h-8 rounded-md border border-stone-300 bg-white px-2 font-semibold text-slate-700 focus:ring-2 focus:ring-lime-600" value={calendarRange} onChange={(event) => changeCalendarRange(event.target.value as CalendarRange)}><option value="month">Month</option><option value="year">Whole year</option><option value="years">Multiple years</option></select>
           {calendarRange !== "years" && <><label className="font-semibold text-slate-700" htmlFor="calendar-view">View</label>
           <select id="calendar-view" className="h-8 rounded-md border border-stone-300 bg-white px-2 font-semibold text-slate-700 focus:ring-2 focus:ring-lime-600" value={calendarMode} onChange={event => { setCalendarMode(event.target.value as "school" | "student"); setSelectedDay(null); setSelectedClass(null); setOpenedAttendanceDate(null); setOpenedPaymentId(null); }}><option value="school">School calendar</option><option value="student">Student</option></select></>}
           {calendarMode === "student" && <div ref={studentPickerRef} className="relative"><button type="button" aria-haspopup="listbox" aria-expanded={studentPickerOpen} className="flex h-8 min-w-52 items-center gap-2 rounded-md border border-stone-300 bg-white px-2 text-left font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-lime-600" onClick={() => setStudentPickerOpen(open => { const next = !open; if (next) { setStudentSearch(""); window.setTimeout(() => studentSearchInput.current?.focus(), 0); } return next; })}>{selectedStudent?.picture && calendarRange !== "years" ? <img className="h-5 w-5 rounded-full object-cover" alt="" src={selectedStudent.picture} /> : <span className="flex h-5 w-5 items-center justify-center rounded-full bg-lime-100 text-[9px] text-lime-800">{calendarRange === "years" ? selectedStudentIds.length : selectedStudent?.firstName.slice(0, 1) ?? "?"}</span>}<span className="flex-1 truncate">{calendarRange === "years" ? (selectedStudentIds.length ? `${selectedStudentIds.length} students selected` : "Choose students…") : selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : "Choose a student…"}</span><span aria-hidden="true">⌄</span></button>{studentPickerOpen && <div role="listbox" aria-label="Students" className="absolute z-30 mt-1 w-64 rounded-md border border-stone-300 bg-white p-1 shadow-lg"><input ref={studentSearchInput} type="search" aria-label="Filter students" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} placeholder="Type a student name…" className="mb-1 w-full rounded border border-stone-300 px-2 py-1.5 text-sm outline-none focus:border-lime-600 focus:ring-1 focus:ring-lime-600" />{calendarRange === "years" && <div className="mb-1 flex gap-1"><button type="button" className="flex-1 rounded border border-stone-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-lime-50" onClick={() => setSelectedStudentIds(students.map((student) => student.id))}>Select all</button><button type="button" className="flex-1 rounded border border-stone-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-stone-50" onClick={() => setSelectedStudentIds([])}>Clear all</button></div>}<div className="max-h-56 overflow-y-auto">{filteredStudents.map(student => <button role="option" aria-selected={calendarRange === "years" ? selectedStudentIds.includes(student.id) : student.id === selectedStudentId} type="button" key={student.id} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-lime-50 focus:bg-lime-50 focus:outline-none" onClick={() => { if (calendarRange === "years") setSelectedStudentIds((ids) => ids.includes(student.id) ? ids.filter((id) => id !== student.id) : [...ids, student.id]); else { setSelectedStudentId(student.id); setStudentPickerOpen(false); setStudentSearch(""); } }}>{student.picture ? <img className="h-7 w-7 rounded-full object-cover" alt="" src={student.picture} /> : <span className="flex h-7 w-7 items-center justify-center rounded-full bg-lime-100 text-[10px] font-bold text-lime-800">{student.firstName.slice(0, 1)}</span>}<span className="flex-1">{student.firstName} {student.lastName}</span>{calendarRange === "years" && selectedStudentIds.includes(student.id) && <span aria-hidden="true">✓</span>}</button>)}{filteredStudents.length === 0 && <p className="px-2 py-3 text-sm text-slate-500">No students found.</p>}</div></div>}</div>}
@@ -502,7 +511,7 @@ export default function CourseCalendarWidget() {
       {eventError && <p role="alert" className="p-3 text-sm text-red-700">{eventError} <button onClick={() => setCalendarReload(v => v + 1)}>Retry</button></p>}
       {loading ? <p className="p-8 text-center font-sans text-xs text-slate-400">Loading calendar...</p> : error ? <p className="m-4 rounded-lg border border-red-200 bg-red-50 p-3 font-sans text-xs text-red-700" role="alert">{error}</p> : <div className="min-w-0"><div className="calendar-widget-body relative" ref={calendarBodyRef}>
         {!!coverageLines.length && <svg aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 h-full w-full overflow-visible" preserveAspectRatio="none"><defs><marker id="payment-coverage-arrow" markerHeight="6" markerWidth="6" orient="auto" refX="5" refY="3"><path d="M0,0 L0,6 L6,3 z" fill="#0891b2" /></marker></defs>{coverageLines.map((line) => <path key={line.key} d={`M ${line.x1} ${line.y1} C ${line.x1} ${(line.y1 + line.y2) / 2}, ${line.x2} ${(line.y1 + line.y2) / 2}, ${line.x2} ${line.y2}`} fill="none" markerEnd="url(#payment-coverage-arrow)" stroke="#0891b2" strokeDasharray="3 3" strokeWidth="1.5" />)}</svg>}
-        {calendarRange === "year" ? <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 md:grid-cols-4">{months.map((_, month) => renderYearMonth(visibleMonth.getFullYear(), month))}</div> : calendarRange === "years" ? <div className="grid grid-cols-[repeat(auto-fit,minmax(32rem,1fr))] items-start gap-5 p-3">{selectableYears.filter((year) => selectedYears.includes(year)).sort((first, second) => first - second).map((year) => { const yearCourses = coursesForYear(year); return <section key={year} className="overflow-visible rounded-xl border border-stone-200 bg-stone-50/50"><h3 className="m-3 mb-0 border-b border-stone-200 pb-2 text-center font-sans text-lg font-bold text-slate-700">{year}</h3><div className={`grid gap-px bg-stone-200 ${yearCourses.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>{yearCourses.map((course) => renderMatrixCourse(year, course))}</div></section>; })}{!multiYears.length && <p className="p-6 text-center font-sans text-sm text-slate-500">{calendarMode === "student" ? "Choose students with activity to show their attendance matrix." : "No calendar activity to show."}</p>}</div> : <><div className="calendar-grid border-b border-stone-200 bg-stone-50">{weekdays.map((day) => <div className="px-1 py-2 text-center font-sans text-[10px] font-bold uppercase tracking-wider text-slate-400" key={day}>{dayLabels[day].slice(0, 3)}</div>)}</div>
+        {calendarRange === "year" ? <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 md:grid-cols-4">{months.map((_, month) => renderYearMonth(visibleMonth.getFullYear(), month))}</div> : calendarRange === "years" ? <div className="grid grid-cols-1 items-start gap-5 p-3 lg:grid-cols-[repeat(auto-fit,minmax(32rem,1fr))]">{selectableYears.filter((year) => selectedYears.includes(year)).sort((first, second) => first - second).map(renderYearMatrix)}{!multiYears.length && <p className="p-6 text-center font-sans text-sm text-slate-500">{calendarMode === "student" ? "Choose students with activity to show their attendance matrix." : "No calendar activity to show."}</p>}</div> : <><div className="calendar-grid border-b border-stone-200 bg-stone-50">{weekdays.map((day) => <div className="px-1 py-2 text-center font-sans text-[10px] font-bold uppercase tracking-wider text-slate-400" key={day}>{dayLabels[day].slice(0, 3)}</div>)}</div>
         <div className="calendar-grid border-l border-stone-200">{calendarDates.map((date) => { const day = weekdays[(date.getDay() + 6) % 7]; const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; const dayStudentEvents = studentEvents.filter(item => item.date === dateKey); const daySlots = calendarMode === "school" ? schoolSlotsOn(dateKey, day) : [];
         const dayPractices = calendarMode === "school" ? eventSessions.filter(s => s.startsAt.slice(0, 10) === dateKey) : [];
         const empty = calendarMode === "school" && daySlots.length === 0 && dayPractices.length === 0;

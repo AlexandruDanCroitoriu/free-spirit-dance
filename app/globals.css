@@ -7,11 +7,12 @@
 	position: relative;
 }
 
-/* Panels must never leave the document horizontally scrolled after closing. */
+/* Clip horizontal overflow without making body a scroll container: sticky
+   calendar headers must follow the document's vertical scrolling. */
 html,
 body {
 	max-width: 100%;
-	overflow-x: hidden;
+	overflow-x: clip;
 	overscroll-behavior-x: none;
 }
 
@@ -36,6 +37,12 @@ body {
 .calendar-widget-body {
 	width: 100%;
 	min-width: 0;
+}
+
+/* A stretched grid item prevents the matrix header from sticking to the page
+   while its own course rows scroll underneath it. */
+.calendar-widget-body > div > section > .grid {
+	align-items: start;
 }
 
 .calendar-widget-day {
