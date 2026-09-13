@@ -56,8 +56,8 @@ The GitHub connection, production branch, Access applications, and secrets are c
 Before pushing schema-dependent changes, review pending D1 migrations and apply them in order:
 
 ```sh
-npx wrangler d1 migrations list free-spirit-dance-db --remote
-npx wrangler d1 migrations apply free-spirit-dance-db --remote
+npx wrangler d1 migrations list FS-Dance --remote
+npx wrangler d1 migrations apply FS-Dance --remote
 ```
 
 **Review migrations against a private backup before applying them.** Existing migration `0025` deletes retired subscriptions, purchases, and their payments; `0028` deletes historical entry grants. These historical migrations are retained for upgrades and must not be rewritten or applied blindly. The current schema requires migrations through `0035_free_attendance_attribution.sql`. The local checks verify synthetic-data preservation and schema parity, not the contents or migration state of production.
