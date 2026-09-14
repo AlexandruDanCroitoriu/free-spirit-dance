@@ -25,6 +25,7 @@ const emptyDrafts: Drafts = { firstName: "", lastName: "", email: "", phone: "",
 
 export default function StudentPanel({ id, onClose, onUpdate, onDelete, editPaymentId, targetPaymentId, targetPaymentKind = "payment", attendanceDate }: { id: number; onClose: () => void; onUpdate: (student: Student) => void; onDelete: (id: number) => void; editPaymentId?: number; targetPaymentId?: number; targetPaymentKind?: "payment" | "practice_attendance"; attendanceDate?: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const photoDialog = useRef<HTMLDialogElement>(null);
   const pendingSaves = useRef(0);
   useEffect(() => {
     const element = dialog.current;
@@ -142,7 +143,13 @@ export default function StudentPanel({ id, onClose, onUpdate, onDelete, editPaym
     <button autoFocus type="button" aria-label="Close student panel" disabled={saving || savingPhoto || savingField !== null} onClick={closePanel} className="fixed right-4 top-4 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white font-sans text-xl text-slate-600 shadow-sm hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-lime-600 disabled:opacity-50">×</button>
     <div className="px-5 pb-6">
     {loading ? <p role="status" className="font-sans text-sm text-slate-500">Loading student…</p> : !student ? <p role="alert" className="font-sans text-sm text-red-700">{error || "Student not found."}</p> : <>
-    <section className="pt-8"><StudentCard presentationOnly student={student} /></section>
+    <section className="pt-8"><StudentCard presentationOnly student={student} onOpenPhoto={() => photoDialog.current?.showModal()} /></section>
+    {student.picture && <dialog ref={photoDialog} aria-label={`${student.firstName} ${student.lastName}'s photo`} aria-modal="true" className="fixed inset-0 m-0 box-border h-dvh max-h-none w-screen max-w-none overflow-hidden border-0 bg-slate-950 p-0 text-white backdrop:bg-slate-950" onCancel={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
+      <button autoFocus type="button" aria-label="Close photo" onClick={() => photoDialog.current?.close()} className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-slate-800 font-sans text-2xl text-white hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-white">×</button>
+      <div className="flex h-full w-full items-center justify-center px-4 pb-4 pt-20" onClick={(event) => { if (event.target === event.currentTarget) photoDialog.current?.close(); }}>
+        <img src={student.picture} alt={`${student.firstName} ${student.lastName}`} className="max-h-full max-w-full object-contain" />
+      </div>
+    </dialog>}
 
     <nav aria-label="Student sections" className="mt-6 flex gap-6 border-b border-stone-300" role="tablist">
       {studentTabs.map(([tab, label], index) => <button key={tab} id={`student-tab-${tab}`} role="tab" aria-selected={activeTab === tab} aria-controls={`student-panel-${tab}`} tabIndex={activeTab === tab ? 0 : -1} onClick={() => setActiveTab(tab)} onKeyDown={(event) => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) { event.preventDefault(); const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? studentTabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + studentTabs.length) % studentTabs.length; const next = studentTabs[nextIndex][0]; setActiveTab(next); document.getElementById(`student-tab-${next}`)?.focus(); } }} className={`-mb-px border-0 border-b-2 bg-transparent px-1 pb-3 font-sans text-xs font-bold ${activeTab === tab ? "border-slate-800 text-slate-800" : "border-transparent text-slate-500"}`}>{label}</button>)}
