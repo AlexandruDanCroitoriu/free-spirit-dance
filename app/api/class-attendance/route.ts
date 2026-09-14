@@ -57,10 +57,10 @@ export async function POST(request: Request) {
       db.prepare("INSERT INTO admin_profiles (email, name) VALUES (?, '') ON CONFLICT(email) DO NOTHING").bind(email),
       db.prepare("INSERT INTO classes (course_id, class_date, start_time, end_time, rent_cost_minor) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING").bind(slot.courseId, slot.classDate, slot.startTime, scheduled.endTime, scheduled.rentCostMinor),
       ...additions.map((studentId: number) => db.prepare(`INSERT INTO attendance (class_id, student_id, course_id, course_name, attended_at, recorded_by, recorded_at, notes, request_key, request_payload, complimentary, complimentary_by, complimentary_at)
-        SELECT (SELECT id FROM classes WHERE course_id = ? AND class_date = ? AND start_time = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        SELECT (SELECT id FROM classes WHERE course_id = ? AND class_date = ? AND start_time = ?), ?, ?, ?, ?, ?, ?, ?, ? || '-class-' || (SELECT id FROM classes WHERE course_id = ? AND class_date = ? AND start_time = ?), ?, ?, ?, ?
         WHERE NOT EXISTS (SELECT 1 FROM attendance WHERE student_id = ? AND course_id = ? AND attended_at = ?)
         ON CONFLICT (student_id, course_id, attended_at) WHERE request_key IS NOT NULL DO NOTHING`)
-        .bind(slot.courseId, slot.classDate, slot.startTime, studentId, slot.courseId, scheduled.courseName, attendedAt, email, now, complimentary.includes(studentId) ? reason.trim() : "", `calendar-${slot.courseId}-${slot.classDate}-${slot.startTime}-${studentId}`, JSON.stringify({ ...slot, studentId }), complimentary.includes(studentId) ? 1 : 0, complimentary.includes(studentId) ? email : null, complimentary.includes(studentId) ? now : null, studentId, slot.courseId, attendedAt)),
+        .bind(slot.courseId, slot.classDate, slot.startTime, studentId, slot.courseId, scheduled.courseName, attendedAt, email, now, complimentary.includes(studentId) ? reason.trim() : "", `calendar-${slot.courseId}-${slot.classDate}-${slot.startTime}-${studentId}`, slot.courseId, slot.classDate, slot.startTime, JSON.stringify({ ...slot, studentId }), complimentary.includes(studentId) ? 1 : 0, complimentary.includes(studentId) ? email : null, complimentary.includes(studentId) ? now : null, studentId, slot.courseId, attendedAt)),
       ...updates.map((change: { studentId: number; complimentary: boolean }) => db.prepare(`UPDATE attendance SET complimentary = ?,
         complimentary_by = ?, complimentary_at = ?
         WHERE student_id = ? AND course_id = ? AND attended_at = ? AND complimentary != ?`)
@@ -80,7 +80,35 @@ export async function PATCH(request: Request) {
   if (!email) return json({ error: "Sign in to manage classes." }, 401);
   const input = await request.json().catch(() => null) as Record<string, unknown> | null;
   const slot = input && parseClass(input);
-  if (!slot || (typeof input?.cancelled !== "boolean" && typeof input?.rentPaid !== "boolean")) return json({ error: "Invalid class update." }, 400);
+  if (!slot) return json({ error: "Invalid class update." }, 400);
+  if (input?.details !== undefined) {
+    const details = input.details as Record<string, unknown> | null;
+    const next = details && typeof details === "object" && parseClass({ ...details, courseId: slot.courseId });
+    if (!next || typeof details?.endTime !== "string" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(details.endTime) || details.endTime <= next.startTime || typeof details.rentCostMinor !== "number" || !Number.isSafeInteger(details.rentCostMinor) || details.rentCostMinor < 0 || details.rentCostMinor > 99_999_999 || typeof details.rentPaid !== "boolean") return json({ error: "Enter a valid date, an end time after the start time, and rent from 0 to 999,999.99 RON." }, 400);
+    try {
+      const db = env.DB;
+      const scheduled = await scheduledClass(db, slot);
+      if (!scheduled) return json({ error: "This class is no longer scheduled. Reload the calendar." }, 409);
+      const moved = next.classDate !== slot.classDate || next.startTime !== slot.startTime;
+      if (moved && await scheduledClass(db, next)) return json({ error: "A class already exists at this date and start time. Choose another time." }, 409);
+      await db.batch([
+        db.prepare("INSERT INTO admin_profiles (email, name) VALUES (?, '') ON CONFLICT(email) DO NOTHING").bind(email),
+        db.prepare("INSERT INTO classes (course_id, class_date, start_time, end_time, rent_cost_minor) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING").bind(slot.courseId, slot.classDate, slot.startTime, scheduled.endTime, scheduled.rentCostMinor),
+        db.prepare("UPDATE classes SET class_date = ?, start_time = ?, end_time = ?, rent_cost_minor = ?, rent_paid = ? WHERE course_id = ? AND class_date = ? AND start_time = ?").bind(next.classDate, next.startTime, details.endTime, details.rentCostMinor, details.rentPaid ? 1 : 0, slot.courseId, slot.classDate, slot.startTime),
+        ...(moved ? [
+          db.prepare("UPDATE attendance SET attended_at = ? WHERE class_id = (SELECT id FROM classes WHERE course_id = ? AND class_date = ? AND start_time = ?)").bind(`${next.classDate}T${next.startTime}:00`, next.courseId, next.classDate, next.startTime),
+          // Keep the original occurrence cancelled so its recurring schedule cannot recreate it.
+          db.prepare("INSERT INTO classes (course_id, class_date, start_time, end_time, rent_cost_minor, cancelled, cancelled_by, cancelled_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)").bind(slot.courseId, slot.classDate, slot.startTime, scheduled.endTime, scheduled.rentCostMinor, email, new Date().toISOString()),
+        ] : []),
+      ]);
+      return json({ ...next, endTime: details.endTime, rentCostMinor: details.rentCostMinor, rentPaid: details.rentPaid });
+    } catch (error) {
+      if (String(error).includes("UNIQUE constraint")) return json({ error: "This time conflicts with an existing class or attendance. Reload the calendar." }, 409);
+      console.error("Could not update class details", error);
+      return json({ error: "Could not save class details. Reload the calendar before retrying." }, 500);
+    }
+  }
+  if (typeof input?.cancelled !== "boolean" && typeof input?.rentPaid !== "boolean") return json({ error: "Invalid class update." }, 400);
   try {
     const db = env.DB;
     const scheduled = await scheduledClass(db, slot);

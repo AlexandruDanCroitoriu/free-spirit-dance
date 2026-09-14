@@ -6,8 +6,9 @@ import {
   type ClassRoster,
   type ClassStudent,
 } from "../lib/class-attendance";
-import { formatLogDate, formatMoney } from "../lib/student-activity";
+import { formatLogDate } from "../lib/student-activity";
 import StudentPanel, { type Student } from "./student-panel";
+import TimeSelector from "./time-selector";
 import { confirmAction } from "../lib/confirmation";
 const button =
   "rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold disabled:opacity-50";
@@ -25,7 +26,7 @@ async function readResponse<T>(response: Response): Promise<T> {
   return data as T;
 }
 export default function ClassAttendancePanel({
-  slot,
+  slot: initialSlot,
   courseName,
   onClose,
 }: {
@@ -33,6 +34,9 @@ export default function ClassAttendancePanel({
   courseName: string;
   onClose: () => void;
 }) {
+  const [slot, setSlot] = useState(initialSlot);
+  const [tab, setTab] = useState<"attendance" | "details">("attendance");
+  const [details, setDetails] = useState({ classDate: initialSlot.classDate, startTime: initialSlot.startTime, endTime: "", rent: "0", rentPaid: false });
   const dialog = useRef<HTMLDialogElement>(null);
   const saving = useRef(false);
   const [data, setData] = useState<ClassRoster | null>(null);
@@ -47,6 +51,7 @@ export default function ClassAttendancePanel({
   const [busy, setBusy] = useState(false);
   const [retry, setRetry] = useState(0);
   const [studentPanelId, setStudentPanelId] = useState<number | null>(null);
+  const detailsChanged = Boolean(data && (details.classDate !== slot.classDate || details.startTime !== slot.startTime || details.endTime !== (data.endTime ?? "") || details.rent !== String(data.rentCostMinor / 100) || details.rentPaid !== data.rentPaid));
   const editable = data?.canEdit === true;
   const query = new URLSearchParams({
     courseId: String(slot.courseId),
@@ -73,6 +78,7 @@ export default function ClassAttendancePanel({
       .then((result) => {
         if (!controller.signal.aborted) {
           setData(result);
+          setDetails({ classDate: slot.classDate, startTime: slot.startTime, endTime: result.endTime ?? "", rent: String(result.rentCostMinor / 100), rentPaid: result.rentPaid });
           setSelected([]); setComplimentary([]); setComplimentaryChanges({}); setComplimentaryReason("");
         }
       })
@@ -91,8 +97,13 @@ export default function ClassAttendancePanel({
   }, [query, retry]);
   function close() {
     if (saving.current) return;
-    if (changeCount > 0) { void confirmAction("Discard attendance changes?", "Close without submitting the selected attendance?", "Discard changes", true).then((confirmed) => { if (confirmed) onClose(); }); return; }
+    if (changeCount > 0 || detailsChanged) { void confirmAction("Discard changes?", "Close without saving attendance or class details?", "Discard changes", true).then((confirmed) => { if (confirmed) onClose(); }); return; }
     onClose();
+  }
+  async function reload() {
+    if (saving.current || loading) return;
+    if ((changeCount > 0 || detailsChanged) && !await confirmAction("Discard changes?", "Reload the class and discard unsaved attendance and details?", "Discard changes", true)) return;
+    setRetry(value => value + 1);
   }
   function toggle(id: number) {
     setNotice("");
@@ -103,7 +114,7 @@ export default function ClassAttendancePanel({
     );
   }
   async function changeCancellation() {
-    if (saving.current || !data) return;
+    if (saving.current || !data || changeCount > 0 || detailsChanged) return;
     if (!data.cancelled && !await confirmAction("Cancel class occurrence?", "Cancel this class occurrence?", "Cancel class", true)) return;
     saving.current = true; setBusy(true); setError("");
     try {
@@ -114,15 +125,24 @@ export default function ClassAttendancePanel({
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update class."); }
     finally { saving.current = false; setBusy(false); }
   }
-  async function changeRentPaid(rentPaid: boolean) {
-    if (saving.current || !data) return;
-    saving.current = true; setBusy(true); setError("");
+  async function saveDetails() {
+    if (saving.current || !data?.canManageClass || !detailsChanged || changeCount > 0) return;
+    if (!details.endTime || details.endTime <= details.startTime || !/^\d+(?:\.\d{1,2})?$/.test(details.rent)) {
+      setError("Enter an end time after the start time and a valid rent amount."); return;
+    }
+    saving.current = true; setBusy(true); setError(""); setNotice("");
     try {
-      await readResponse(await fetch("/api/class-attendance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...slot, rentPaid }) }));
-      setData((current) => current ? { ...current, rentPaid } : current);
-      setNotice(rentPaid ? "Rent marked as paid." : "Rent marked as not paid.");
+      const result = await readResponse<CalendarClass & { endTime: string; rentCostMinor: number; rentPaid: boolean }>(await fetch("/api/class-attendance", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...slot, details: { classDate: details.classDate, startTime: details.startTime, endTime: details.endTime, rentCostMinor: Math.round(Number(details.rent) * 100), rentPaid: details.rentPaid } }),
+      }));
+      setData(current => current ? { ...current, endTime: result.endTime, rentCostMinor: result.rentCostMinor, rentPaid: result.rentPaid } : current);
+      setDetails({ classDate: result.classDate, startTime: result.startTime, endTime: result.endTime, rent: String(result.rentCostMinor / 100), rentPaid: result.rentPaid });
+      setSlot({ courseId: result.courseId, classDate: result.classDate, startTime: result.startTime });
       window.dispatchEvent(new Event("calendar-updated"));
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update rent status."); }
+      window.dispatchEvent(new Event("student-activity-updated"));
+      setNotice("Class details saved.");
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not save class details."); }
     finally { saving.current = false; setBusy(false); }
   }
   async function submit() {
@@ -229,13 +249,16 @@ export default function ClassAttendancePanel({
           ×
         </button>
       </header>
+      <div role="tablist" aria-label="Class panel" className="flex gap-6 border-b border-stone-200 bg-white px-5">
+        {(["attendance", "details"] as const).map(value => <button key={value} type="button" role="tab" id={`class-${value}-tab`} aria-controls={`class-${value}-panel`} aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} onClick={() => setTab(value)} onKeyDown={event => {
+          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+          event.preventDefault();
+          const next = event.key === "Home" ? "attendance" : event.key === "End" ? "details" : tab === "attendance" ? "details" : "attendance";
+          setTab(next); document.getElementById(`class-${next}-tab`)?.focus();
+        }} className={`border-b-2 py-3 font-sans text-sm font-semibold ${tab === value ? "border-lime-700 text-lime-800" : "border-transparent text-slate-500"}`}>{value === "attendance" ? "Attendance" : "Class details"}</button>)}
+      </div>
       <div className="space-y-5 p-5">
         {data?.cancelled && <p role="status" className="rounded-lg bg-red-50 p-3 font-sans text-sm text-red-700">This class is cancelled. Attendance cannot be added.</p>}
-        {data && <section className="rounded-lg border border-stone-200 bg-white p-4 font-sans text-sm"><p className="m-0 text-xs font-bold uppercase tracking-wider text-slate-500">Class rent</p><div className="mt-2 flex flex-wrap items-center justify-between gap-3"><strong>{formatMoney(data.rentCostMinor)}</strong><label className="flex items-center gap-2 font-semibold"><input type="checkbox" checked={data.rentPaid} disabled={busy || loading || !data.canManageClass} onChange={(event) => void changeRentPaid(event.currentTarget.checked)} className="h-4 w-4 accent-lime-700" />Rent money given</label></div></section>}
-        {data?.canManageClass && <div>
-          <button type="button" className={button + " text-red-700"} disabled={busy || loading || selected.length > 0 || (!data.cancelled && data.students.some((student) => student.attended))} onClick={() => void changeCancellation()}>{data.cancelled ? "Restore class" : "Cancel class"}</button>
-          {!data.cancelled && data.students.some((student) => student.attended) && <p className="font-sans text-xs text-slate-500">Remove recorded attendance before cancelling this class.</p>}
-        </div>}
         {error && (
           <div role="alert" className="font-sans text-sm text-red-700">
             {error}{" "}
@@ -243,9 +266,9 @@ export default function ClassAttendancePanel({
               type="button"
               className={button}
               disabled={busy || loading}
-              onClick={() => setRetry((n) => n + 1)}
+              onClick={() => void reload()}
             >
-              Reload students
+              Reload class
             </button>
           </div>
         )}
@@ -267,6 +290,29 @@ export default function ClassAttendancePanel({
             Loading students…
           </p>
         )}
+        {tab === "details" && <section role="tabpanel" id="class-details-panel" aria-labelledby="class-details-tab" className="space-y-5">
+          {data && <form onSubmit={event => { event.preventDefault(); void saveDetails(); }} className="space-y-4">
+            <p className="font-sans text-sm text-slate-500">Changes apply to this class only. Recorded attendance follows any date or start-time change.</p>
+            <fieldset disabled={busy || loading || !data.canManageClass} className="space-y-4 font-sans text-sm">
+              <label className="block">Date<input required type="date" min="1900-01-01" max="9999-12-31" value={details.classDate} onChange={event => setDetails(current => ({ ...current, classDate: event.target.value }))} className="mt-2 w-full rounded-md border border-stone-300 bg-white p-2" /></label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <TimeSelector label="Start time (Bucharest)" value={details.startTime} onChange={startTime => setDetails(current => ({ ...current, startTime }))} />
+                <TimeSelector label="End time (Bucharest)" value={details.endTime || details.startTime} onChange={endTime => setDetails(current => ({ ...current, endTime }))} />
+              </div>
+              {details.endTime && details.endTime <= details.startTime && <p role="alert" className="text-red-700">End time must be after start time.</p>}
+              <label className="block">Rent cost (RON)<input required type="number" min="0" max="999999.99" step="0.01" value={details.rent} onChange={event => setDetails(current => ({ ...current, rent: event.target.value }))} className="mt-2 w-full rounded-md border border-stone-300 bg-white p-2" /></label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={details.rentPaid} onChange={event => setDetails(current => ({ ...current, rentPaid: event.target.checked }))} className="h-4 w-4 accent-lime-700" />Rent money given</label>
+            </fieldset>
+            {changeCount > 0 && <p className="font-sans text-sm text-slate-500">Submit your pending attendance changes before saving class details.</p>}
+            <button type="submit" disabled={busy || loading || !data.canManageClass || !detailsChanged || changeCount > 0 || !details.endTime || details.endTime <= details.startTime} className="rounded-md bg-slate-800 px-4 py-3 font-sans text-xs font-bold text-white disabled:opacity-50">{busy ? "Saving…" : "Save class details"}</button>
+          </form>}
+        {data?.canManageClass && <div>
+          <button type="button" className={button + " text-red-700"} disabled={busy || loading || changeCount > 0 || detailsChanged || (!data.cancelled && data.students.some((student) => student.attended))} onClick={() => void changeCancellation()}>{data.cancelled ? "Restore class" : "Cancel class"}</button>
+          {!data.cancelled && data.students.some((student) => student.attended) && <p className="font-sans text-xs text-slate-500">Remove recorded attendance before cancelling this class.</p>}
+        </div>}
+          {detailsChanged && <p className="font-sans text-xs text-slate-500">Save class details before cancelling or restoring this class.</p>}
+        </section>}
+        {tab === "attendance" && <section role="tabpanel" id="class-attendance-panel" aria-labelledby="class-attendance-tab" className="space-y-5">
         {data && (
           <>
             {!!recorded.length && (
@@ -310,7 +356,9 @@ export default function ClassAttendancePanel({
             </section>
           </>
         )}
+        </section>}
       </div>
+      {tab === "attendance" && <>
       {(complimentary.length > 0 || Object.values(complimentaryChanges).some(Boolean)) && <label className="block px-5 pb-4 font-sans text-xs text-slate-600">Complimentary reason (optional, applies to selected complimentary students)<input maxLength={500} disabled={busy} value={complimentaryReason} onChange={(event) => setComplimentaryReason(event.target.value)} className="mt-2 w-full rounded-md border border-stone-300 p-2 text-sm" /></label>}
       <footer className="sticky bottom-0 flex items-center justify-between gap-4 border-t border-stone-200 bg-white p-5">
         <p className="m-0 font-sans text-xs text-slate-500">
@@ -333,6 +381,7 @@ export default function ClassAttendancePanel({
           {busy ? "Saving…" : "Submit attendance"}
         </button>
       </footer>
+      </>}
       {studentPanelId !== null && <StudentPanel id={studentPanelId} onClose={() => setStudentPanelId(null)} onUpdate={(updated: Student) => setData((current) => current ? { ...current, students: current.students.map((student) => student.id === updated.id ? { ...student, firstName: updated.firstName, lastName: updated.lastName, picture: updated.picture, active: updated.active ? 1 : 0 } : student) } : current)} onDelete={(id) => { setData((current) => current ? { ...current, students: current.students.filter((student) => student.id !== id) } : current); setStudentPanelId(null); }} />}
     </dialog>
   );

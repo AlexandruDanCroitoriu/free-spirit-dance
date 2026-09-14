@@ -20,7 +20,10 @@ const courses = [
   { id: 4, name: "Unscheduled course", schedules: [] },
 ];
 try {
+  const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Bucharest", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const practices = [{ id: 1, startsAt: `${todayKey}T21:00`, startsUtc: `${todayKey}T18:00:00Z`, durationMinutes: 120, cancelled: 0, revision: 1, attendanceCount: 0 }];
   const source = (await readFile("app/components/course-calendar-widget.tsx", "utf8"))
+    .replace("useState<PracticeSession[]>([])", `useState<PracticeSession[]>(${JSON.stringify(practices)})`)
     .replace("useState<Course[]>([])", `useState<Course[]>(${JSON.stringify(courses)})`)
     .replace("[loading, setLoading] = useState(true)", "[loading, setLoading] = useState(false)");
   assert.match(source, /const prezentaGrupaMicaStudentIds = \[47, 55, 54, 92, 81, 137, 101, 53, 124, 37, 87, 91, 138, 150, 78, 114, 99, 63, 122, 89, 96, 43, 86, 140, 82, 65, 40, 60, 44, 35, 85, 70, 52, 56, 134, 71, 29, 145, 18\];/);
@@ -32,9 +35,9 @@ try {
   const html = renderToString(createElement(Page));
   assert.match(html, /Zouk basics/);
   assert.doesNotMatch(html, /Unscheduled course/);
+  assert.match(html, /Practice party/);
   const days = [...html.matchAll(/<section\b[^>]*calendar-widget-day[\s\S]*?<\/section>/g)].map(([day]) => day);
   const scheduledDays = days.filter((day) => day.includes("Zouk basics"));
-  const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Bucharest", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const today = new Date(todayKey + "T12:00:00");
   const gridStart = new Date(today.getFullYear(), today.getMonth(), 1, 12);
   gridStart.setDate(gridStart.getDate() - (gridStart.getDay() + 6) % 7);
@@ -43,8 +46,9 @@ try {
   }).filter(date => date >= today && [1, 3, 5].includes(date.getDay())).length;
   assert.equal(scheduledDays.length, expected, "Recurring schedules appear from today onward");
   for (const day of days) {
-    if (day.includes("Zouk basics")) assert.doesNotMatch(day, /Add event on/, "Occupied days keep their event actions");
-    else assert.match(day, /<button[^>]*aria-label="Add event on \d{4}-\d{2}-\d{2}"/, "Empty days have an accessible add action");
+    if (day.includes("Practice party")) assert.match(day, /<button[^>]*class="relative z-20[^"]*"[^>]*title="Practice party/, "Practice buttons remain above the day add action");
+    assert.match(day, /<button[^>]*aria-label="Add event on \d{4}-\d{2}-\d{2}"/, "Every day has an accessible add action, including occupied days");
+    if (day.includes("Zouk basics")) assert.match(day, /<button class="relative z-20[^"]*"[^>]*title="Zouk basics/, "Class buttons remain above the day add action");
   }
   for (const day of days.filter((day) => day.includes("Early class"))) {
     assert.ok(day.indexOf("Early class") < day.indexOf("Advanced Zouk"), "Sort by start time");
