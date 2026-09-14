@@ -2,7 +2,7 @@ import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloud
 import { cloudApi, workingDatabase } from "./cloud";
 import type { Backup, Job } from "./model";
 
-type Transfer = { status?: string; success?: boolean; at_bookmark?: string; upload_url?: string; filename?: string; result?: { signed_url?: string }; error?: string };
+type Transfer = { status?: string; success?: boolean; at_bookmark?: string; upload_url?: string; filename?: string; result?: { signed_url?: string }; error?: string; messages?: string[] };
 
 // D1 exports each table followed by its rows. Its import endpoint can enforce a
 // foreign key while it is still reading rows for a table whose referenced table
@@ -165,11 +165,15 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
               if (!result.ok) throw new Error("SQL upload failed.");
             }
             if (!transfer.filename) throw new Error("SQL import filename is missing.");
-            return { etag: object.etag, filename: transfer.filename };
+            // The import API validates the checksum of the SQL we uploaded,
+            // which is the reordered import file, not the original snapshot.
+            return { etag: prepared.etag, filename: transfer.filename };
           });
           let transfer = await step.do("start import", config, () => cloudApi<Transfer>(this.env, `/${databaseId}/import`, { action: "ingest", ...upload }));
           for (let poll = 0; transfer.status !== "complete"; poll++) {
-            if (transfer.status === "error" || transfer.success === false || !transfer.at_bookmark || poll >= 300) throw new Error("SQL import did not complete.");
+            if (transfer.status === "error" || transfer.success === false) throw new Error(`SQL import failed: ${transfer.error ?? transfer.messages?.join(" ") ?? "Cloudflare did not provide a reason."}`);
+            if (!transfer.at_bookmark) throw new Error("SQL import did not start.");
+            if (poll >= 300) throw new Error("SQL import timed out after five minutes.");
             const bookmark = transfer.at_bookmark;
             await step.sleep(`wait for import ${poll}`, "1 second");
             transfer = await step.do(`poll import ${poll}`, config, () => cloudApi<Transfer>(this.env, `/${databaseId}/import`, { action: "poll", current_bookmark: bookmark }));
