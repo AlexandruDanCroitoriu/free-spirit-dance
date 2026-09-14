@@ -15,7 +15,7 @@ export default function HomePage() {
           in the left column prevents a tall balances list from creating a
           large, disconnected gap above it. */}
       <div className="dashboard-calendar-column contents xl:block xl:min-w-0 xl:space-y-5">
-        <Suspense fallback={null}>{widgets.calendar && <div className="order-1 min-w-0 xl:[&>section]:!mx-0 xl:[&>section]:!max-w-none"><CourseCalendarWidget /></div>}</Suspense>
+        <Suspense fallback={null}>{widgets.calendar && <div className="order-1 -mx-4 min-w-0 md:mx-0 xl:[&>section]:!mx-0 xl:[&>section]:!max-w-none"><CourseCalendarWidget /></div>}</Suspense>
         <Suspense fallback={null}>{widgets.transfers && <div className="order-3 min-w-0"><PaymentTransfersWidget /></div>}</Suspense>
       </div>
       <Suspense fallback={null}>{widgets.balances && <div className="order-2"><StudentBalancesWidget /></div>}</Suspense>

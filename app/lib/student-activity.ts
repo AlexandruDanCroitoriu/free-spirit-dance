@@ -106,11 +106,9 @@ export function courseCreditBalance(
   }
   for (const slot of occurrences) {
     const key = `${slot.classDate}T${slot.startTime}`;
-    // Historical workbooks record only explicit attendance and absences, but a
-    // historical payment still expires after its next held classes. Retain
-    // every stored occurrence for credit consumption; blank workbook cells
-    // remain invisible because missed logs below use explicit absences only.
-    slots.set(key, !slot.cancelled);
+    // Historical blanks are unknown, not absences. Stored occurrences still
+    // determine cancellations for explicitly recorded historical activity.
+    if (recordedAbsences === undefined || slots.has(key)) slots.set(key, !slot.cancelled);
   }
   for (const slot of attended) if (!slots.has(slot)) slots.set(slot, true);
   // Cancellations are known events, including upcoming classes after the student first participated.
@@ -131,7 +129,7 @@ export function courseCreditBalance(
     for (const slot of held) {
       if (!remaining) break;
       if (slot < start || covered.has(slot)) continue;
-      if (slot.slice(0, 10) === payment.paidOn && !attended.has(slot)) continue;
+      if (recordedAbsences === undefined && slot.slice(0, 10) === payment.paidOn && !attended.has(slot)) continue;
       covered.add(slot);
       classes.push({ startsAt: slot, attended: attended.has(slot) });
       remaining--;
@@ -141,9 +139,7 @@ export function courseCreditBalance(
   // Later recorded attendance establishes that earlier covered classes have been passed.
   const attendanceCutoff = [current, ...attended].sort().at(-1)!;
   const used = [...covered].filter((slot) => slot <= attendanceCutoff).length;
-  // A covered held class without an attendance record is missed. This also
-  // applies to historical imports: the workbook does not need a separate
-  // absence mark once the payment consumed that class credit.
+  // In historical mode, held slots include only explicit workbook records.
   const missed = [...covered].filter((slot) => slot <= attendanceCutoff && !attended.has(slot));
   if (onMissed) for (const slot of missed) onMissed(slot);
   const missedClasses = missed.length;

@@ -74,6 +74,26 @@ body {
 }
 
 @media (max-width: 767px) {
+	[data-calendar-range] {
+		border-radius: 0;
+		border-inline-width: 0;
+	}
+	.calendar-toolbar > div {
+		gap: 0.25rem;
+		min-width: 0;
+	}
+	.calendar-toolbar button[aria-haspopup="listbox"] {
+		min-width: 0;
+	}
+	[data-calendar-range="years"] .calendar-widget-body > div,
+	[data-calendar-range="year"] .calendar-widget-body > div {
+		padding: 0;
+		gap: 0.5rem;
+	}
+	[data-calendar-range="years"] .calendar-widget-body > div > section {
+		border-radius: 0;
+		border-inline-width: 0;
+	}
 	main {
 		padding-top: 0.5rem !important;
 		padding-bottom: 1.5rem !important;

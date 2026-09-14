@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { stripTypeScriptTypes } from 'node:module';
+
+const { courseCreditBalance } = await import('data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(readFileSync('app/lib/student-activity.ts', 'utf8'))).toString('base64'));
+const course = { courseId: 2, courseName: 'Intermediates', startDate: null, endDate: null };
+const occurrences = ['2024-01-02', '2024-01-04', '2024-01-09', '2024-01-11'].map(classDate => ({ classDate, startTime: '20:00', cancelled: 0 }));
+const payment = [{ paymentId: 1, paidOn: '2024-01-02', allowance: 3 }];
+const attendance = [{ attendedAt: '2024-01-02T20:00:00' }, { attendedAt: '2024-01-11T20:00:00' }];
+let coverage;
+const missed = [];
+const balance = courseCreditBalance(course, [], occurrences, payment, attendance, new Date('2024-02-01'), (_id, value) => { coverage = value; }, slot => missed.push(slot), undefined, ['2024-01-09T20:00']);
+assert.deepEqual(coverage.classes.map(row => row.startsAt), ['2024-01-02T20:00', '2024-01-09T20:00', '2024-01-11T20:00']);
+assert.deepEqual(missed, ['2024-01-09T20:00']);
+assert.equal(balance.excessAttendance, 0);
+const ordinary = courseCreditBalance(course, [], occurrences, payment, attendance, new Date('2024-02-01'));
+assert.equal(ordinary.missedClasses, 2, 'Ordinary calendar attendance still consumes scheduled classes');
+const sameDay = courseCreditBalance(course, [], occurrences, payment, [], new Date('2024-02-01'), undefined, undefined, undefined, ['2024-01-02T20:00']);
+assert.equal(sameDay.missedClasses, 1, 'Explicit historical absence on payment date consumes a credit');
+console.log('PASS: Historical blanks preserve credits, explicit absences consume them, ordinary coverage is unchanged.');
