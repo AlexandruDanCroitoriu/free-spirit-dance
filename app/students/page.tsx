@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import StudentPanel from "../components/student-panel";
 import StudentCourses from "../components/student-courses";
 import StudentCard from "../components/student-card";
+import StudentsSummary from "../components/students-summary";
 
 type Student = { id: number; firstName: string; lastName: string; email: string; phone: string; birthDate: string | null; facebookUrl: string; instagramUrl: string; picture: string | null; active: boolean; courseIds?: number[] };
 type FormState = Omit<Student, "id"> & { courseIds: number[] };
@@ -198,6 +199,7 @@ export default function StudentsPage() {
       <div className="md:col-span-2"><StudentCourses selected={form.courseIds} onChange={(courseIds) => setForm((current) => ({ ...current, courseIds }))} disabled={saving} /></div>
       <div className="flex items-center justify-between gap-4 md:col-span-2">{error ? <p role="alert" className="m-0 min-w-0 flex-1 font-sans text-sm text-red-700">{error}</p> : <span className="flex-1" />}<div className="flex shrink-0 justify-end gap-3"><button type="button" onClick={closeForm} className="rounded-md border border-stone-300 bg-white px-4 py-3 font-sans text-xs font-semibold">Cancel</button><button disabled={saving || preparingImage} className="rounded-md bg-slate-800 px-4 py-3 font-sans text-xs font-bold text-stone-100">{saving ? "Saving..." : "Add student"}</button></div></div>
     </form></div></div>}
+    <StudentsSummary students={students} />
     <div className="mb-4 grid grid-cols-2 gap-3 sm:flex sm:flex-row">
       <label className="relative col-span-2 min-w-0 flex-1 font-sans"><span className="sr-only">Search students</span><svg aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-current text-slate-400" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, phone, or email" className="w-full rounded-lg border border-stone-300 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-lime-600" /></label>
       <label className="min-w-0 font-sans"><span className="sr-only">Filter students by course</span><select value={courseFilter} onChange={(event) => setCourseFilter(event.target.value)} className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-lime-600 sm:max-w-60"><option value="all">All courses</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.name}</option>)}</select></label>
