@@ -6,10 +6,10 @@ import { formatLogDate, formatMoney } from "../lib/student-activity";
 import StudentPanel from "./student-panel";
 
 type Collector = { email: string; name: string | null; picture: string | null };
-type Filter = { id: number; collectorEmail: string; collectorName: string | null; fromDate: string | null; toDate: string | null; paymentTypes: string; isDraft: boolean; totalMinor: number; paymentCount: number; allGiven: number };
+type Filter = { id: number; collectorEmail: string; collectorEmails: string[]; collectorName: string | null; fromDate: string | null; toDate: string | null; paymentTypes: string; isDraft: boolean; totalMinor: number; paymentCount: number; allGiven: number };
 type Payment = { id: number; purpose: "course" | "practice_donation"; practiceId: number | null; studentId: number; firstName: string; lastName: string; studentEmail: string | null; studentPicture: string | null; paidOn: string; amountMinor: number; receivedMethod: string; givenToSchool: number; allocations: { paymentId: number; courseName: string; allowance: number }[] };
 type Data = { filters: Filter[]; collectors: Collector[] };
-type Draft = { collectorEmail: string; fromDate: string; toDate: string; paymentTypes: string[] };
+type Draft = { collectorEmails: string[]; fromDate: string; toDate: string; paymentTypes: string[] };
 
 const input = "h-8 w-full rounded border border-stone-300 bg-white px-2 text-xs leading-none disabled:opacity-50";
 const types = ["course", "practice_party"] as const;
@@ -123,9 +123,9 @@ export default function PaymentTransfersWidget() {
         <tbody>{data?.filters.map((filter, index) => <Fragment key={filter.id}>
           <tr className="cursor-pointer border-b border-stone-200 hover:bg-lime-50" onClick={() => void toggle(filter)}>
             <td className="px-2 py-1"><div className="flex gap-0.5"><button type="button" aria-label={`Move report for ${filter.collectorName || filter.collectorEmail} up`} title="Move up" disabled={index === 0 || moving !== null} className="rounded border border-stone-300 px-1 py-0.5 text-xs leading-none text-slate-700 hover:bg-lime-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={(event) => { event.stopPropagation(); void reorder(filter.id, data.filters[index - 1].id); }}>▲</button><button type="button" aria-label={`Move report for ${filter.collectorName || filter.collectorEmail} down`} title="Move down" disabled={index === data.filters.length - 1 || moving !== null} className="rounded border border-stone-300 px-1 py-0.5 text-xs leading-none text-slate-700 hover:bg-lime-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={(event) => { event.stopPropagation(); void reorder(filter.id, data.filters[index + 1].id); }}>▼</button></div></td>
-            <EditableFields filter={filter} collectors={data.collectors} onSaved={load} />
+            <EditableFields filter={filter} collectors={data.collectors} onSaved={async () => { setExpanded(null); setPayments([]); await load(); }} />
             <td className="px-2 py-1 text-right"><button type="button" aria-expanded={expanded === filter.id} className="whitespace-nowrap" onClick={(event) => { event.stopPropagation(); void toggle(filter); }}>{expanded === filter.id ? "▾ " : "▸ "}{formatMoney(filter.totalMinor)} ({filter.paymentCount})</button></td>
-            <td className="px-2 py-1"><button type="button" disabled={!filter.paymentCount || filter.allGiven || givingAll !== null} className={`whitespace-nowrap rounded px-2 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${filter.allGiven ? "text-lime-800" : "border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"}`} onClick={(event) => { event.stopPropagation(); void giveAll(filter); }}>{givingAll === filter.id ? "Saving…" : filter.allGiven ? "✓ All given" : "Give all to school"}</button></td>
+            <td className="px-2 py-1"><button type="button" disabled={!filter.paymentCount || !!filter.allGiven || givingAll !== null} className={`whitespace-nowrap rounded px-2 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${filter.allGiven ? "text-lime-800" : "border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"}`} onClick={(event) => { event.stopPropagation(); void giveAll(filter); }}>{givingAll === filter.id ? "Saving…" : filter.allGiven ? "✓ All given" : "Give all to school"}</button></td>
             <td className="px-2 py-1"><button type="button" className="rounded bg-red-700 px-2 py-1 text-xs font-bold text-white hover:bg-red-800" onClick={(event) => { event.stopPropagation(); setRemoving(filter.id); }}>Remove</button></td>
           </tr>
           {expanded === filter.id && <tr><td colSpan={8} className="bg-stone-50 px-3 py-2"><div className="ml-3 border-l-2 border-lime-300 pl-3">{payments.map((payment) => <PaymentTreeRow key={`${payment.purpose}-${payment.id}`} payment={payment} giving={giving === `${payment.purpose}-${payment.id}`} onOpen={() => setStudent({ studentId: payment.studentId, paymentId: payment.id, purpose: payment.purpose })} onGive={(givenToSchool) => void setGiven(payment, givenToSchool)} />)}{!payments.length && <p className="m-0 py-2 text-xs text-slate-500">No payments match this report.</p>}</div></td></tr>}
@@ -140,29 +140,50 @@ export default function PaymentTransfersWidget() {
 }
 
 function EditableFields({ filter, collectors, onSaved }: { filter: Filter; collectors: Collector[]; onSaved: () => Promise<void> }) {
-  const initial = (): Draft => ({ collectorEmail: filter.collectorEmail, fromDate: filter.fromDate ?? "", toDate: filter.toDate ?? "", paymentTypes: filter.paymentTypes.split(",").filter(Boolean) });
+  const initial = (): Draft => ({ collectorEmails: filter.collectorEmails, fromDate: filter.fromDate ?? "", toDate: filter.toDate ?? "", paymentTypes: filter.paymentTypes.split(",").filter(Boolean) });
   const [draft, setDraft] = useState<Draft>(initial);
   const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const collectorMenu = useRef<HTMLDetailsElement>(null);
   const typeMenu = useRef<HTMLDetailsElement>(null);
-  useEffect(() => { setDraft(initial()); }, [filter.collectorEmail, filter.fromDate, filter.toDate, filter.paymentTypes]);
+  useEffect(() => { setDraft(initial()); }, [filter.collectorEmails, filter.fromDate, filter.toDate, filter.paymentTypes]);
   useEffect(() => { const close = (event: PointerEvent) => { if (collectorMenu.current && !collectorMenu.current.contains(event.target as Node)) collectorMenu.current.removeAttribute("open"); if (typeMenu.current && !typeMenu.current.contains(event.target as Node)) typeMenu.current.removeAttribute("open"); }; document.addEventListener("pointerdown", close); return () => document.removeEventListener("pointerdown", close); }, []);
   const stop = (event: { stopPropagation: () => void; target: EventTarget | null; currentTarget: EventTarget | null }) => {
     if (event.target !== event.currentTarget) event.stopPropagation();
   };
   async function save(next: Draft) {
     if (busy || (next.fromDate && next.toDate && next.fromDate > next.toDate)) return;
-    setDraft(next); setBusy(true);
+    setDraft(next); setBusy(true); setSaveError("");
     try {
       const response = await fetch("/api/payment-transfer-filters", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: filter.id, ...next }) });
       const body = await readJson<{ error?: string }>(response);
       if (!response.ok) throw new Error(body.error ?? "Could not save report.");
       await onSaved();
-    } finally { setBusy(false); }
+    } catch (reason) { setDraft(initial()); setSaveError(reason instanceof Error ? reason.message : "Could not save report."); }
+    finally { setBusy(false); }
   }
-  const selected = collectors.find((collector) => collector.email === draft.collectorEmail) ?? { email: draft.collectorEmail, name: filter.collectorName, picture: null };
+  const selected = draft.collectorEmails.map((email) => collectors.find((collector) => collector.email === email) ?? { email, name: null, picture: null });
+  const options = [...collectors, ...selected.filter((item) => !collectors.some((collector) => collector.email === item.email))];
+  const selectionLabel = selected.length ? selected.map((collector) => collector.name || collector.email).join(", ") : "Select administrators";
   return <>
-    <td className="px-2 py-1" onClick={stop}><details ref={collectorMenu} className="relative min-w-36"><summary className={`${input} flex cursor-pointer list-none items-center gap-1.5`}>{draft.collectorEmail ? <Avatar collector={selected} /> : <Avatar label="?" />}<span>{selected.name || selected.email || "Select administrator"}</span><span className="ml-auto">⌄</span></summary><div className="absolute left-0 top-full z-40 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-stone-200 bg-white p-1 shadow-xl">{collectors.map((collector) => <button type="button" key={collector.email} className="flex w-full items-center gap-2 rounded p-1.5 text-left text-xs hover:bg-lime-50" onClick={() => { collectorMenu.current?.removeAttribute("open"); void save({ ...draft, collectorEmail: collector.email }); }}><Avatar collector={collector} />{collector.name || collector.email}</button>)}</div></details></td>
+    <td className="py-1 pl-2 pr-8">
+      <details onClick={(event) => event.stopPropagation()} ref={collectorMenu} className="relative min-w-36">
+        <summary aria-label={`Collected by: ${selectionLabel}`} title={selectionLabel} className={`${input} flex cursor-pointer list-none items-center gap-1.5`}>
+          {selected.length === 1 ? <Avatar collector={selected[0]} /> : <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-lime-100 text-[10px]">{selected.length || "?"}</span>}
+          <span>{selected.length > 1 ? `${selected.length} administrators` : selectionLabel}</span><span className="ml-auto">⌄</span>
+        </summary>
+        <div className="absolute left-0 top-full z-40 mt-1 max-h-60 min-w-full w-max overflow-y-auto rounded-md border border-stone-200 bg-white p-1 shadow-xl">
+          {options.map((collector) => <label key={collector.email} className="flex cursor-pointer items-center gap-2 rounded p-1.5 text-xs hover:bg-lime-50">
+            <input type="checkbox" checked={draft.collectorEmails.includes(collector.email)} disabled={busy} onChange={(event) => {
+              const collectorEmails = event.target.checked ? [...draft.collectorEmails, collector.email] : draft.collectorEmails.filter((email) => email !== collector.email);
+              void save({ ...draft, collectorEmails });
+            }} />
+            <Avatar collector={collector} />{collector.name || collector.email}
+          </label>)}
+        </div>
+      </details>
+      {saveError && <p role="alert" className="mt-1 max-w-48 text-xs text-red-700">{saveError}</p>}
+    </td>
     <td className="px-2 py-1" onClick={stop}><DateNameInput ariaLabel="From date" value={draft.fromDate} disabled={busy} onCommit={(fromDate) => void save({ ...draft, fromDate })} /></td>
     <td className="px-2 py-1" onClick={stop}><DateNameInput ariaLabel="To date" value={draft.toDate} disabled={busy} onCommit={(toDate) => void save({ ...draft, toDate })} /></td>
     <td className="px-2 py-1" onClick={stop}><details ref={typeMenu} className="relative min-w-32"><summary className={`${input} cursor-pointer list-none`}>{draft.paymentTypes.length ? draft.paymentTypes.map((type) => type === "course" ? "Courses" : "Practice party").join(" + ") : "Select payment types"} ▾</summary><div className="absolute left-0 top-full z-40 mt-1 w-full rounded-md border border-stone-200 bg-white p-1.5 shadow-xl">{types.map((type) => <label key={type} className="flex items-center gap-2 p-1 text-xs"><input type="checkbox" checked={draft.paymentTypes.includes(type)} disabled={busy} onChange={() => { const paymentTypes = draft.paymentTypes.includes(type) ? draft.paymentTypes.filter((item) => item !== type) : [...draft.paymentTypes, type]; void save({ ...draft, paymentTypes }); }} />{type === "course" ? "Courses" : "Practice party"}</label>)}</div></details></td>
@@ -210,5 +231,5 @@ function DateNameInput({ value, disabled, ariaLabel, onCommit }: { value: string
     if (parsed === null) { setText(namedDate(value)); return; }
     if (parsed !== value) onCommit(parsed);
   }
-  return <input aria-label={ariaLabel} title="Use a date such as 16 July 2026" className={input} value={text} disabled={disabled} placeholder="16 July 2026" onChange={(event) => setText(event.target.value)} onBlur={commit} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} />;
+  return <input aria-label={ariaLabel} title="Use a date such as 16 July 2026" className={input} style={{ width: "8rem" }} value={text} disabled={disabled} placeholder="16 July 2026" onChange={(event) => setText(event.target.value)} onBlur={commit} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} />;
 }
