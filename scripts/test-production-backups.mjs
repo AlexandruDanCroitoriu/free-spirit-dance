@@ -28,6 +28,7 @@ try {
   assert.equal(sixMonthsAfter('2027-08-31T01:00:00Z'), '2028-02-29T01:00:00.000Z');
   const reordered = prepareSqlForD1Import("PRAGMA defer_foreign_keys=TRUE; BEGIN; CREATE TABLE attendance (class_id INTEGER REFERENCES classes(id)); INSERT INTO attendance VALUES (1); CREATE TABLE classes (id INTEGER PRIMARY KEY); INSERT INTO classes VALUES (1); CREATE TRIGGER attendance_check BEFORE INSERT ON attendance BEGIN SELECT 1; END; COMMIT;");
   assert.ok(reordered.indexOf("CREATE TABLE classes") < reordered.indexOf("INSERT INTO attendance"));
+  assert.ok(reordered.indexOf("INSERT INTO classes") < reordered.indexOf("INSERT INTO attendance"));
   assert.ok(reordered.indexOf("INSERT INTO classes") < reordered.indexOf("CREATE TRIGGER"));
   assert.ok(reordered.includes("BEGIN SELECT 1; END;"));
   const reorderedDatabase = new DatabaseSync(':memory:');
@@ -39,8 +40,10 @@ try {
     return { storage: { sql: { exec(sql, ...params) { const query = db.prepare(sql); const rows = query.columns().length ? query.all(...params) : (query.run(...params), []); return { toArray: () => rows, one: () => { assert.equal(rows.length, 1); return rows[0]; } }; } }, transactionSync(fn) { db.exec('BEGIN'); try { const result = fn(); db.exec('COMMIT'); return result; } catch(e) { db.exec('ROLLBACK'); throw e; } } } };
   }
   const source = new DatabaseSync(':memory:');
-  source.exec("CREATE TABLE students (id INTEGER PRIMARY KEY, name TEXT NOT NULL, picture TEXT); INSERT INTO students VALUES (1, 'Synthetic student', '/api/student-images/photo.jpg');");
-  const dump = "CREATE TABLE \"students\" (id INTEGER PRIMARY KEY, name TEXT NOT NULL, picture TEXT); INSERT INTO students VALUES (1, 'Synthetic student', '/api/student-images/photo.jpg');";
+  source.exec("CREATE TABLE students (id INTEGER PRIMARY KEY, name TEXT NOT NULL, picture TEXT); CREATE TABLE classes (id INTEGER PRIMARY KEY); CREATE TABLE attendance (student_id INTEGER REFERENCES students(id), class_id INTEGER REFERENCES classes(id)); INSERT INTO students VALUES (1, 'Synthetic student', '/api/student-images/photo.jpg'); INSERT INTO classes VALUES (1); INSERT INTO attendance VALUES (1, 1);");
+  // Mimic D1's table-by-table export: attendance appears before classes even
+  // though its rows refer to classes. The uploaded prepared SQL must fix that.
+  const dump = "CREATE TABLE \"students\" (id INTEGER PRIMARY KEY, name TEXT NOT NULL, picture TEXT); INSERT INTO students VALUES (1, 'Synthetic student', '/api/student-images/photo.jpg'); CREATE TABLE \"attendance\" (student_id INTEGER REFERENCES students(id), class_id INTEGER REFERENCES classes(id)); INSERT INTO attendance VALUES (1, 1); CREATE TABLE \"classes\" (id INTEGER PRIMARY KEY); INSERT INTO classes VALUES (1);";
   function d1(db) {
     function prepare(sql, params=[]) {
       return { sql, params, bind(...params) { return prepare(sql, params); }, async all() { return execute(sql, params); }, async first() { return execute(sql, params).results[0] ?? null; }, async run() { return execute(sql,params); } };
@@ -65,13 +68,17 @@ try {
   const ctx=state(); const coordinator=new ProductionBackupCoordinator(ctx,env);
   env.PRODUCTION_BACKUPS={getByName:()=>coordinator}; env.BACKUP_WORKFLOW={create:async()=>{},get:async()=>({status:async()=>({status:'running'})})};
   const originalFetch=globalThis.fetch;
-  const databases=new Map(); let failUpload=false, importCount=0, exportCount=0;
+  const databases=new Map(); let failUpload=false, importCount=0, exportCount=0, uploadedSql='', uploadedEtag='';
   const apiCalls=[];
   globalThis.fetch=async(input,options={})=>{
     const url=new URL(typeof input==='string'?input:input.url);
     apiCalls.push({url:url.href,method:options.method??'GET'});
     if(url.hostname==='download.test')return new Response(dump);
-    if(url.hostname==='upload.test')return new Response(null,{status:failUpload?500:200});
+    if(url.hostname==='upload.test') {
+      uploadedSql=await new Response(options.body).text();
+      uploadedEtag=createHash('md5').update(uploadedSql).digest('hex');
+      return new Response(null,{status:failUpload?500:200});
+    }
     assert.equal(url.hostname,'api.cloudflare.com');
     const root='/client/v4/accounts/test/d1/database'; const path=url.pathname.slice(root.length); const body=options.body?JSON.parse(options.body):null;
     const response=result=>Response.json({success:true,result});
@@ -84,10 +91,12 @@ try {
     if(options.method==='DELETE'){databases.delete(id);return response({});}
     if(operation==='import'){
       if(body.action==='init')return response({filename:'dump.sql',upload_url:'https://upload.test/sql'});
-      importCount++;database.db.exec(dump);return response({status:'complete'});
+      assert.equal(body.etag,uploadedEtag,'D1 must ingest the checksum of the transformed upload');
+      importCount++;database.db.exec(uploadedSql);return response({status:'complete'});
     }
     if(operation==='query') {
-      const db=d1(database.db);return response(await db.batch(body.map(s=>db.prepare(s.sql).bind(...s.params))));
+      assert.ok(Array.isArray(body.batch),'D1 REST queries use the documented batch envelope');
+      const db=d1(database.db);return response(await db.batch(body.batch.map(s=>db.prepare(s.sql).bind(...s.params))));
     }
     throw new Error(`Unexpected mocked API operation: ${operation}`);
   };

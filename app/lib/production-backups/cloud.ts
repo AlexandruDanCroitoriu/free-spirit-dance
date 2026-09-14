@@ -31,7 +31,9 @@ class Statement implements D1PreparedStatement {
   }
 }
 async function query<T>(env: CloudflareEnv, id: string, statements: Statement[]): Promise<D1Result<T>[]> {
-  const results = await cloudApi<D1Result<T>[]>(env, `/${id}/query`, statements.map(s => ({ sql: s.sql, params: s.params })));
+  // D1's REST endpoint accepts either one query object or a `{ batch }` object;
+  // it does not accept an array as the top-level JSON value.
+  const results = await cloudApi<D1Result<T>[]>(env, `/${id}/query`, { batch: statements.map(s => ({ sql: s.sql, params: s.params })) });
   if (results.length !== statements.length || results.some(r => !r.success)) throw new Error("Working database query failed.");
   return results;
 }

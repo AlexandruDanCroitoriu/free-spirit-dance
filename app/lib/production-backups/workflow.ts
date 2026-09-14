@@ -55,9 +55,34 @@ export function prepareSqlForD1Import(source: string) {
     else if (/^CREATE\s+(?:UNIQUE\s+)?(?:INDEX|TRIGGER|VIEW)\b/.test(sql)) finalization.push(statement);
     else leading.push(statement);
   }
-  // D1's import endpoint owns the surrounding transaction and rejects explicit
-  // BEGIN/COMMIT statements. This pragma therefore applies to its transaction.
-  return ["PRAGMA defer_foreign_keys = ON;", ...leading, ...schema, ...data, ...finalization].join("\n");
+  const identifier = (value: string) => value.replace(/^["`\[]|["`\]]$/g, "").toLowerCase();
+  const createdTable = (statement: string) => /CREATE\s+(?:TEMP(?:ORARY)?\s+)?(?:VIRTUAL\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(["`\[]?[^\s("`\]]+["`\]]?)/i.exec(statement)?.[1];
+  const insertedTable = (statement: string) => /^(?:INSERT|REPLACE)\s+(?:OR\s+\w+\s+)?INTO\s+(["`\[]?[^\s("`\]]+["`\]]?)/i.exec(statement.trim())?.[1];
+  const definitions = new Map<string, string>();
+  for (const statement of schema) {
+    const table = createdTable(statement);
+    if (table) definitions.set(identifier(table), statement);
+  }
+  const rows = new Map<string, string[]>();
+  const otherData: string[] = [];
+  for (const statement of data) {
+    const table = insertedTable(statement);
+    if (!table) otherData.push(statement);
+    else (rows.get(identifier(table)) ?? rows.set(identifier(table), []).get(identifier(table))!).push(statement);
+  }
+  const orderedTables: string[] = [], visiting = new Set<string>(), visited = new Set<string>();
+  const visit = (table: string) => {
+    if (visited.has(table) || visiting.has(table)) return;
+    visiting.add(table);
+    const definition = definitions.get(table) ?? "";
+    for (const reference of definition.matchAll(/\bREFERENCES\s+(["`\[]?[^\s(,"`\]]+["`\]]?)/gi)) visit(identifier(reference[1]));
+    visiting.delete(table); visited.add(table); orderedTables.push(table);
+  };
+  for (const table of definitions) visit(table[0]);
+  const orderedData = [...orderedTables.flatMap((table) => rows.get(table) ?? []), ...otherData, ...[...rows].filter(([table]) => !visited.has(table)).flatMap(([, statements]) => statements)];
+  // D1 owns the import transaction and rejects explicit BEGIN/COMMIT. Rows are
+  // therefore ordered so every referenced table is present before its children.
+  return [...leading, ...schema, ...orderedData, ...finalization].join("\n");
 }
 
 export async function schemaFingerprint(db: D1Database) {
