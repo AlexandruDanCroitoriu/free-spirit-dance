@@ -55,7 +55,9 @@ export function prepareSqlForD1Import(source: string) {
     else if (/^CREATE\s+(?:UNIQUE\s+)?(?:INDEX|TRIGGER|VIEW)\b/.test(sql)) finalization.push(statement);
     else leading.push(statement);
   }
-  return ["BEGIN TRANSACTION;", "PRAGMA defer_foreign_keys = ON;", ...leading, ...schema, ...data, ...finalization, "COMMIT;"].join("\n");
+  // D1's import endpoint owns the surrounding transaction and rejects explicit
+  // BEGIN/COMMIT statements. This pragma therefore applies to its transaction.
+  return ["PRAGMA defer_foreign_keys = ON;", ...leading, ...schema, ...data, ...finalization].join("\n");
 }
 
 export async function schemaFingerprint(db: D1Database) {

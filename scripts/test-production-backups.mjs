@@ -31,7 +31,7 @@ try {
   assert.ok(reordered.indexOf("INSERT INTO classes") < reordered.indexOf("CREATE TRIGGER"));
   assert.ok(reordered.includes("BEGIN SELECT 1; END;"));
   const reorderedDatabase = new DatabaseSync(':memory:');
-  reorderedDatabase.exec("PRAGMA foreign_keys=ON;" + reordered);
+  reorderedDatabase.exec("PRAGMA foreign_keys=ON; BEGIN;" + reordered + " COMMIT;");
   assert.equal(reorderedDatabase.prepare("SELECT COUNT(*) AS count FROM attendance").get().count, 1);
 
   function state() {
