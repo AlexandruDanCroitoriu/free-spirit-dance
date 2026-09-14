@@ -13,11 +13,11 @@ npm run dev
 
 `npm run dev` starts Vinext on port 3000 and the named tunnel `free-spirit-dance-local`. Open https://dev-free-spirit-dance.alexandru-croitoriu.dev and authenticate through Cloudflare Access with Google.
 
-For the main administrator, local development uses the persistent imported **Catalog SQLite and image storage** under the ignored `.wrangler/state` directory. `npm run dev` prepares the Catalog copy when needed.
+For the main administrator, local development uses the persistent imported **Catalog SQLite and image storage** under `.wrangler/state`. The dedicated Catalog database is versioned at `.wrangler/state/v3/d1/miniflare-D1DatabaseObject/3dd27f64a8e6b7092b4dc42ea2a5f93d01d65d27a0f4927b2e4bc344a6a2f6f6.sqlite`, so a clone contains the Catalog without a separate restore step. Its filename is deterministic for the fixed local `CATALOG_DB` binding; all other Wrangler state remains ignored. `npm run dev` prepares the Catalog copy only when it is missing.
 
 When signed in through the development tunnel as `croitoriu.alexandru.code@gmail.com`, the sidebar shows **Catalog / Production**. Catalog changes stay on this computer; Production uses the live D1 database and R2 images, including for writes. The selection is saved in a session cookie for that browser; switching reloads the dashboard and other open tabs. Finish or discard edits before switching. Plain localhost (including 127.0.0.1 and ::1) acts as the main administrator during local development, including the storage switch and administrator attribution. Other administrators using the tunnel use production permissions, records, and images, including for writes; they cannot switch storage. The deployed app always uses production and has no switch.
 
-The Catalog store is prepared from the private historical import source and preserves local Catalog edits. Keep private imports outside Git. The built preview (`npm run start`) uses production bindings; the switch is available in `npm run dev` only.
+The Catalog store is prepared from the private historical import source and preserves local Catalog edits. The versioned Catalog file contains private student data: keep the GitHub repository private and grant access only to trusted administrators. Keep private import workbooks outside Git. The built preview (`npm run start`) uses production bindings; the switch is available in `npm run dev` only.
 
 On a new machine, run `cloudflared tunnel login`, securely transfer the tunnel credentials, and create `~/.cloudflared/config.yml` outside this repository:
 
@@ -53,12 +53,47 @@ Cloudflare Workers Builds handles deployment from the connected GitHub repositor
 
 The GitHub connection, production branch, Access applications, and secrets are configured remotely; local build success does not verify those settings. Pushing to the connected production branch triggers deployment.
 
-Before pushing schema-dependent changes, review pending D1 migrations and apply them in order:
+Update the local Catalog and only your saved local production copies (no remote access):
 
 ```sh
-npx wrangler d1 migrations list FS-Dance --remote
-npx wrangler d1 migrations apply FS-Dance --remote
+npm run db:migrate
 ```
+
+Or update individual groups with `npm run db:migrate:catalog` and
+`npm run db:migrate:copies`. Local migrations also run before `npm run dev`.
+These commands do not import Excel history, refresh copies, or replace student records.
+For an imported Catalog with incomplete migration history, the command verifies a
+complete known schema before recording its baseline. It restores the cash-default
+migration if its trigger is missing. Unrecognized schemas stop for inspection;
+this Catalog-specific repair never targets production. Copy selection reads the
+app's registry (`ready=1`), not the eight available storage slots.
+
+Review pending migrations before updating production:
+
+```sh
+npm run db:migrate:production -- --list
+npm run db:migrate:production
+```
+
+To update **local Catalog, all local copies, and live production** in sequence:
+
+```sh
+npm run db:migrate:all
+```
+
+Production commands require an interactive terminal and typing `MIGRATE PRODUCTION`
+once before any writes; Wrangler's per-database prompts are suppressed. They require your Wrangler authentication. Append `-- --list`
+to any command for a read-only pending-migrations listing (no Catalog history repair).
+A failure stops subsequent targets; earlier successful migrations remain applied.
+Inspect `.wrangler/migration-logs` privately when troubleshooting.
+
+For the inspected pre-0052 production schema with an incomplete ledger, the command
+verifies every expected schema object (allowing only the reviewed report default
+and missing CASH trigger), exports a private backup under `.wrangler/migration-backups`,
+then records an explicit application-schema baseline through 0051 before applying
+new migrations. This does not replay old data migrations or reconcile Excel data.
+Existing payment methods are unchanged; the restored trigger affects future profiles.
+Unknown schema differences stop before migrations are applied.
 
 **Review migrations against a private backup before applying them.** Existing migration `0025` deletes retired subscriptions, purchases, and their payments; `0028` deletes historical entry grants. These historical migrations are retained for upgrades and must not be rewritten or applied blindly. The current schema requires migrations through `0035_free_attendance_attribution.sql`. The local checks verify synthetic-data preservation and schema parity, not the contents or migration state of production.
 

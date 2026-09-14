@@ -1,10 +1,13 @@
 "use client";
 
+import ProductionBackupBridge from "../components/production-backup-bridge";
+import ProductionBackups from "../components/production-backups";
 import LocalDatabaseManager from "../components/local-database-manager";
 import { readJson } from "../lib/http";
 import { downloadWorkbook, readWorkbook } from "../lib/xlsx-export";
 import { compressImage } from "../lib/profile-image";
 import { useEffect, useRef, useState } from "react";
+import ConfirmationDialog from "../components/confirmation-dialog";
 
 type Administrator = { email: string; name: string; picture: string | null; dashboard: boolean; students: boolean; courses: boolean; practiceParties: boolean; qrCodes: boolean };
 type ApiError = { error?: string };
@@ -12,6 +15,11 @@ type ExportTable = { name: string; columns: string[]; rows: Record<string, unkno
 const permissionFields = [["dashboard", "Dashboard"], ["students", "Students"], ["courses", "Courses"], ["practiceParties", "Practice Parties"], ["qrCodes", "QR Codes"]] as const;
 
 export default function AdministratorsPage() {
+  const [bridge, setBridge] = useState(false);
+  useEffect(() => { setBridge(new URL(window.location.href).searchParams.has("backupBridge")); }, []);
+  return bridge ? <ProductionBackupBridge /> : <AdministratorsContent />;
+}
+function AdministratorsContent() {
   const [administrators, setAdministrators] = useState<Administrator[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingEmail, setSavingEmail] = useState("");
@@ -30,6 +38,7 @@ export default function AdministratorsPage() {
   const importInput = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [confirmation, setConfirmation] = useState<{ kind: "administrator"; administrator: Administrator } | { kind: "clear" } | { kind: "import"; file: File } | null>(null);
 
   useEffect(() => {
     fetch("/api/administrators").then(async (response) => {
@@ -52,8 +61,8 @@ export default function AdministratorsPage() {
     setSavingEmail("");
   }
 
-  async function deleteAdministrator(administrator: Administrator) {
-    if (!window.confirm(`Remove ${administrator.email} from the administrator list? Their app permissions will be removed. They can appear again if they still have Cloudflare Access and return to the app.`)) return;
+  function deleteAdministrator(administrator: Administrator) { setConfirmation({ kind: "administrator", administrator }); }
+  async function removeAdministrator(administrator: Administrator) {
     setSavingEmail(administrator.email); setError("");
     try {
       const response = await fetch(`/api/administrators/${encodeURIComponent(administrator.email)}`, { method: "DELETE" });
@@ -119,8 +128,8 @@ export default function AdministratorsPage() {
     finally { setSavingProfile(false); }
   }
 
-  async function clearData() {
-    if (!window.confirm("Permanently remove all student, course, payment, practice party, and QR-code data from the current database? Administrators and their profile information will be kept. This cannot be undone.")) return;
+  function clearData() { setConfirmation({ kind: "clear" }); }
+  async function performClearData() {
     setClearing(true); setError(""); setNotice("");
     try {
       const response = await fetch("/api/administrators/clear-data", { method: "POST" });
@@ -149,8 +158,8 @@ export default function AdministratorsPage() {
     }
   }
 
-  async function importData(file: File) {
-    if (!window.confirm("Add new school data from this export to the current database? Existing records and administrator profiles, permissions, and payment methods will be kept. New records can use a temporary ID such as new:student-1 in their ID cell and matching foreign-key cells. When importing a production export into Local, student and QR-code images are copied too.")) return;
+  function importData(file: File) { setConfirmation({ kind: "import", file }); }
+  async function performImportData(file: File) {
     setImporting(true); setError(""); setNotice("");
     try {
       const tables = await readWorkbook(file);
@@ -168,6 +177,8 @@ export default function AdministratorsPage() {
 
   return <main className="flex-1 px-6 py-6 text-slate-800 md:px-12"><div className="mx-auto max-w-5xl">
     <LocalDatabaseManager />
+    <ProductionBackups />
+    <ConfirmationDialog open={confirmation !== null} title={confirmation?.kind === "administrator" ? "Remove administrator?" : confirmation?.kind === "clear" ? "Clear application data?" : "Import school data?"} description={confirmation?.kind === "administrator" ? <>Remove <strong>{confirmation.administrator.email}</strong> from the administrator list? Their app permissions will be removed. They can appear again if they still have Cloudflare Access and return to the app.</> : confirmation?.kind === "clear" ? "Permanently remove all student, course, payment, practice party, and QR-code data from the current database? Administrators and their profile information will be kept. This cannot be undone." : "Add new school data from this export to the current database? Existing records and administrator profiles, permissions, and payment methods will be kept. New records can use a temporary ID such as new:student-1 in its ID cell and matching foreign-key cells. When importing a production export into Local, student and QR-code images are copied too."} confirmLabel={confirmation?.kind === "administrator" ? "Remove administrator" : confirmation?.kind === "clear" ? "Clear data" : "Import data"} destructive={confirmation?.kind !== "import"} onCancel={() => setConfirmation(null)} onConfirm={() => { const current = confirmation; setConfirmation(null); if (current?.kind === "administrator") void removeAdministrator(current.administrator); else if (current?.kind === "clear") void performClearData(); else if (current?.kind === "import") void performImportData(current.file); }} />
     {error && <p className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 font-sans text-sm text-red-700" role="alert">{error}</p>}
     {notice && <p className="mb-4 rounded-lg border border-lime-200 bg-lime-50 p-3 font-sans text-sm text-lime-800" role="status">{notice}</p>}
     {editingProfile && <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/70 p-4 md:left-64" role="presentation"><div aria-labelledby="administrator-profile-title" aria-modal="true" className="mx-auto w-full max-w-lg rounded-xl border border-stone-200 bg-white p-6 shadow-2xl" role="dialog"><form className="space-y-5" onSubmit={(event) => void saveProfile(event)}><div className="flex items-center justify-between gap-4"><h2 className="m-0 text-xl font-normal" id="administrator-profile-title">Administrator profile</h2><button aria-label="Close profile editor" className="rounded-md border border-stone-300 px-3 py-2 font-sans text-xs font-semibold" disabled={savingProfile} type="button" onClick={() => setEditingProfile(null)}>×</button></div><div className="flex items-center gap-4"><div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-200 font-sans text-lg font-bold text-slate-800">{profilePreview ?? editingProfile.picture ? <img alt="Administrator profile preview" className="h-full w-full object-cover" src={profilePreview ?? editingProfile.picture ?? ""} /> : (profileName || editingProfile.email).charAt(0).toUpperCase()}</div><label className="cursor-pointer rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold">Upload image<input accept="image/*" className="sr-only" type="file" onChange={(event) => { void selectProfileImage(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label></div><label className="block font-sans text-xs font-bold uppercase tracking-wider text-slate-500">Name<input className="mt-2 w-full rounded-lg border border-stone-300 px-3 py-3 font-sans text-sm font-normal normal-case tracking-normal text-slate-800 outline-none focus:border-lime-600" maxLength={100} required value={profileName} onChange={(event) => setProfileName(event.target.value)} /></label><label className="block font-sans text-xs font-bold uppercase tracking-wider text-slate-500">Email<input className="mt-2 w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-3 font-sans text-sm font-normal normal-case tracking-normal text-slate-600" readOnly value={editingProfile.email} /></label><fieldset className="border-0 p-0 font-sans"><legend className="text-xs font-bold uppercase tracking-wider text-slate-500">Payment methods</legend><p className="mt-2 text-xs text-slate-500">Set the ways this administrator receives money. Cash is always available.</p>{loadingPaymentMethods ? <p className="mt-3 text-sm text-slate-500">Loading payment methods...</p> : <><div className="mt-3 flex gap-2"><input aria-label="New payment method" disabled={savingProfile || !paymentMethodsLoaded} className="min-w-0 flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm disabled:opacity-50" maxLength={50} value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addPaymentMethod(); } }} /><button className="rounded-lg border border-stone-300 px-3 py-2 text-xs font-semibold disabled:opacity-50" disabled={savingProfile || !paymentMethodsLoaded} type="button" onClick={addPaymentMethod}>Add</button></div><div className="mt-3 flex flex-wrap gap-2">{paymentMethods.map((method) => <button key={method} type="button" disabled={savingProfile || !paymentMethodsLoaded || method.toLocaleLowerCase() === "cash"} className="rounded-full bg-lime-100 px-3 py-1.5 text-xs text-lime-900 disabled:opacity-60" onClick={() => setPaymentMethods((current) => current.filter((item) => item !== method))}>{method}{method.toLocaleLowerCase() === "cash" ? " (required)" : <><span aria-hidden="true"> ×</span><span className="sr-only">Remove {method}</span></>}</button>)}</div></>}</fieldset><div className="flex justify-end gap-3"><button className="rounded-lg border border-stone-300 px-4 py-3 font-sans text-xs font-semibold" disabled={savingProfile} type="button" onClick={() => setEditingProfile(null)}>Cancel</button><button className="rounded-lg bg-slate-800 px-4 py-3 font-sans text-xs font-bold text-white disabled:opacity-50" disabled={savingProfile || loadingPaymentMethods || !paymentMethodsLoaded || !profileName.trim()}>{savingProfile ? "Saving..." : "Save profile"}</button></div></form></div></div>}

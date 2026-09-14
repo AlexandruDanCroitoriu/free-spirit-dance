@@ -1,0 +1,190 @@
+import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
+import { build } from 'esbuild';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { createHash } from 'node:crypto';
+import vm from 'node:vm';
+
+const temporary = await mkdtemp(join(tmpdir(), 'fsd-backups-test-'));
+try {
+  const output = join(temporary, 'backups.mjs');
+  await build({ stdin: { contents: `export * from './app/lib/production-backups/model'; export * from './app/lib/production-backups/coordinator'; export * from './app/lib/production-backups/workflow'; export * from './app/lib/production-backups/cloud'; export * from './app/lib/production-backups/http';`, resolveDir: process.cwd() }, outfile: output, bundle: true, format: 'esm', platform: 'node', plugins: [{ name: 'runtime', setup(build) {
+    build.onResolve({ filter: /^cloudflare:workers$/ }, () => ({ path: 'runtime', namespace: 'mock' }));
+    build.onLoad({ filter: /.*/, namespace: 'mock' }, () => ({ contents: 'export class DurableObject { constructor(ctx,env) { this.ctx=ctx; this.env=env; } } export class WorkflowEntrypoint { constructor(ctx,env) { this.ctx=ctx; this.env=env; } }' }));
+    build.onResolve({ filter: /^\.\.\/storage$/ }, () => ({ path: 'storage', namespace: 'storage' }));
+    build.onLoad({ filter: /.*/, namespace: 'storage' }, () => ({ contents: 'export const withStorage = (env, callback) => callback();' }));
+  } }] });
+  const { nextWeekly, localToUtc, sixMonthsAfter, ProductionBackupCoordinator, ProductionBackupWorkflow, workingDatabase, backupManagement, productionRequest, generationScript } = await import(pathToFileURL(output));
+  assert.equal(nextWeekly(Date.parse('2026-03-27T10:00Z')), '2026-03-28T02:00:00.000Z');
+  assert.equal(nextWeekly(Date.parse('2026-03-28T02:00Z')), '2026-04-04T01:00:00.000Z');
+  assert.equal(nextWeekly(Date.parse('2026-10-24T01:00Z')), '2026-10-31T02:00:00.000Z');
+  assert.equal(localToUtc('2026-10-25T03:30'), '2026-10-25T00:30:00.000Z');
+  assert.throws(() => localToUtc('2026-03-29T03:30'));
+  assert.throws(() => localToUtc('2026-02-30T04:00'));
+  assert.equal(sixMonthsAfter('2026-08-31T01:00:00Z'), '2027-02-28T01:00:00.000Z');
+  assert.equal(sixMonthsAfter('2027-08-31T01:00:00Z'), '2028-02-29T01:00:00.000Z');
+
+  function state() {
+    const db = new DatabaseSync(':memory:');
+    return { storage: { sql: { exec(sql, ...params) { const query = db.prepare(sql); const rows = query.columns().length ? query.all(...params) : (query.run(...params), []); return { toArray: () => rows, one: () => { assert.equal(rows.length, 1); return rows[0]; } }; } }, transactionSync(fn) { db.exec('BEGIN'); try { const result = fn(); db.exec('COMMIT'); return result; } catch(e) { db.exec('ROLLBACK'); throw e; } } } };
+  }
+  const source = new DatabaseSync(':memory:');
+  source.exec("CREATE TABLE students (id INTEGER PRIMARY KEY, name TEXT NOT NULL, picture TEXT); INSERT INTO students VALUES (1, 'Synthetic student', '/api/student-images/photo.jpg');");
+  const dump = "CREATE TABLE \"students\" (id INTEGER PRIMARY KEY, name TEXT NOT NULL, picture TEXT); INSERT INTO students VALUES (1, 'Synthetic student', '/api/student-images/photo.jpg');";
+  function d1(db) {
+    function prepare(sql, params=[]) {
+      return { sql, params, bind(...params) { return prepare(sql, params); }, async all() { return execute(sql, params); }, async first() { return execute(sql, params).results[0] ?? null; }, async run() { return execute(sql,params); } };
+    }
+    function execute(sql, params=[]) { const q=db.prepare(sql); const results=q.columns().length?q.all(...params):(q.run(...params),[]); return { success:true,results,meta:{} }; }
+    return { prepare, async batch(statements) { db.exec('BEGIN'); try { const result=statements.map(s=>execute(s.sql,s.params)); db.exec('COMMIT'); return result; } catch(e) { db.exec('ROLLBACK'); throw e; } } };
+  }
+  class Bucket {
+    objects = new Map();
+    async put(key, body, metadata={}) { const bytes=Buffer.from(await new Response(body).arrayBuffer()); const etag=createHash('md5').update(bytes).digest('hex'); this.objects.set(key,{bytes,etag,...metadata}); return { key,size:bytes.length,etag }; }
+    async head(key) { const object=this.objects.get(key); return object?{key,size:object.bytes.length,etag:object.etag}:null; }
+    async get(key) { const object=this.objects.get(key); return object?{key,size:object.bytes.length,etag:object.etag,body:new Response(object.bytes).body,httpMetadata:object.httpMetadata,customMetadata:object.customMetadata}:null; }
+    async list({prefix='',cursor,limit=1000}={}) { const all=[...this.objects.keys()].filter(k=>k.startsWith(prefix)).sort(); const start=cursor?Number(cursor):0; const keys=all.slice(start,start+limit); return {objects:await Promise.all(keys.map(k=>this.head(k))),truncated:start+limit<all.length,cursor:String(start+limit)}; }
+    async delete(keys) { for(const key of Array.isArray(keys)?keys:[keys]) this.objects.delete(key); }
+  }
+  const bucket = new Bucket(), photos = new Bucket();
+  await photos.put('photo.jpg', 'synthetic-photo', { httpMetadata:{contentType:'image/jpeg'} });
+  await photos.put('administrator.jpg', 'synthetic-admin-photo');
+  // Exercise pagination rather than only a single image page.
+  for(let i=0;i<103;i++) await photos.put(`extra-${i}.jpg`, 'synthetic');
+  const env = { DB:d1(source), STUDENT_IMAGES:photos, BACKUP_BUCKET:bucket, BACKUP_PRODUCTION_DATABASE_ID:'original', BACKUP_ACCOUNT_ID:'test', BACKUP_API_TOKEN:'test-only', PUBLIC_QR_BASE_URL:'https://go.test' };
+  const ctx=state(); const coordinator=new ProductionBackupCoordinator(ctx,env);
+  env.PRODUCTION_BACKUPS={getByName:()=>coordinator}; env.BACKUP_WORKFLOW={create:async()=>{},get:async()=>({status:async()=>({status:'running'})})};
+  const originalFetch=globalThis.fetch;
+  const databases=new Map(); let failUpload=false, importCount=0, exportCount=0;
+  const apiCalls=[];
+  globalThis.fetch=async(input,options={})=>{
+    const url=new URL(typeof input==='string'?input:input.url);
+    apiCalls.push({url:url.href,method:options.method??'GET'});
+    if(url.hostname==='download.test')return new Response(dump);
+    if(url.hostname==='upload.test')return new Response(null,{status:failUpload?500:200});
+    assert.equal(url.hostname,'api.cloudflare.com');
+    const root='/client/v4/accounts/test/d1/database'; const path=url.pathname.slice(root.length); const body=options.body?JSON.parse(options.body):null;
+    const response=result=>Response.json({success:true,result});
+    if(path===''&&(options.method==='GET'))return response([...databases].filter(([,v])=>v.name===url.searchParams.get('name')).map(([uuid,v])=>({uuid,name:v.name})));
+    if(path==='') { const id=crypto.randomUUID();databases.set(id,{db:new DatabaseSync(':memory:'),name:body.name});return response({uuid:id}); }
+    const [,id,operation]=path.split('/');
+    if(operation==='export'){ assert.equal(id,'original'); exportCount++; return response({status:'complete',result:{signed_url:'https://download.test/sql'}}); }
+    assert.notEqual(id,'original','Original production must never be imported into, queried via REST, or deleted');
+    const database=databases.get(id);assert.ok(database);
+    if(options.method==='DELETE'){databases.delete(id);return response({});}
+    if(operation==='import'){
+      if(body.action==='init')return response({filename:'dump.sql',upload_url:'https://upload.test/sql'});
+      importCount++;database.db.exec(dump);return response({status:'complete'});
+    }
+    if(operation==='query') {
+      const db=d1(database.db);return response(await db.batch(body.map(s=>db.prepare(s.sql).bind(...s.params))));
+    }
+    throw new Error(`Unexpected mocked API operation: ${operation}`);
+  };
+  const step=()=>({async do(_name,config,fn){return (fn??config)();},async sleep(){}});
+  const run=job=>new ProductionBackupWorkflow({},env).run({payload:job},step());
+  try {
+    assert.equal(coordinator.enter('0',true).status,409);
+    const ticket=coordinator.enter('1',true); assert.ok(ticket.ticket);
+    const job=coordinator.reserve('backup','','Test backup','owner');
+    assert.throws(()=>coordinator.reserve('backup','','','owner'));
+    coordinator.lock(job.id); assert.equal(coordinator.pending(),1);
+    assert.equal(coordinator.enter('1',true).status,503);
+    coordinator.leave(ticket.ticket);assert.equal(coordinator.pending(),0);
+    await run(job);
+    const backup=coordinator.backup(job.backupId);
+    assert.equal(backup.status,'ready'); assert.equal(backup.photos,105); assert.ok(backup.bytes>0);
+    assert.equal(coordinator.status().maintenance,null);
+    const snapshotBytes=Buffer.from(bucket.objects.get(`snapshots/${backup.id}/database.sql`).bytes);
+    assert.ok(bucket.objects.has(`snapshots/${backup.id}/images/administrator.jpg`));
+    assert.ok(!bucket.objects.has(`working/${backup.id}/photo.jpg`));
+
+    await run(coordinator.reserve('activate',backup.id,'','owner',1));
+    assert.equal(coordinator.status().active,backup.id);assert.equal(coordinator.status().generation,2);
+    assert.equal(importCount,1);
+    assert.equal(coordinator.enter('1',true).status,409);
+    assert.throws(()=>coordinator.reserve('delete',backup.id,'','owner'));
+    const active=coordinator.backup(backup.id);
+    const working=workingDatabase(env,active.databaseId);
+    await working.prepare('UPDATE students SET name=? WHERE id=?').bind('Edited working copy',1).run();
+    assert.equal((await working.prepare('SELECT name FROM students').first()).name,'Edited working copy');
+    assert.equal(source.prepare('SELECT name FROM students').get().name,'Synthetic student');
+    assert.deepEqual(bucket.objects.get(`snapshots/${backup.id}/database.sql`).bytes,snapshotBytes);
+
+    // Saving while a backup copy is active still exports original production.
+    await run(coordinator.reserve('backup','','Original while copy active','owner'));
+    assert.equal(exportCount,2);
+    await run(coordinator.reserve('return','','','owner',2));
+    assert.equal(coordinator.status().active,'production');assert.equal(coordinator.status().generation,3);
+    await run(coordinator.reserve('activate',backup.id,'','owner',3));
+    assert.equal(importCount,1,'Reactivation preserves edits instead of reimporting');
+    assert.equal((await working.prepare('SELECT name FROM students').first()).name,'Edited working copy');
+
+    const request=(body,email='croitoriu.alexandru.code@gmail.com',origin='https://school.test')=>new Request('https://school.test/api/administrators/production-backups',{method:'POST',headers:{'cf-access-authenticated-user-email':email,Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    assert.equal((await backupManagement(request({action:'backup'},'other@test'),env,false)).status,403);
+    assert.equal((await backupManagement(request({action:'backup'},undefined,'https://evil.test'),env,false)).status,403);
+    assert.equal((await backupManagement(request({action:'schedule',enabled:true,weekday:9,time:'04:00',once:null}),env,false)).status,400);
+    assert.equal((await backupManagement(request({action:'backup'}),env,true)).status,200);
+    assert.equal((await backupManagement(request({action:'backup'}),env,true)).headers.get('Cache-Control'),'no-store');
+    const oldSave=new Request('https://school.test/api/students',{method:'POST',headers:{Origin:'https://school.test','X-FSD-Generation':'1'}});
+    assert.equal((await productionRequest(oldSave,env,async()=>{throw new Error('Stale write reached app');})).status,409);
+    const read=new Request('https://school.test/api/students');
+    const response=await productionRequest(read,env,async(_request,scoped)=>{
+      await scoped.STUDENT_IMAGES.put('photo.jpg','edited-photo');
+      return Response.json(await scoped.DB.prepare('SELECT name FROM students').first());
+    });
+    assert.equal((await response.json()).name,'Edited working copy');assert.equal(coordinator.pending(),0);
+    assert.equal(photos.objects.get('photo.jpg').bytes.toString(),'synthetic-photo');
+    assert.equal(bucket.objects.get(`snapshots/${backup.id}/images/photo.jpg`).bytes.toString(),'synthetic-photo');
+    assert.equal(bucket.objects.get(`working/${backup.id}/photo.jpg`).bytes.toString(),'edited-photo');
+
+    // In-flight requests prevent a switch; failure leaves the original choice.
+    const before=coordinator.status();const pending=coordinator.enter(String(before.generation),true);
+    await assert.rejects(run(coordinator.reserve('return','','','owner',before.generation)));
+    assert.equal(coordinator.status().active,before.active);assert.equal(coordinator.status().maintenance,null);
+    coordinator.leave(pending.ticket);
+    await run(coordinator.reserve('return','','','owner',before.generation));
+    const unused=coordinator.status().backups.find(b=>b.id!==backup.id);
+    failUpload=true;
+    await assert.rejects(run(coordinator.reserve('activate',unused.id,'','owner',coordinator.status().generation)));
+    assert.equal(coordinator.status().active,'production');assert.equal(coordinator.backup(unused.id).workingReady,undefined);
+    failUpload=false;
+    await run(coordinator.reserve('activate',unused.id,'','owner',coordinator.status().generation));
+    assert.equal(coordinator.status().active,unused.id);
+    await run(coordinator.reserve('return','','','owner',coordinator.status().generation));
+    await run(coordinator.reserve('delete',unused.id,'','owner'));
+    assert.throws(()=>coordinator.backup(unused.id));
+    assert.ok(![...bucket.objects.keys()].some(k=>k.includes(unused.id)));
+
+    // Retention protects active copies, expires inactive copies, and survives restart.
+    await run(coordinator.reserve('activate',backup.id,'','owner',coordinator.status().generation));
+    coordinator.schedule({enabled:false,weekday:6,time:'04:00',once:null});
+    const future=Date.parse(backup.expiresAt)+1;
+    assert.equal(coordinator.tick(future),null);
+    const restarted=new ProductionBackupCoordinator(ctx,env);
+    assert.equal(restarted.status().active,backup.id);
+    await run(coordinator.reserve('return','','','owner',coordinator.status().generation));
+    const cleanup=coordinator.tick(future);assert.equal(cleanup.kind,'delete');await run(cleanup);
+    assert.equal(coordinator.status().backups.length,0);
+    assert.equal(source.prepare('SELECT name FROM students').get().name,'Synthetic student');
+
+    coordinator.schedule({enabled:true,weekday:6,time:'04:00',once:null});
+    const due=coordinator.status().schedule.next;
+    const scheduled=coordinator.tick(Date.parse(due));assert.equal(scheduled.kind,'backup');
+    assert.equal(coordinator.tick(Date.parse(due)).id,scheduled.id,'Duplicate delivery reuses the same job');
+    await run(scheduled);
+    assert.equal(coordinator.tick(Date.parse(due)),null);
+
+    // Fetch wrapping pins a tab to its original generation, not a shared cookie.
+    const calls=[];const context={window:{fetch:async(input,init)=>{calls.push({input,init});return new Response();}},location:{href:'https://school.test/',origin:'https://school.test'},URL,Request,Headers};
+    vm.runInNewContext(generationScript(7).replace(/^<script>|<\/script>$/g,''),context);
+    await context.window.fetch('/api/students',{method:'POST'});
+    assert.equal(calls[0].init.headers.get('X-FSD-Generation'),'7');
+    await context.window.fetch('https://other.test/api/students',{method:'POST'});
+    assert.equal(calls[1].init.headers,undefined);
+    console.log('PASS: production backup snapshots, photos/pagination, editable restore and return, original-only source, stale saves, permissions, failure recovery, retention, restart, weekly timezone/DST and duplicate scheduling.');
+  } finally { globalThis.fetch=originalFetch; }
+} finally { await rm(temporary,{recursive:true,force:true}); }

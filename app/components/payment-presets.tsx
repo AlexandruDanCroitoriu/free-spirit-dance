@@ -4,6 +4,7 @@ import { requestJson } from '../lib/http';
 import { useEffect, useRef, useState } from 'react';
 import { formatMoney } from '../lib/student-activity';
 import { presetDraft, type PaymentPreset } from '../lib/payment-presets';
+import { confirmAction } from '../lib/confirmation';
 
 type PresetData = { presets: PaymentPreset[]; courses: { id: number; name: string }[] };
 const button = 'rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold disabled:opacity-50';
@@ -26,7 +27,7 @@ export default function PaymentPresets() {
     finally { saving.current = false; setBusy(false); }
   }
   async function remove(preset: PaymentPreset) {
-    if (saving.current || !window.confirm(`Delete “${preset.name}”? Recorded student payments will stay unchanged.`)) return;
+    if (saving.current || !await confirmAction('Delete payment preset?', `Delete “${preset.name}”? Recorded student payments will stay unchanged.`, 'Delete preset', true)) return;
     saving.current = true; setBusy(true); setFormError('');
     try { await requestJson<void>(`/api/payment-presets/${preset.id}`, { method: 'DELETE' }); setData(current => current ? { ...current, presets: current.presets.filter(p => p.id !== preset.id) } : current); setOpen(false); setNotice('Payment preset deleted.'); }
     catch (reason) { setFormError(reason instanceof Error ? reason.message : 'Could not delete payment preset.'); }

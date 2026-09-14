@@ -1,102 +1,14 @@
 import { env } from "../../lib/storage";
 import { copyBindings, copyRegistry, copySlots, listCopies } from "../../lib/local-copies";
-import { tableColumns, type ExportTable } from "../administrators/export/route";
+import { readTables, readHistoricalAbsences, copyImages, clearImages, replaceDatabase, deleteOrder } from "../../lib/local-database-transfer";
 
 const ownerEmail = "croitoriu.alexandru.code@gmail.com";
-const tableNames = Object.keys(tableColumns) as Array<keyof typeof tableColumns>;
-const legacyEventDeleteOrder = ["event_refunds", "event_payment_handovers", "event_attendance", "event_session_changes", "event_cash_settlements", "event_requests", "event_sessions", "events"] as const;
-const deleteOrder = ["payment_transfer_filters", "payment_preset_courses", "payment_course_allowances", "attendance", "practice_attendance", "student_payments", "student_courses", "course_schedule", "classes", "payment_presets", "practice_parties", "courses", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
-const insertOrder = ["admin_profiles", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance"] as const;
-type DatabaseValue = string | number | null;
 type DevelopmentBindings = Partial<LocalDevelopmentBindings>;
 
 function canCopy(request: Request) {
   const hostname = new URL(request.url).hostname;
   const local = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
   return (local || hostname === "dev-free-spirit-dance.alexandru-croitoriu.dev") && request.headers.get("cf-access-authenticated-user-email")?.trim().toLowerCase() === ownerEmail && request.headers.get("Origin") === new URL(request.url).origin;
-}
-
-function sqlValue(value: DatabaseValue) {
-  if (value === null) return "NULL";
-  if (typeof value === "number") return String(value);
-  return `'${value.replaceAll("'", "''")}'`;
-}
-
-function insertStatements(name: keyof typeof tableColumns, rows: Record<string, DatabaseValue>[]) {
-  if (!rows.length) return [];
-  const columns = tableColumns[name];
-  const prefix = `INSERT INTO "${name}" (${columns.map((column) => `"${column}"`).join(", ")}) VALUES `;
-  const statements: string[] = [];
-  // Inserting profiles triggers creation of CASH. Accept that exact composite-key
-  // duplicate while retaining validation for every other table and constraint.
-  const suffix = name === "administrator_payment_methods" ? " ON CONFLICT(email, method) DO NOTHING;" : ";";
-  let values: string[] = [];
-  let length = prefix.length + 1;
-  for (const row of rows) {
-    const value = `(${columns.map((column) => sqlValue(row[column])).join(", ")})`;
-    if (values.length && length + value.length + 1 > 90_000) {
-      statements.push(prefix + values.join(", ") + suffix);
-      values = [];
-      length = prefix.length + 1;
-    }
-    values.push(value);
-    length += value.length + 1;
-  }
-  statements.push(prefix + values.join(", ") + suffix);
-  return statements;
-}
-
-async function readTables(database: D1Database) {
-  const data = await database.batch(tableNames.map((name) => database.prepare(`SELECT ${tableColumns[name].map((column) => `"${column}"`).join(", ")} FROM "${name}"`)));
-  return tableNames.map((name, index) => ({ name, columns: [...tableColumns[name]], rows: data[index].results as Record<string, DatabaseValue>[] })) satisfies ExportTable[];
-}
-
-function imageKey(path: unknown) {
-  const prefix = "/api/student-images/";
-  if (typeof path !== "string" || !path.startsWith(prefix)) return null;
-  try {
-    const key = decodeURIComponent(path.slice(prefix.length));
-    return /^(student-|admin-)/.test(key) ? key : null;
-  } catch { return null; }
-}
-
-async function copyImages(source: R2Bucket, target: R2Bucket, tables: ExportTable[]) {
-  const table = new Map(tables.map((item) => [item.name, item.rows]));
-  const keys = new Set([
-    ...(table.get("students") ?? []).map((row) => imageKey(row.picture)),
-    ...(table.get("admin_profiles") ?? []).map((row) => imageKey(row.picture)),
-    ...(table.get("qr_codes") ?? []).map((row) => typeof row.image_path === "string" && row.image_path.startsWith("qr-") ? row.image_path : null),
-  ].filter((key): key is string => key !== null));
-  let copied = 0;
-  let missing = 0;
-  for (const key of keys) {
-    const image = await source.get(key);
-    if (!image) { missing++; continue; }
-    await target.put(key, image.body, { httpMetadata: image.httpMetadata });
-    copied++;
-  }
-  return { copied, missing };
-}
-
-async function clearImages(bucket: R2Bucket) {
-  for (;;) {
-    const page = await bucket.list({ limit: 100 });
-    if (!page.objects.length) return;
-    await bucket.delete(page.objects.map((object) => object.key));
-  }
-}
-
-async function replaceDatabase(target: D1Database, tables: ExportTable[]) {
-  const existing = await target.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${legacyEventDeleteOrder.map(() => "?").join(", ")})`).bind(...legacyEventDeleteOrder).all<{ name: string }>();
-  const legacyTables = new Set(existing.results.map((row) => row.name));
-  const rows = new Map(tables.map((table) => [table.name, table.rows as Record<string, DatabaseValue>[]]));
-  const statements = [
-    ...legacyEventDeleteOrder.filter((name) => legacyTables.has(name)).map((name) => `DELETE FROM "${name}"`),
-    "UPDATE practice_attendance SET donation_amount_minor = NULL, donation_paid_on = NULL, donation_notes = '', donation_recorded_by = NULL, donation_recorded_at = NULL, donation_received_method = '', donation_given_to_school = 0 WHERE donation_amount_minor IS NOT NULL",
-    ...deleteOrder.map((name) => `DELETE FROM "${name}"`),
-    ...insertOrder.flatMap((name) => insertStatements(name, rows.get(name) ?? []).map((statement) => statement.slice(0, -1))),
-  ];
-  await target.batch(statements.map((statement) => target.prepare(statement)));
 }
 
 export async function POST(request: Request) {
@@ -116,11 +28,12 @@ export async function POST(request: Request) {
     if (!reserved) return Response.json({ error: "All eight local copy slots are in use." }, { status: 409 });
     const target = copyBindings(bindings, reserved)!;
     const tables = await readTables(bindings.PRODUCTION_DB);
+    const historicalAbsences = await readHistoricalAbsences(bindings.PRODUCTION_DB);
     // Retain a recoverable snapshot of the previous working records before replacement.
     const backupKey = `database-backups/${crypto.randomUUID()}.json`;
     await target.images.put(backupKey, JSON.stringify({ tables: await readTables(target.db) }), { httpMetadata: { contentType: "application/json" } });
     const images = await copyImages(bindings.PRODUCTION_IMAGES, target.images, tables);
-    await replaceDatabase(target.db, tables);
+    await replaceDatabase(target.db, tables, historicalAbsences);
     await registry.prepare("UPDATE local_database_copies SET ready=1 WHERE id=?").bind(reserved).run();
     return Response.json({ id: reserved, copies: await listCopies(registry), copied: tables.reduce((count, table) => count + table.rows.length, 0), imagesCopied: images.copied, imagesMissing: images.missing, backupKey }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
@@ -153,10 +66,11 @@ export async function PUT(request: Request) {
   if (!source || !copies.some((copy) => copy.id === sourceId)) return Response.json({ error: "Choose a saved production copy." }, { status: 400 });
   try {
     const tables = await readTables(source.db);
+    const historicalAbsences = await readHistoricalAbsences(source.db);
     // Catalog is a local-only store. This never reads from or writes to remote production.
     await clearImages(bindings.CATALOG_IMAGES);
     const images = await copyImages(source.images, bindings.CATALOG_IMAGES, tables);
-    await replaceDatabase(bindings.CATALOG_DB, tables);
+    await replaceDatabase(bindings.CATALOG_DB, tables, historicalAbsences);
     return Response.json({ replaced: true, copied: tables.reduce((count, table) => count + table.rows.length, 0), imagesCopied: images.copied, imagesMissing: images.missing }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Could not replace Catalog from local production copy", error);

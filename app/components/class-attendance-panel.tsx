@@ -8,6 +8,7 @@ import {
 } from "../lib/class-attendance";
 import { formatLogDate, formatMoney } from "../lib/student-activity";
 import StudentPanel, { type Student } from "./student-panel";
+import { confirmAction } from "../lib/confirmation";
 const button =
   "rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold disabled:opacity-50";
 async function readResponse<T>(response: Response): Promise<T> {
@@ -90,11 +91,7 @@ export default function ClassAttendancePanel({
   }, [query, retry]);
   function close() {
     if (saving.current) return;
-    if (
-      changeCount > 0 &&
-      !window.confirm("Close without submitting the selected attendance?")
-    )
-      return;
+    if (changeCount > 0) { void confirmAction("Discard attendance changes?", "Close without submitting the selected attendance?", "Discard changes", true).then((confirmed) => { if (confirmed) onClose(); }); return; }
     onClose();
   }
   function toggle(id: number) {
@@ -107,7 +104,7 @@ export default function ClassAttendancePanel({
   }
   async function changeCancellation() {
     if (saving.current || !data) return;
-    if (!data.cancelled && !window.confirm("Cancel this class occurrence?")) return;
+    if (!data.cancelled && !await confirmAction("Cancel class occurrence?", "Cancel this class occurrence?", "Cancel class", true)) return;
     saving.current = true; setBusy(true); setError("");
     try {
       await readResponse(await fetch("/api/class-attendance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...slot, cancelled: !data.cancelled }) }));

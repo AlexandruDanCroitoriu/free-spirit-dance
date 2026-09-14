@@ -9,6 +9,8 @@ const code = stripTypeScriptTypes(readFileSync(new URL('../worker.ts', import.me
   .replace('import vinextHandler from "vinext/server/fetch-handler";', '')
   .replace('import { withStorage } from "./app/lib/storage";', '')
   .replace('import { copyBindings, listCopies } from "./app/lib/local-copies";', stripTypeScriptTypes(readFileSync('app/lib/local-copies.ts', 'utf8')).replaceAll('export ', ''))
+  .replace(/^import \{ backupManagement.*$/m, 'const backupManagement = async () => null; const backupsConfigured = () => false; const launchJob = async () => {}; const productionRequest = async (request, env, run) => run(request, env);')
+  .replace(/^import \{ localBackupManagement.*$/m, 'const localBackupManagement = async () => null; const localBackupRequest = async (request, env, selected, run) => run(env);').replace(/^export \{ (ProductionBackup|LocalBackup).*$/gm, '')
   .replace('export default', 'exports.default =');
 const exports = {};
 vm.runInNewContext(code, { exports, Request, Response, URL, console,

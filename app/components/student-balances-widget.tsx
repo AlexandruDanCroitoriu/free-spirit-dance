@@ -5,7 +5,7 @@ import StudentPanel from "./student-panel";
 
 const filterStorageKey = "free-spirit-dance.student-balances.filters.v1";
 
-type StudentBalance = { id: number; firstName: string; lastName: string; picture: string | null; balances: { courseId: number; courseName: string; remainingAllowance: number; excessAttendance: number }[] };
+type StudentBalance = { id: number; active: boolean; firstName: string; lastName: string; picture: string | null; balances: { courseId: number; courseName: string; remainingAllowance: number; excessAttendance: number }[] };
 
 export default function StudentBalancesWidget() {
   const courseDropdown = useRef<HTMLDivElement>(null);

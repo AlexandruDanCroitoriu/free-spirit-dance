@@ -17,8 +17,8 @@
     },
     {
       "binding": "PRODUCTION_DB",
-      "database_name": "FS-Dance",
-      "database_id": "5c15ead5-18f8-49ec-a634-d89d2fd00daa",
+      "database_name": "FS-Dance-Db",
+      "database_id": "6de090fa-ec37-493a-9818-a142f35552ae",
       "remote": true
     },
     {
@@ -77,7 +77,7 @@
     },
     {
       "binding": "PRODUCTION_IMAGES",
-      "bucket_name": "free-spirit-dance-student-images",
+      "bucket_name": "fs-dance-media",
       "remote": true
     },
     {
@@ -113,6 +113,11 @@
     {
       "binding": "COPY8_IMAGES",
       "bucket_name": "free-spirit-dance-copy-8-images",
+      "remote": false
+    },
+    {
+      "binding": "LOCAL_BACKUP_BUCKET",
+      "bucket_name": "free-spirit-dance-local-backups",
       "remote": false
     }
   ]

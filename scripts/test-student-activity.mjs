@@ -105,7 +105,7 @@ assert.throws(()=>sqlite.exec('DELETE FROM courses WHERE id=1'),/FOREIGN KEY/);
 assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 console.log('PASS: unpaid attendance, per-course balances, payment allocations, exact money parsing, validation, atomic rollback, retries, log snapshots, pagination and preserved history.');
 
-const workerSource = readFileSync('worker.ts','utf8').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();')
+const workerSource = readFileSync('worker.ts','utf8').replace(/^import \{ backupManagement.*$/m, 'const backupManagement = async () => null; const backupsConfigured = () => false; const launchJob = async () => {}; const productionRequest = async (request, env, run) => run(request, env);').replace(/^import \{ localBackupManagement.*$/m, 'const localBackupManagement = async () => null; const localBackupRequest = async (request, env, selected, run) => run(env);').replace(/^export \{ (ProductionBackup|LocalBackup).*$/gm, '').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();')
   .replace('import { copyBindings, listCopies } from "./app/lib/local-copies";', stripTypeScriptTypes(readFileSync('app/lib/local-copies.ts', 'utf8')).replaceAll('export ', '')).replace('import vinextHandler from "vinext/server/fetch-handler";', 'const vinextHandler = { fetch: () => new Response("allowed") };');
 const {default:worker} = await import(moduleUrl(workerSource));
 const workerEnv = { DB:db, PUBLIC_QR_BASE_URL:'https://go.example.test' };

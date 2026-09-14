@@ -9,7 +9,9 @@
 	"compatibility_flags": ["nodejs_als"],
 	"main": "worker.ts",
 	"vars": {
-		"PUBLIC_QR_BASE_URL": "https://go.alexandru-croitoriu.dev"
+		"PUBLIC_QR_BASE_URL": "https://go.alexandru-croitoriu.dev",
+		"BACKUP_ACCOUNT_ID": "464b96dc41a8bb50dc0ec48941a172e5",
+		"BACKUP_PRODUCTION_DATABASE_ID": "6de090fa-ec37-493a-9818-a142f35552ae"
 	},
 	"assets": {
 		"directory": "dist/client",
@@ -25,15 +27,20 @@
 	"d1_databases": [
 		{
 			"binding": "DB",
-			"database_name": "FS-Dance",
-			"database_id": "5c15ead5-18f8-49ec-a634-d89d2fd00daa",
+			"database_name": "FS-Dance-Db",
+			"database_id": "6de090fa-ec37-493a-9818-a142f35552ae",
 			"remote": true
 		}
 	],
+	"durable_objects": { "bindings": [{ "name": "PRODUCTION_BACKUPS", "class_name": "ProductionBackupCoordinator" }, { "name": "LOCAL_BACKUPS", "class_name": "LocalBackupCoordinator" }] },
+	"migrations": [{ "tag": "production-backups-v1", "new_sqlite_classes": ["ProductionBackupCoordinator"] }, { "tag": "local-backups-v1", "new_sqlite_classes": ["LocalBackupCoordinator"] }],
+	"workflows": [{ "binding": "BACKUP_WORKFLOW", "name": "fsd-production-backups", "class_name": "ProductionBackupWorkflow" }],
+	"triggers": { "crons": ["* * * * *"] },
 	"r2_buckets": [
+		{ "binding": "BACKUP_BUCKET", "bucket_name": "fs-dance-backups" },
 		{
 			"binding": "STUDENT_IMAGES",
-			"bucket_name": "free-spirit-dance-student-images",
+			"bucket_name": "fs-dance-media",
 			"remote": true
 		}
 	],

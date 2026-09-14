@@ -169,8 +169,8 @@ function EditableFields({ filter, collectors, onSaved }: { filter: Filter; colle
     <td className="py-1 pl-2 pr-8">
       <details onClick={(event) => event.stopPropagation()} ref={collectorMenu} className="relative min-w-36">
         <summary aria-label={`Collected by: ${selectionLabel}`} title={selectionLabel} className={`${input} flex cursor-pointer list-none items-center gap-1.5`}>
-          {selected.length === 1 ? <Avatar collector={selected[0]} /> : <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-lime-100 text-[10px]">{selected.length || "?"}</span>}
-          <span>{selected.length > 1 ? `${selected.length} administrators` : selectionLabel}</span><span className="ml-auto">⌄</span>
+          {selected.length ? <span className="flex min-w-0 items-center gap-1.5">{selected.map((collector) => <span className="flex min-w-0 items-center gap-1" key={collector.email}><Avatar collector={collector} /><span className="truncate">{collector.name || collector.email}</span></span>)}</span> : <><Avatar /><span>Select administrators</span></>}
+          <span className="ml-auto">⌄</span>
         </summary>
         <div className="absolute left-0 top-full z-40 mt-1 max-h-60 min-w-full w-max overflow-y-auto rounded-md border border-stone-200 bg-white p-1 shadow-xl">
           {options.map((collector) => <label key={collector.email} className="flex cursor-pointer items-center gap-2 rounded p-1.5 text-xs hover:bg-lime-50">
@@ -207,29 +207,48 @@ function PaymentTreeRow({ payment, giving, onOpen, onGive }: { payment: Payment;
 }
 
 const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const weekdayNames = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
-function namedDate(value: string) {
-  if (!value) return "";
+function dateFromIso(value: string) {
   const [year, month, day] = value.split("-").map(Number);
-  return Number.isInteger(year) && month >= 1 && month <= 12 && day >= 1 ? `${day} ${monthNames[month - 1]} ${year}` : value;
+  return Number.isInteger(year) && month >= 1 && month <= 12 && day >= 1 ? new Date(year, month - 1, day) : null;
 }
 
-function isoDate(value: string) {
-  const match = value.trim().match(/^(\d{1,2})\s+([a-z]+)\s+(\d{4})$/i);
-  if (!match) return value.trim() === "" ? "" : null;
-  const day = Number(match[1]), month = monthNames.findIndex((name) => name.toLowerCase() === match[2].toLowerCase()) + 1, year = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (!month || date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+function isoFromDate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function dateLabel(value: string) {
+  const date = dateFromIso(value);
+  return date ? `${date.getDate()} ${monthNames[date.getMonth()]} ${date.getFullYear()}` : "Select date";
 }
 
 function DateNameInput({ value, disabled, ariaLabel, onCommit }: { value: string; disabled: boolean; ariaLabel: string; onCommit: (value: string) => void }) {
-  const [text, setText] = useState(namedDate(value));
-  useEffect(() => setText(namedDate(value)), [value]);
-  function commit() {
-    const parsed = isoDate(text);
-    if (parsed === null) { setText(namedDate(value)); return; }
-    if (parsed !== value) onCommit(parsed);
+  const root = useRef<HTMLDivElement>(null);
+  const selectedDate = dateFromIso(value);
+  const [open, setOpen] = useState(false);
+  const [visibleMonth, setVisibleMonth] = useState(() => selectedDate ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  useEffect(() => { if (selectedDate) setVisibleMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)); }, [value]);
+  useEffect(() => {
+    const close = (event: PointerEvent) => { if (root.current && !root.current.contains(event.target as Node)) setOpen(false); };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, []);
+  const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
+  const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate();
+  const leadingDays = (firstDay.getDay() + 6) % 7;
+  const days = Array.from({ length: leadingDays + daysInMonth }, (_, index) => index < leadingDays ? null : index - leadingDays + 1);
+  function select(day: number) {
+    const date = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day);
+    onCommit(isoFromDate(date)); setOpen(false);
   }
-  return <input aria-label={ariaLabel} title="Use a date such as 16 July 2026" className={input} style={{ width: "8rem" }} value={text} disabled={disabled} placeholder="16 July 2026" onChange={(event) => setText(event.target.value)} onBlur={commit} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} />;
+  return <div ref={root} className="relative" style={{ width: "9rem" }}>
+    <button type="button" aria-label={ariaLabel} aria-haspopup="dialog" aria-expanded={open} disabled={disabled} className={`${input} flex items-center justify-between gap-1 text-left`} onClick={() => setOpen((current) => !current)}><span className="truncate">{dateLabel(value)}</span><span aria-hidden="true">▾</span></button>
+    {open && <div role="dialog" aria-label={`${ariaLabel} calendar`} className="absolute left-0 top-full z-50 mt-1 w-60 rounded-md border border-stone-200 bg-white p-2 shadow-xl" onKeyDown={(event) => { if (event.key === "Escape") setOpen(false); }}>
+      <div className="mb-2 flex items-center justify-between"><button type="button" aria-label="Previous month" className="rounded px-2 py-1 hover:bg-lime-50" onClick={() => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}>‹</button><span className="font-semibold text-slate-800">{monthNames[visibleMonth.getMonth()]} {visibleMonth.getFullYear()}</span><button type="button" aria-label="Next month" className="rounded px-2 py-1 hover:bg-lime-50" onClick={() => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}>›</button></div>
+      <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-semibold text-slate-500">{weekdayNames.map((day) => <span key={day} className="py-1">{day}</span>)}</div>
+      <div className="grid grid-cols-7 gap-0.5">{days.map((day, index) => day === null ? <span key={`empty-${index}`} /> : <button type="button" key={day} aria-label={`${day} ${monthNames[visibleMonth.getMonth()]} ${visibleMonth.getFullYear()}`} aria-pressed={selectedDate?.getFullYear() === visibleMonth.getFullYear() && selectedDate.getMonth() === visibleMonth.getMonth() && selectedDate.getDate() === day} className={`h-7 rounded text-xs hover:bg-lime-100 focus:outline-none focus:ring-2 focus:ring-lime-600 ${selectedDate?.getFullYear() === visibleMonth.getFullYear() && selectedDate.getMonth() === visibleMonth.getMonth() && selectedDate.getDate() === day ? "bg-lime-600 font-bold text-white hover:bg-lime-700" : "text-slate-700"}`} onClick={() => select(day)}>{day}</button>)}</div>
+      {value && <button type="button" className="mt-2 w-full rounded border border-stone-300 px-2 py-1 text-xs text-slate-700 hover:bg-stone-50" onClick={() => { onCommit(""); setOpen(false); }}>Clear date</button>}
+    </div>}
+  </div>;
 }

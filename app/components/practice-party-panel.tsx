@@ -4,6 +4,7 @@ import { requestJson } from '../lib/http';
 import { eventButton as button, parseSession, sessionEnd, type EventDetail, type PracticeSession, type EventStudent } from '../lib/practice-parties';
 import { formatLogDate, formatMoney } from '../lib/student-activity';
 import { SessionFields, useEventSave, type SessionDraft } from './practice-forms';
+import { confirmAction } from '../lib/confirmation';
 
 export default function PracticePartyPanel({ id, onClose, initialTab }: { id: number; onClose: () => void; initialTab?: 'form' | 'attendance' | 'donations' }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -92,8 +93,8 @@ function EventSchedule({ data, saved, onDeleted, setParentBusy }: { data: EventD
     }, 500);
     return () => window.clearTimeout(timeout);
   }, [schedule, data.party.revision]);
-  function remove() {
-    if (!window.confirm('Delete this practice party permanently? This cannot be undone.')) return;
+  async function remove() {
+    if (!await confirmAction('Delete practice party?', 'Delete this practice party permanently? This cannot be undone.', 'Delete practice party', true)) return;
     void deletion.save({ action: 'delete_session', revision: data.party.revision });
   }
   return <section aria-label="Correct date and time" className="space-y-4 rounded-xl border-2 border-lime-500 bg-white p-5 shadow-sm"><h2 className="text-xl">Correct date / time</h2><p className="font-sans text-sm text-slate-500">Changes save automatically.</p><fieldset disabled={mutation.busy || mutation.uncertain || deletion.busy} className="space-y-4 font-sans text-sm"><SessionFields value={schedule} onChange={setSchedule} /></fieldset>{mutation.error && <p role="alert" className="text-red-700">{mutation.error}</p>}{deletion.error && <p role="alert" className="text-red-700">{deletion.error}</p>}<div className="border-t border-stone-200 pt-4"><h3 className="font-sans text-sm font-semibold text-slate-800">Delete practice party</h3>{data.party.attendanceCount ? <p className="mt-1 font-sans text-sm text-slate-500">Remove all attendance before this practice party can be deleted.</p> : <><p className="mt-1 font-sans text-sm text-slate-500">This permanently removes the practice party.</p><button type="button" className="mt-3 rounded-lg border border-red-300 bg-white px-3 py-2 font-sans text-sm text-red-700 hover:border-red-600 disabled:opacity-50" disabled={mutation.busy || mutation.uncertain || deletion.busy || deletion.uncertain} onClick={remove}>Delete practice party</button></>}</div></section>;

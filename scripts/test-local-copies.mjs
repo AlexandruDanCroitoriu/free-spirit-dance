@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 const moduleUrl = source => 'data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(source)).toString('base64');
 const helper = moduleUrl(readFileSync('app/lib/local-copies.ts', 'utf8'));
 const exporter = moduleUrl(readFileSync('app/api/administrators/export/route.ts', 'utf8').replace('import { env } from "../../../lib/storage";', 'const env = globalThis.copyTestEnv;'));
+const transfer = moduleUrl(readFileSync('app/lib/local-database-transfer.ts', 'utf8').replace('"../api/administrators/export/route"', JSON.stringify(exporter)));
 function database() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys=ON');
@@ -24,11 +25,12 @@ const production = database(), first = database(), second = database(), catalog 
 const productionImages = bucket(), firstImages = bucket(), secondImages = bucket(), catalogImages = bucket();
 production.sqlite.exec("INSERT INTO students (first_name,last_name,email,picture) VALUES ('Source','Student','','/api/student-images/student-test')");
 production.sqlite.exec("INSERT INTO admin_profiles (email,name) VALUES ('collector@example.test','Collector'); INSERT INTO administrator_payment_methods (email,method) VALUES ('collector@example.test','Transfer')");
-production.sqlite.exec("INSERT INTO admin_profiles (email,name) VALUES ('owner@example.test','Owner'); INSERT INTO payment_transfer_filters (administrator_email,collector_email,from_date,to_date,payment_kind,payment_types,sort_order,created_at) VALUES ('owner@example.test','collector@example.test','2026-09-01','2026-09-30','course','course',1,'2026-09-01T00:00:00.000Z')");
+production.sqlite.exec("INSERT INTO admin_profiles (email,name) VALUES ('owner@example.test','Owner'); INSERT INTO payment_transfer_filters (administrator_email,collector_email,collector_emails,from_date,to_date,payment_kind,payment_types,sort_order,created_at) VALUES ('owner@example.test','collector@example.test','[\"collector@example.test\"]','2026-09-01','2026-09-30','course','course',1,'2026-09-01T00:00:00.000Z')");
+production.sqlite.exec("CREATE TABLE history_absences (student_id TEXT, course_id TEXT, class_date TEXT, start_time TEXT); INSERT INTO history_absences VALUES ('1','1','2026-09-02','19:00')");
 await productionImages.put('student-test', 'original-image');
 globalThis.copyTestEnv = { WORKING_DB: first, WORKING_IMAGES: firstImages, COPY2_DB: second, COPY2_IMAGES: secondImages, CATALOG_DB: catalog, CATALOG_IMAGES: catalogImages, PRODUCTION_DB: production, PRODUCTION_IMAGES: productionImages };
 // Reimport after environment initialization: each isolated test module captures its bindings.
-const source = readFileSync('app/api/development-copy-production/route.ts', 'utf8').replace('import { env } from "../../lib/storage";', 'const env = globalThis.copyTestEnv;').replace('"../../lib/local-copies"', JSON.stringify(helper)).replace('"../administrators/export/route"', JSON.stringify(exporter));
+const source = readFileSync('app/api/development-copy-production/route.ts', 'utf8').replace('import { env } from "../../lib/storage";', 'const env = globalThis.copyTestEnv;').replace('"../../lib/local-copies"', JSON.stringify(helper)).replace('"../administrators/export/route"', JSON.stringify(exporter)).replace('"../../lib/local-database-transfer"', JSON.stringify(transfer));
 const api = await import(moduleUrl(source + '\n// initialized'));
 const origin = 'https://dev-free-spirit-dance.alexandru-croitoriu.dev';
 const request = (method = 'POST', body, email = 'croitoriu.alexandru.code@gmail.com', requestOrigin = origin) => new Request(origin + '/api/development-copy-production', { method, headers: { Origin: requestOrigin, 'cf-access-authenticated-user-email': email }, ...(body ? { body: JSON.stringify(body) } : {}) });
@@ -36,7 +38,8 @@ assert.equal((await api.POST(request('POST', null, 'other@example.test'))).statu
 assert.equal((await api.POST(request('POST', null, undefined, 'https://bad.example'))).status, 403);
 const one = await api.POST(request()); assert.equal(one.status, 200); assert.equal((await one.json()).id, 'working');
 assert.deepEqual(first.sqlite.prepare('SELECT email,method FROM administrator_payment_methods ORDER BY email,method').all(), production.sqlite.prepare('SELECT email,method FROM administrator_payment_methods ORDER BY email,method').all());
-assert.deepEqual(first.sqlite.prepare('SELECT administrator_email,collector_email,from_date,to_date,payment_types FROM payment_transfer_filters').all(), production.sqlite.prepare('SELECT administrator_email,collector_email,from_date,to_date,payment_types FROM payment_transfer_filters').all());
+assert.deepEqual(first.sqlite.prepare('SELECT administrator_email,collector_email,collector_emails,from_date,to_date,payment_types FROM payment_transfer_filters').all(), production.sqlite.prepare('SELECT administrator_email,collector_email,collector_emails,from_date,to_date,payment_types FROM payment_transfer_filters').all());
+assert.deepEqual(first.sqlite.prepare('SELECT student_id,course_id,class_date,start_time FROM history_absences').all(), production.sqlite.prepare('SELECT student_id,course_id,class_date,start_time FROM history_absences').all());
 first.sqlite.exec("UPDATE students SET first_name='Edited locally'");
 await firstImages.put('student-test', 'local-image');
 const two = await api.POST(request()); assert.equal(two.status, 200); assert.equal((await two.json()).id, 'copy2');
@@ -48,7 +51,8 @@ assert.equal(secondImages.items.get('student-test'), 'original-image');
 const catalogCopy = await api.PUT(request('PUT', { source: 'working' })); assert.equal(catalogCopy.status, 200);
 assert.equal(catalog.sqlite.prepare('SELECT first_name FROM students').get().first_name, 'Edited locally');
 assert.equal(catalogImages.items.get('student-test'), 'local-image');
-assert.deepEqual(catalog.sqlite.prepare('SELECT administrator_email,collector_email,from_date,to_date,payment_types FROM payment_transfer_filters').all(), first.sqlite.prepare('SELECT administrator_email,collector_email,from_date,to_date,payment_types FROM payment_transfer_filters').all());
+assert.deepEqual(catalog.sqlite.prepare('SELECT administrator_email,collector_email,collector_emails,from_date,to_date,payment_types FROM payment_transfer_filters').all(), first.sqlite.prepare('SELECT administrator_email,collector_email,collector_emails,from_date,to_date,payment_types FROM payment_transfer_filters').all());
+assert.deepEqual(catalog.sqlite.prepare('SELECT student_id,course_id,class_date,start_time FROM history_absences').all(), first.sqlite.prepare('SELECT student_id,course_id,class_date,start_time FROM history_absences').all());
 assert.equal((await api.PATCH(request('PATCH', { id: 'copy2', name: 'September review' }))).status, 200);
 assert.equal((await api.PATCH(request('PATCH', { id: 'copy2', name: ' ' }))).status, 400);
 assert.equal(first.sqlite.prepare("SELECT name FROM local_database_copies WHERE id='copy2'").get().name, 'September review');
@@ -65,6 +69,7 @@ assert.equal(production.sqlite.prepare('SELECT first_name FROM students').get().
 assert.equal(second.sqlite.prepare('SELECT first_name FROM students').get().first_name, 'Source');
 assert.equal(productionImages.items.get('student-test'), 'local-image');
 assert.deepEqual(production.sqlite.prepare('SELECT email,method FROM administrator_payment_methods ORDER BY email,method').all(), first.sqlite.prepare('SELECT email,method FROM administrator_payment_methods ORDER BY email,method').all());
+assert.deepEqual(production.sqlite.prepare('SELECT administrator_email,collector_email,collector_emails,from_date,to_date,payment_types FROM payment_transfer_filters').all(), first.sqlite.prepare('SELECT administrator_email,collector_email,collector_emails,from_date,to_date,payment_types FROM payment_transfer_filters').all());
 console.log('PASS: explicit upload uses the selected copy images and targets production only.');
 assert.equal((await api.DELETE(request('DELETE', { id: 'catalog' }))).status, 400);
 assert.equal((await api.DELETE(request('DELETE', { id: 'working' }, 'other@example.test'))).status, 403);
