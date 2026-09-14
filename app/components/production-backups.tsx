@@ -1,9 +1,7 @@
 "use client";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import ConfirmationDialog from "./confirmation-dialog";
 import { romanianParts, type Backup, type Control } from "../lib/production-backups/model";
-
-import { connectProductionBackups, type BackupTransport } from "../lib/production-backups/bridge";
 
 type Status = Control & { available: boolean; reason?: string; backups: Backup[]; requests: number };
 const defaultEndpoint = "/api/administrators/production-backups";
@@ -12,26 +10,12 @@ const date = (value: string) => new Intl.DateTimeFormat("en-GB", { timeZone: "Eu
 
 export default function ProductionBackups() {
   const [development, setDevelopment] = useState<boolean | null>(null);
-  const [remote, setRemote] = useState<ReturnType<typeof connectProductionBackups> | null>(null);
-  const [connectionError, setConnectionError] = useState("");
-  const connection = useRef<ReturnType<typeof connectProductionBackups> | null>(null);
-  useEffect(() => { void fetch("/api/development-storage").then(r => r.json() as Promise<{ available?: boolean }>).then(d => setDevelopment(Boolean(d.available))).catch(() => setDevelopment(false)); return () => connection.current?.close(); }, []);
+  useEffect(() => { void fetch("/api/development-storage").then(r => r.json() as Promise<{ available?: boolean }>).then(d => setDevelopment(Boolean(d.available))).catch(() => setDevelopment(false)); }, []);
   if (development === null) return null;
   if (!development) return <BackupCard />;
-  return <>
-    <BackupCard transport={remote?.request} connected={Boolean(remote)} connectionControl={<>
-      <p className="mt-3 font-semibold text-sky-950">Connected controls use the same Cloudflare backups and schedule as the production website. Switching affects every administrator.</p>
-      {connectionError && <p role="alert" className="mt-2 text-red-800">{connectionError}</p>}
-      <button className={`${button} mt-3`} onClick={() => {
-        if (remote) { remote.close(); connection.current = null; setRemote(null); return; }
-        try { const value = connectProductionBackups(); connection.current = value; setRemote(value); setConnectionError(""); } catch(e) { setConnectionError(e instanceof Error ? e.message : "Connection failed."); }
-      }}>{remote ? "Disconnect production" : "Connect to production"}</button>
-      {remote && <p className="mt-2 text-xs">Sign in and click “Allow this connection” in the production window. Keep it open.</p>}
-    </>} />
-
-  </>;
+  return <BackupCard endpoint="/api/development-production-backups" connectionControl={<p className="mt-3 font-semibold text-sky-950">These controls use the same Cloudflare backups and schedule as the production website. Switching affects every administrator.</p>} />;
 }
-function BackupCard({ local = false, endpoint = defaultEndpoint, transport, connected = true, connectionControl }: { local?: boolean; endpoint?: string; transport?: BackupTransport; connected?: boolean; connectionControl?: ReactNode }) {
+function BackupCard({ local = false, endpoint = defaultEndpoint, connected = true, connectionControl }: { local?: boolean; endpoint?: string; connected?: boolean; connectionControl?: ReactNode }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
@@ -42,11 +26,11 @@ function BackupCard({ local = false, endpoint = defaultEndpoint, transport, conn
   const [confirmation, setConfirmation] = useState<{ action: "activate" | "return" | "delete"; backup?: Backup } | null>(null);
   const [renaming, setRenaming] = useState<Backup | null>(null);
   const load = useCallback(async () => {
-    const response = transport ? await transport() : await fetch(endpoint, { cache: "no-store" });
+    const response = await fetch(endpoint, { cache: "no-store" });
     const data = await response.json() as Status & { error?: string };
     if (!response.ok) throw new Error(data.error ?? "Could not load backups.");
     setStatus(data); setLoadError("");
-  }, [endpoint, transport]);
+  }, [endpoint]);
   useEffect(() => {
     if (!connected) { setStatus(null); setLoadError(""); return; }
     let stopped = false;
@@ -59,7 +43,7 @@ function BackupCard({ local = false, endpoint = defaultEndpoint, transport, conn
     setBusy(true); setError(""); setNotice("");
     try {
       const payload = { ...input, generation: status?.generation };
-      const response = transport ? await transport(payload) : await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error ?? "Backup operation failed.");
       setNotice(input.action === "schedule" ? "Backup schedule saved." : input.action === "rename" ? "Backup renamed." : "Operation started. Progress will appear below.");

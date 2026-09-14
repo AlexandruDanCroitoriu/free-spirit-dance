@@ -54,10 +54,37 @@ persisted due times; it does not create a backup every minute.
 
 Restart `npm run dev` after updating the code/configuration. The Administrators
 page shows the same **Production backups** card as the live site. On localhost,
-click **Connect to production** inside that card to authenticate. Its list,
-actions, and schedule operate on Cloudflare. The local backup testing card has
-been removed from the app. Existing local snapshots and backend test support are
-preserved.
+the local Worker calls the deployed card through a Cloudflare Access service
+token; no production Google sign-in window is needed. Its list, actions, and
+schedule operate on Cloudflare. The local backup testing card has been removed
+from the app.
+
+Configure it once:
+
+1. In **Cloudflare Zero Trust → Access controls → Service tokens**, create a
+   token named `free-spirit-dance-local-backups`. In the Access application that
+   protects `free-spirit-dance.alexandru-croitoriu.dev`, add a policy with action
+   **Service Auth** that includes this token. Keep the client ID and client
+   secret private.
+2. Generate a separate long random value and store it as a deployed Worker
+   secret. This application secret limits the service token to the backup route:
+
+   ```sh
+   npx wrangler secret put LOCAL_BACKUP_BRIDGE_SECRET --name free-spirit-dance
+   ```
+
+3. Put the service-token pair and the exact same bridge secret in the ignored
+   local `.env` file, then restart the dev server:
+
+   ```dotenv
+   CLOUDFLARE_ACCESS_CLIENT_ID=...
+   CLOUDFLARE_ACCESS_CLIENT_SECRET=...
+   LOCAL_PRODUCTION_BACKUP_BRIDGE_SECRET=...
+   ```
+
+   The browser never receives these values. Do not put `BACKUP_API_TOKEN` in
+   `.env`; it stays only in the deployed Worker and is used there to create and
+   restore Cloudflare D1 backups.
 
 Storage behavior:
 
@@ -69,20 +96,10 @@ Storage behavior:
   be overwritten by the ordinary local-copy manager. The original Catalog is
   always the local snapshot source, even when a test copy is active. Images that
   exist only in production are not fetched by local backup jobs.
-- **Live production backups** connects to
-  `https://free-spirit-dance.alexandru-croitoriu.dev` in a separate window. Sign in
-  with the main administrator's Google account and click **Allow this connection**.
-  Keep the window open; the local card sends requests through that authenticated
-  production window. Every activation affects the live app for everyone. No D1
-  token or Access service token is needed on the development computer.
-
-Deploy these changes to production before connecting the live card: the production
-Administrators page must contain the bridge receiver. If blocked, allow pop-ups
-for your development site. The supported development origins are
-`http://localhost:3000`, `http://127.0.0.1:3000`, `http://[::1]:3000`, and the named
-HTTPS development tunnel. Disconnect closes the production window and removes
-its message listener. The bridge checks exact origin, opener window, and a fresh
-connection nonce; production API owner and same-origin checks still apply.
+- **Live production backups** uses the deployed Worker and Cloudflare storage
+  directly. Local browser requests terminate at the local Worker, which adds the
+  private service-token and bridge credentials before forwarding only the backup
+  API. Every activation affects the live app for everyone.
 
 Local scheduling uses a local Durable Object alarm and runs only while the
 development server is running. After resuming development, due schedules are
@@ -148,5 +165,5 @@ export/import exercise; passing local tests alone does not verify that setup.
 
 `node scripts/test-local-backups.mjs` additionally verifies local Catalog/photo
 snapshots, history preservation, reserved copy slots, edits surviving reactivation,
-local deletion, stale writes, local alarms, and bridge origin/source/nonce checks.
-Production binding getters and network access throw in this local test.
+local deletion, stale writes, and local alarms. Production binding getters and
+network access throw in this local test.

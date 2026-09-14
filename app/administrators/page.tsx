@@ -1,6 +1,5 @@
 "use client";
 
-import ProductionBackupBridge from "../components/production-backup-bridge";
 import ProductionBackups from "../components/production-backups";
 import LocalDatabaseManager from "../components/local-database-manager";
 import { readJson } from "../lib/http";
@@ -15,9 +14,7 @@ type ExportTable = { name: string; columns: string[]; rows: Record<string, unkno
 const permissionFields = [["dashboard", "Dashboard"], ["students", "Students"], ["courses", "Courses"], ["practiceParties", "Practice Parties"], ["qrCodes", "QR Codes"]] as const;
 
 export default function AdministratorsPage() {
-  const [bridge, setBridge] = useState(false);
-  useEffect(() => { setBridge(new URL(window.location.href).searchParams.has("backupBridge")); }, []);
-  return bridge ? <ProductionBackupBridge /> : <AdministratorsContent />;
+  return <AdministratorsContent />;
 }
 function AdministratorsContent() {
   const [administrators, setAdministrators] = useState<Administrator[]>([]);

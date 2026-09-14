@@ -3,6 +3,56 @@ import { cloudApi, workingDatabase } from "./cloud";
 import type { Backup, Job } from "./model";
 
 type Transfer = { status?: string; success?: boolean; at_bookmark?: string; upload_url?: string; filename?: string; result?: { signed_url?: string }; error?: string };
+
+// D1 exports each table followed by its rows. Its import endpoint can enforce a
+// foreign key while it is still reading rows for a table whose referenced table
+// appears later in the dump. Recreate the normal SQLite dump order instead:
+// all tables, then all rows, then indexes/triggers/views.
+export function prepareSqlForD1Import(source: string) {
+  const statements: string[] = [];
+  let start = 0;
+  let quote = "";
+  let lineComment = false;
+  let blockComment = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    const next = source[index + 1];
+    if (lineComment) { if (character === "\n") lineComment = false; continue; }
+    if (blockComment) { if (character === "*" && next === "/") { blockComment = false; index += 1; } continue; }
+    if (quote) {
+      if (character === quote) {
+        if (next === quote && quote !== "]") { index += 1; continue; }
+        quote = "";
+      }
+      continue;
+    }
+    if (character === "-" && next === "-") { lineComment = true; index += 1; continue; }
+    if (character === "/" && next === "*") { blockComment = true; index += 1; continue; }
+    if (character === "'" || character === '"' || character === "`") { quote = character; continue; }
+    if (character === "[") { quote = "]"; continue; }
+    if (character === ";") {
+      const beforeSemicolon = source.slice(start, index);
+      // Trigger bodies contain ordinary statement semicolons. Their outer
+      // statement finishes only at END;.
+      if (/^\s*CREATE\s+TRIGGER\b/i.test(beforeSemicolon) && !/\bEND\s*$/i.test(beforeSemicolon)) continue;
+      const statement = `${beforeSemicolon};`.trim();
+      if (statement) statements.push(statement);
+      start = index + 1;
+    }
+  }
+  const last = source.slice(start).trim();
+  if (last) statements.push(last.endsWith(";") ? last : `${last};`);
+  const schema: string[] = [], data: string[] = [], finalization: string[] = [], leading: string[] = [];
+  for (const statement of statements) {
+    const sql = statement.replace(/^(?:\s|--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)+/, "").toUpperCase();
+    if (/^CREATE\s+(?:TEMP(?:ORARY)?\s+)?(?:VIRTUAL\s+)?TABLE\b/.test(sql)) schema.push(statement);
+    else if (/^(?:INSERT|UPDATE|DELETE|REPLACE)\b/.test(sql)) data.push(statement);
+    else if (/^CREATE\s+(?:UNIQUE\s+)?(?:INDEX|TRIGGER|VIEW)\b/.test(sql)) finalization.push(statement);
+    else leading.push(statement);
+  }
+  return [...leading, ...schema, ...data, ...finalization].join("\n");
+}
+
 export async function schemaFingerprint(db: D1Database) {
   const result = await db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE sql IS NOT NULL AND substr(name, 1, 4) != '_cf_' AND substr(name, 1, 7) != 'sqlite_' ORDER BY type, name").all();
   // SQLite exports may add identifier quotes and whitespace. Compare SQL
@@ -103,9 +153,15 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
           const upload = await step.do("upload SQL for import", config, async () => {
             const object = await bucket.get(`${prefix}database.sql`);
             if (!object || !/^[a-f0-9]{32}$/i.test(object.etag)) throw new Error("Snapshot SQL checksum is unavailable.");
-            const transfer = await cloudApi<Transfer>(this.env, `/${databaseId}/import`, { action: "init", etag: object.etag });
+            const sql = await object.text();
+            if (sql.length > 24 * 1024 * 1024) throw new Error("Snapshot SQL is too large to prepare for D1 import.");
+            const preparedKey = `temporary/${job.backupId}/database.import.sql`;
+            const prepared = await bucket.put(preparedKey, prepareSqlForD1Import(sql), { httpMetadata: { contentType: "application/sql" } });
+            const transfer = await cloudApi<Transfer>(this.env, `/${databaseId}/import`, { action: "init", etag: prepared.etag });
             if (transfer.upload_url) {
-              const result = await fetch(transfer.upload_url, { method: "PUT", body: object.body });
+              const preparedObject = await bucket.get(preparedKey);
+              if (!preparedObject) throw new Error("Prepared SQL is unavailable.");
+              const result = await fetch(transfer.upload_url, { method: "PUT", body: preparedObject.body });
               if (!result.ok) throw new Error("SQL upload failed.");
             }
             if (!transfer.filename) throw new Error("SQL import filename is missing.");
@@ -126,6 +182,7 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
             if (JSON.stringify(checks[0].results) !== '[{"quick_check":"ok"}]' || checks[1].results.length) throw new Error("Restored database integrity verification failed.");
             await coordinator.updateBackup(job.id, { workingReady: true, error: undefined });
           });
+          await step.do("remove prepared SQL", () => bucket.delete(`temporary/${job.backupId}/database.import.sql`));
         }
         await drain();
         await step.do("verify schema at switch", config, async () => {
@@ -143,7 +200,7 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
           const databases = await cloudApi<Array<{ uuid: string }>>(this.env, `?name=${encodeURIComponent(`fsd-backup-${backup.id}`)}`, undefined, "GET");
           if (databases.some(d => d.uuid === backup.databaseId)) await cloudApi(this.env, `/${backup.databaseId}`, undefined, "DELETE");
         });
-        for (const target of [prefix, workingPrefix]) {
+        for (const target of [prefix, workingPrefix, `temporary/${job.backupId}/`]) {
           for (let page = 0; ; page++) {
             const removed = await step.do(`delete ${target} page ${page}`, config, async () => {
               const objects = await bucket.list({ prefix: target, limit: 100 });

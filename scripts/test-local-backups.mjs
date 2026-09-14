@@ -10,13 +10,13 @@ const temp = await mkdtemp(join(tmpdir(),'fsd-local-backups-'));
 const previousFetch = globalThis.fetch;
 try {
   const output = join(temp,'test.mjs');
-  await build({stdin:{contents:`export * from './app/lib/production-backups/local'; export * from './app/lib/production-backups/development'; export * from './app/lib/production-backups/bridge';`,resolveDir:process.cwd()},outfile:output,bundle:true,format:'esm',platform:'node',plugins:[{name:'runtime',setup(build){
+  await build({stdin:{contents:`export * from './app/lib/production-backups/local'; export * from './app/lib/production-backups/development';`,resolveDir:process.cwd()},outfile:output,bundle:true,format:'esm',platform:'node',plugins:[{name:'runtime',setup(build){
     build.onResolve({filter:/^cloudflare:workers$/},()=>({path:'runtime',namespace:'mock'}));
     build.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export class DurableObject { constructor(ctx,env) { this.ctx=ctx; this.env=env; } }'}));
     build.onResolve({filter:/(?:^|\/)storage$/},()=>({path:'storage',namespace:'storage'}));
     build.onLoad({filter:/.*/,namespace:'storage'},()=>({contents:'export const env={}; export const withStorage=(env,callback)=>callback();'}));
   }}]});
-  const {LocalBackupCoordinator,localBackupManagement,localBackupRequest,allowedDevelopmentOrigin,connectProductionBackups,PRODUCTION_ORIGIN,BRIDGE_CHANNEL}=await import(pathToFileURL(output));
+  const {LocalBackupCoordinator,localBackupManagement,localBackupRequest,localProductionBackupManagement}=await import(pathToFileURL(output));
   globalThis.fetch=async()=>{throw new Error('Local backups must never use the network');};
   async function database() {
     const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');
@@ -72,19 +72,8 @@ try {
   c.schedule({enabled:false,weekday:6,time:'04:00',once:null});await c.alarm();assert.ok(alarm>Date.now());
   assert.equal(c.status().job,null);
 
-  assert.ok(allowedDevelopmentOrigin('http://localhost:3000'));assert.ok(allowedDevelopmentOrigin('https://dev-free-spirit-dance.alexandru-croitoriu.dev'));
-  assert.ok(!allowedDevelopmentOrigin('https://evil.test'));assert.ok(!allowedDevelopmentOrigin('http://localhost.evil.test:3000'));assert.ok(!allowedDevelopmentOrigin('http://localhost:4000'));
-  const listeners=new Set();let opened, sent;
-  const popup={closed:false,postMessage(message,target){sent={message,target};},close(){this.closed=true;}};
-  globalThis.window={location:{origin:'http://localhost:3000'},open(url){opened=url;return popup;},addEventListener(name,fn){listeners.add(fn);},removeEventListener(name,fn){listeners.delete(fn);}};
-  const connection=connectProductionBackups();assert.equal(new URL(opened).origin,PRODUCTION_ORIGIN);
-  const pending=connection.request({action:'backup'});assert.equal(sent.target,PRODUCTION_ORIGIN);
-  const event={origin:PRODUCTION_ORIGIN,source:popup,data:{channel:BRIDGE_CHANNEL,nonce:sent.message.nonce,id:sent.message.id,status:202,body:'{"accepted":true}'}};
-  for(const receive of listeners)receive({...event,origin:'https://evil.test'});
-  for(const receive of listeners)receive({...event,source:{}});
-  for(const receive of listeners)receive(event);
-  assert.equal((await pending).status,202);
-  connection.close();assert.equal(listeners.size,0);assert.ok(popup.closed);
-  delete globalThis.window;
-  console.log('PASS: isolated local Catalog/photo backup, reserved slot restore/edit/reactivate/delete, historical absences, stale writes, owner/origin guards, local alarm, and production bridge origin/source/nonce checks.');
+  const productionCardRequest=new Request('http://localhost:3000/api/development-production-backups',{headers:{'cf-access-authenticated-user-email':'croitoriu.alexandru.code@gmail.com'}});
+  const productionCard=await localProductionBackupManagement(productionCardRequest,env);
+  assert.equal(productionCard.status,200);assert.equal((await productionCard.json()).available,false);
+  console.log('PASS: isolated local Catalog/photo backup, reserved slot restore/edit/reactivate/delete, historical absences, stale writes, owner/origin guards, local alarm, and local production-card configuration guard.');
 } finally {globalThis.fetch=previousFetch;await rm(temp,{recursive:true,force:true});}

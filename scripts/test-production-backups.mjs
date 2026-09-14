@@ -17,7 +17,7 @@ try {
     build.onResolve({ filter: /^\.\.\/storage$/ }, () => ({ path: 'storage', namespace: 'storage' }));
     build.onLoad({ filter: /.*/, namespace: 'storage' }, () => ({ contents: 'export const withStorage = (env, callback) => callback();' }));
   } }] });
-  const { nextWeekly, localToUtc, sixMonthsAfter, ProductionBackupCoordinator, ProductionBackupWorkflow, workingDatabase, backupManagement, productionRequest, generationScript } = await import(pathToFileURL(output));
+  const { nextWeekly, localToUtc, sixMonthsAfter, ProductionBackupCoordinator, ProductionBackupWorkflow, prepareSqlForD1Import, workingDatabase, backupManagement, productionRequest, generationScript } = await import(pathToFileURL(output));
   assert.equal(nextWeekly(Date.parse('2026-03-27T10:00Z')), '2026-03-28T02:00:00.000Z');
   assert.equal(nextWeekly(Date.parse('2026-03-28T02:00Z')), '2026-04-04T01:00:00.000Z');
   assert.equal(nextWeekly(Date.parse('2026-10-24T01:00Z')), '2026-10-31T02:00:00.000Z');
@@ -26,6 +26,13 @@ try {
   assert.throws(() => localToUtc('2026-02-30T04:00'));
   assert.equal(sixMonthsAfter('2026-08-31T01:00:00Z'), '2027-02-28T01:00:00.000Z');
   assert.equal(sixMonthsAfter('2027-08-31T01:00:00Z'), '2028-02-29T01:00:00.000Z');
+  const reordered = prepareSqlForD1Import("PRAGMA defer_foreign_keys=TRUE; CREATE TABLE attendance (class_id INTEGER REFERENCES classes(id)); INSERT INTO attendance VALUES (1); CREATE TABLE classes (id INTEGER PRIMARY KEY); INSERT INTO classes VALUES (1); CREATE TRIGGER attendance_check BEFORE INSERT ON attendance BEGIN SELECT 1; END;");
+  assert.ok(reordered.indexOf("CREATE TABLE classes") < reordered.indexOf("INSERT INTO attendance"));
+  assert.ok(reordered.indexOf("INSERT INTO classes") < reordered.indexOf("CREATE TRIGGER"));
+  assert.ok(reordered.includes("BEGIN SELECT 1; END;"));
+  const reorderedDatabase = new DatabaseSync(':memory:');
+  reorderedDatabase.exec("PRAGMA foreign_keys=ON; BEGIN;" + reordered + " COMMIT;");
+  assert.equal(reorderedDatabase.prepare("SELECT COUNT(*) AS count FROM attendance").get().count, 1);
 
   function state() {
     const db = new DatabaseSync(':memory:');
@@ -45,7 +52,7 @@ try {
     objects = new Map();
     async put(key, body, metadata={}) { const bytes=Buffer.from(await new Response(body).arrayBuffer()); const etag=createHash('md5').update(bytes).digest('hex'); this.objects.set(key,{bytes,etag,...metadata}); return { key,size:bytes.length,etag }; }
     async head(key) { const object=this.objects.get(key); return object?{key,size:object.bytes.length,etag:object.etag}:null; }
-    async get(key) { const object=this.objects.get(key); return object?{key,size:object.bytes.length,etag:object.etag,body:new Response(object.bytes).body,httpMetadata:object.httpMetadata,customMetadata:object.customMetadata}:null; }
+    async get(key) { const object=this.objects.get(key); return object?{key,size:object.bytes.length,etag:object.etag,body:new Response(object.bytes).body,text:async()=>object.bytes.toString(),httpMetadata:object.httpMetadata,customMetadata:object.customMetadata}:null; }
     async list({prefix='',cursor,limit=1000}={}) { const all=[...this.objects.keys()].filter(k=>k.startsWith(prefix)).sort(); const start=cursor?Number(cursor):0; const keys=all.slice(start,start+limit); return {objects:await Promise.all(keys.map(k=>this.head(k))),truncated:start+limit<all.length,cursor:String(start+limit)}; }
     async delete(keys) { for(const key of Array.isArray(keys)?keys:[keys]) this.objects.delete(key); }
   }
@@ -54,7 +61,7 @@ try {
   await photos.put('administrator.jpg', 'synthetic-admin-photo');
   // Exercise pagination rather than only a single image page.
   for(let i=0;i<103;i++) await photos.put(`extra-${i}.jpg`, 'synthetic');
-  const env = { DB:d1(source), STUDENT_IMAGES:photos, BACKUP_BUCKET:bucket, BACKUP_PRODUCTION_DATABASE_ID:'original', BACKUP_ACCOUNT_ID:'test', BACKUP_API_TOKEN:'test-only', PUBLIC_QR_BASE_URL:'https://go.test' };
+  const env = { DB:d1(source), STUDENT_IMAGES:photos, BACKUP_BUCKET:bucket, BACKUP_PRODUCTION_DATABASE_ID:'original', BACKUP_ACCOUNT_ID:'test', BACKUP_API_TOKEN:'test-only', LOCAL_BACKUP_BRIDGE_SECRET:'local-bridge-test-secret', PUBLIC_QR_BASE_URL:'https://go.test' };
   const ctx=state(); const coordinator=new ProductionBackupCoordinator(ctx,env);
   env.PRODUCTION_BACKUPS={getByName:()=>coordinator}; env.BACKUP_WORKFLOW={create:async()=>{},get:async()=>({status:async()=>({status:'running'})})};
   const originalFetch=globalThis.fetch;
@@ -126,6 +133,8 @@ try {
     const request=(body,email='croitoriu.alexandru.code@gmail.com',origin='https://school.test')=>new Request('https://school.test/api/administrators/production-backups',{method:'POST',headers:{'cf-access-authenticated-user-email':email,Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body)});
     assert.equal((await backupManagement(request({action:'backup'},'other@test'),env,false)).status,403);
     assert.equal((await backupManagement(request({action:'backup'},undefined,'https://evil.test'),env,false)).status,403);
+    const localBridge=new Request('https://school.test/api/administrators/production-backups',{method:'POST',headers:{'X-FSD-Local-Backup-Bridge':'local-bridge-test-secret','Content-Type':'application/json'},body:JSON.stringify({action:'schedule',enabled:false,weekday:6,time:'04:00',once:null})});
+    assert.equal((await backupManagement(localBridge,env,false)).status,202);
     assert.equal((await backupManagement(request({action:'schedule',enabled:true,weekday:9,time:'04:00',once:null}),env,false)).status,400);
     assert.equal((await backupManagement(request({action:'backup'}),env,true)).status,200);
     assert.equal((await backupManagement(request({action:'backup'}),env,true)).headers.get('Cache-Control'),'no-store');

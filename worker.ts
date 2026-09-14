@@ -1,7 +1,7 @@
 import { withStorage } from "./app/lib/storage";
-import { backupManagement, backupsConfigured, launchJob, productionRequest } from "./app/lib/production-backups/http";
+import { backupManagement, backupsConfigured, launchJob, localBackupBridgeAuthorized, productionRequest } from "./app/lib/production-backups/http";
 export { ProductionBackupCoordinator } from "./app/lib/production-backups/coordinator";
-import { localBackupManagement, localBackupRequest } from "./app/lib/production-backups/development";
+import { localBackupManagement, localBackupRequest, localProductionBackupManagement } from "./app/lib/production-backups/development";
 export { LocalBackupCoordinator } from "./app/lib/production-backups/local";
 export { ProductionBackupWorkflow } from "./app/lib/production-backups/workflow";
 import vinextHandler from "vinext/server/fetch-handler";
@@ -47,7 +47,8 @@ const application = {
 
     const permission = requiredPermission(url.pathname);
     const authenticatedEmail = request.headers.get("cf-access-authenticated-user-email")?.trim().toLowerCase();
-    if (permission === "owner" && !isLocalhost(url.hostname) && authenticatedEmail !== restrictedAdministrator) return forbidden(url.pathname);
+    const localBridge = url.pathname === "/api/administrators/production-backups" && await localBackupBridgeAuthorized(request, env);
+    if (permission === "owner" && !isLocalhost(url.hostname) && authenticatedEmail !== restrictedAdministrator && !localBridge) return forbidden(url.pathname);
     if (permission && permission !== "owner" && !isLocalhost(url.hostname) && authenticatedEmail !== restrictedAdministrator) {
       if (!authenticatedEmail) return forbidden(url.pathname);
       try {
@@ -100,6 +101,8 @@ export default {
     }
     const publicHostname = new URL(env.PUBLIC_QR_BASE_URL).hostname;
     if (url.hostname === publicHostname && !/^\/s\/[^/]+\/?$/.test(url.pathname)) return new Response("Not found", { status: 404 });
+    const localProductionManagement = await localProductionBackupManagement(request, env);
+    if (localProductionManagement) return localProductionManagement;
     const localManagement = await localBackupManagement(request, env, ctx);
     if (localManagement) return localManagement;
     const management = await backupManagement(request, env, development);

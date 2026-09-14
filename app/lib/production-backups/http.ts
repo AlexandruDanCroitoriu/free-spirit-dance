@@ -4,6 +4,22 @@ import type { Job } from "./model";
 
 const owner = "croitoriu.alexandru.code@gmail.com";
 const headers = { "Cache-Control": "no-store" };
+
+export async function localBackupBridgeAuthorized(request: Request, env: CloudflareEnv) {
+  const expected = env.LOCAL_BACKUP_BRIDGE_SECRET;
+  const received = request.headers.get("X-FSD-Local-Backup-Bridge");
+  if (!expected || !received) return false;
+  const encode = new TextEncoder();
+  const [expectedHash, receivedHash] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encode.encode(expected)),
+    crypto.subtle.digest("SHA-256", encode.encode(received)),
+  ]);
+  const left = new Uint8Array(expectedHash);
+  const right = new Uint8Array(receivedHash);
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) difference |= left[index] ^ right[index];
+  return difference === 0;
+}
 export function backupsConfigured(env: CloudflareEnv) {
   return Boolean(env.PRODUCTION_BACKUPS && env.BACKUP_WORKFLOW && env.BACKUP_BUCKET && env.BACKUP_ACCOUNT_ID && env.BACKUP_API_TOKEN);
 }
@@ -22,7 +38,8 @@ export async function backupManagement(request: Request, env: CloudflareEnv, dev
   const statusRoute = url.pathname === "/api/production-database";
   if (!management && !statusRoute) return null;
   const email = request.headers.get("cf-access-authenticated-user-email")?.trim().toLowerCase();
-  if (!email || (management && email !== owner)) return Response.json({ error: "Access denied." }, { status: 403, headers });
+  const localBridge = management && await localBackupBridgeAuthorized(request, env);
+  if ((!email && !localBridge) || (management && email !== owner && !localBridge)) return Response.json({ error: "Access denied." }, { status: 403, headers });
   if (development || !env.PRODUCTION_BACKUPS || (management && !backupsConfigured(env))) return Response.json({ available: false, reason: development ? "Production backups are managed on the deployed application." : "Cloudflare backup storage and credentials have not been configured." }, { headers });
   const coordinator = env.PRODUCTION_BACKUPS.getByName("production");
   if (request.method === "GET") {
@@ -32,7 +49,7 @@ export async function backupManagement(request: Request, env: CloudflareEnv, dev
     return Response.json({ available: true, ...status, backups: status.backups.map(({ databaseId: _databaseId, ...backup }) => backup) }, { headers });
   }
   if (!management || request.method !== "POST") return new Response(null, { status: 405, headers });
-  if (request.headers.get("Origin") !== url.origin || !request.headers.get("Content-Type")?.startsWith("application/json")) return new Response(null, { status: 403, headers });
+  if ((!localBridge && request.headers.get("Origin") !== url.origin) || !request.headers.get("Content-Type")?.startsWith("application/json")) return new Response(null, { status: 403, headers });
   try {
     const raw = await request.text();
     if (raw.length > 4096) return new Response(null, { status: 413, headers });
@@ -47,7 +64,7 @@ export async function backupManagement(request: Request, env: CloudflareEnv, dev
     } else if (["backup", "activate", "return", "delete"].includes(String(input.action))) {
       if (input.name !== undefined && (typeof input.name !== "string" || input.name.length > 80)) throw new Error("Backup names can have at most 80 characters.");
       if (input.id !== undefined && (typeof input.id !== "string" || !/^[a-f0-9-]{36}$/.test(input.id))) throw new Error("Invalid backup.");
-      const job = await coordinator.reserve(input.action as Job["kind"], String(input.id ?? ""), String(input.name ?? ""), email, typeof input.generation === "number" ? input.generation : undefined);
+      const job = await coordinator.reserve(input.action as Job["kind"], String(input.id ?? ""), String(input.name ?? ""), email ?? "local development service token", typeof input.generation === "number" ? input.generation : undefined);
       // The reservation persists even if Workflow creation temporarily fails.
       await launchJob(env, job).catch(() => console.error("Backup job launch will be retried by the scheduler."));
     } else throw new Error("Unknown backup action.");
