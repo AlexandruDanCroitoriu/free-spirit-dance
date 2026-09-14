@@ -74,6 +74,12 @@ body {
 }
 
 @media (max-width: 767px) {
+	.dashboard-report-widget > section {
+		width: 100%;
+		max-width: none;
+		border-radius: 0;
+		border-inline-width: 0;
+	}
 	[data-calendar-range] {
 		border-radius: 0;
 		border-inline-width: 0;

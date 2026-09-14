@@ -16,9 +16,9 @@ export default function HomePage() {
           large, disconnected gap above it. */}
       <div className="dashboard-calendar-column contents xl:block xl:min-w-0 xl:space-y-5">
         <Suspense fallback={null}>{widgets.calendar && <div className="order-1 -mx-4 min-w-0 md:mx-0 xl:[&>section]:!mx-0 xl:[&>section]:!max-w-none"><CourseCalendarWidget /></div>}</Suspense>
-        <Suspense fallback={null}>{widgets.transfers && <div className="order-3 min-w-0"><PaymentTransfersWidget /></div>}</Suspense>
+        <Suspense fallback={null}>{widgets.transfers && <div className="dashboard-report-widget order-3 -mx-4 min-w-0 md:mx-0"><PaymentTransfersWidget /></div>}</Suspense>
       </div>
-      <Suspense fallback={null}>{widgets.balances && <div className="order-2"><StudentBalancesWidget /></div>}</Suspense>
+      <Suspense fallback={null}>{widgets.balances && <div className="dashboard-report-widget order-2 -mx-4 min-w-0 md:mx-0"><StudentBalancesWidget /></div>}</Suspense>
       {!Object.values(widgets).some(Boolean) && <p className="py-8 text-center font-sans text-sm text-slate-500">All widgets are hidden. Use Settings above to show a widget.</p>}
     </div>}
   </main>;
