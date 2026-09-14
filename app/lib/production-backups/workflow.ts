@@ -212,8 +212,12 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
         }
       }
       await step.do("finish job", () => coordinator.finish(job.id));
-    } catch {
-      await step.do("record failure and resume application", () => coordinator.finish(job.id, true));
+    } catch (error) {
+      // cloudApi deliberately redacts provider responses. Keep its concise status
+      // message so administrators can distinguish a missing permission from an
+      // interrupted export or import without exposing credentials or signed URLs.
+      const reason = error instanceof Error && error.message ? error.message.replace(/[\r\n]+/g, " ").slice(0, 240) : "Backup workflow failed.";
+      await step.do("record failure and resume application", () => coordinator.finish(job.id, true, reason));
       throw new Error(`Production backup operation failed (${job.kind}).`);
     }
   }
