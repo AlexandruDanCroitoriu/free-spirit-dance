@@ -56,7 +56,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (typeof student.lastName !== "string" || !student.lastName.trim()) return Response.json({ error: "Last name is required." }, { status: 400 });
   if (typeof student.email !== "string" || (student.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(student.email.trim()))) return Response.json({ error: "Enter a valid email or leave it empty." }, { status: 400 });
   if (typeof student.phone !== "string" || typeof student.active !== "boolean") return Response.json({ error: "Phone and active state are required." }, { status: 400 });
-  if (student.phone.trim() && !/^\d{10,}$/.test(student.phone.trim())) return Response.json({ error: "Phone must contain only numbers and be at least 10 digits." }, { status: 400 });
   if (!validBirthDate(student.birthDate)) return Response.json({ error: "Enter a valid birth date that is not in the future, or leave it empty." }, { status: 400 });
   if (!validSocialUrl(student.facebookUrl) || !validSocialUrl(student.instagramUrl)) return Response.json({ error: "Facebook and Instagram links must be HTTPS URLs or left empty." }, { status: 400 });
   if (student.picture !== null && typeof student.picture !== "string") return Response.json({ error: "Picture must be a URL or empty." }, { status: 400 });

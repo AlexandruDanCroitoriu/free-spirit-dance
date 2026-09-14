@@ -31,7 +31,6 @@ function validateStudent(input: unknown) {
   if (typeof student.lastName !== "string" || !student.lastName.trim()) return "Last name is required.";
   if (typeof student.email !== "string" || (student.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(student.email.trim()))) return "Enter a valid email or leave it empty.";
   if (typeof student.phone !== "string") return "Phone must be text.";
-  if (student.phone.trim() && !/^\d{10,}$/.test(student.phone.trim())) return "Phone must contain only numbers and be at least 10 digits.";
   if (!validBirthDate(student.birthDate)) return "Enter a valid birth date that is not in the future, or leave it empty.";
   if (!validSocialUrl(student.facebookUrl) || !validSocialUrl(student.instagramUrl)) return "Facebook and Instagram links must be HTTPS URLs or left empty.";
   if (student.picture !== null && student.picture !== undefined && typeof student.picture !== "string") return "Picture must be a URL or empty.";
