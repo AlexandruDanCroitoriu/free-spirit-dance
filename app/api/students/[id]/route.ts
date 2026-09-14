@@ -1,9 +1,9 @@
 import { env } from "../../../lib/storage";
 
-type StudentRow = { id: number; first_name: string; last_name: string; email: string; phone: string; birth_date: string | null; picture: string | null; active: number };
+type StudentRow = { id: number; first_name: string; last_name: string; email: string; phone: string; birth_date: string | null; facebook_url: string; instagram_url: string; picture: string | null; active: number };
 
 function serialize(row: StudentRow) {
-  return { id: row.id, firstName: row.first_name, lastName: row.last_name, email: row.email, phone: row.phone, birthDate: row.birth_date, picture: row.picture, active: row.active === 1 };
+  return { id: row.id, firstName: row.first_name, lastName: row.last_name, email: row.email, phone: row.phone, birthDate: row.birth_date, facebookUrl: row.facebook_url, instagramUrl: row.instagram_url, picture: row.picture, active: row.active === 1 };
 }
 
 function isPhoneConstraintError(error: unknown) {
@@ -23,12 +23,21 @@ function validBirthDate(value: unknown) {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
+function validSocialUrl(value: unknown) {
+  if (typeof value !== "string") return false;
+  if (!value.trim()) return true;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:" && Boolean(url.hostname);
+  } catch { return false; }
+}
+
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const id = Number((await context.params).id);
   if (!Number.isInteger(id) || id < 1) return Response.json({ error: "Invalid student id." }, { status: 400 });
   try {
     const db = env.DB;
-    const result = await db.prepare("SELECT id, first_name, last_name, email, phone, birth_date, picture, active FROM students WHERE id = ?").bind(id).first<StudentRow>();
+    const result = await db.prepare("SELECT id, first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active FROM students WHERE id = ?").bind(id).first<StudentRow>();
     if (!result) return Response.json({ error: "Student not found." }, { status: 404 });
     return Response.json(serialize(result));
   } catch (error) {
@@ -49,18 +58,21 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (typeof student.phone !== "string" || typeof student.active !== "boolean") return Response.json({ error: "Phone and active state are required." }, { status: 400 });
   if (student.phone.trim() && !/^\d{10,}$/.test(student.phone.trim())) return Response.json({ error: "Phone must contain only numbers and be at least 10 digits." }, { status: 400 });
   if (!validBirthDate(student.birthDate)) return Response.json({ error: "Enter a valid birth date that is not in the future, or leave it empty." }, { status: 400 });
+  if (!validSocialUrl(student.facebookUrl) || !validSocialUrl(student.instagramUrl)) return Response.json({ error: "Facebook and Instagram links must be HTTPS URLs or left empty." }, { status: 400 });
   if (student.picture !== null && typeof student.picture !== "string") return Response.json({ error: "Picture must be a URL or empty." }, { status: 400 });
   try {
     const db = env.DB;
     const existing = await db.prepare("SELECT picture FROM students WHERE id = ?").bind(id).first<{ picture: string | null }>();
     if (!existing) return Response.json({ error: "Student not found." }, { status: 404 });
     const phone = student.phone.trim();
+    const facebookUrl = (student.facebookUrl as string).trim();
+    const instagramUrl = (student.instagramUrl as string).trim();
     if (phone) {
       const duplicatePhone = await db.prepare("SELECT id FROM students WHERE id <> ? AND trim(phone) = ? LIMIT 1").bind(id, phone).first<{ id: number }>();
       if (duplicatePhone) return Response.json({ error: "A student with this phone number already exists." }, { status: 409 });
     }
-    const result = await db.prepare("UPDATE students SET first_name = ?, last_name = ?, email = ?, phone = ?, birth_date = ?, picture = ?, active = ? WHERE id = ? RETURNING id, first_name, last_name, email, phone, birth_date, picture, active").bind(
-      student.firstName.trim(), student.lastName.trim(), student.email.trim(), phone, typeof student.birthDate === "string" && student.birthDate.trim() ? student.birthDate.trim() : null, typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active ? 1 : 0, id,
+    const result = await db.prepare("UPDATE students SET first_name = ?, last_name = ?, email = ?, phone = ?, birth_date = ?, facebook_url = ?, instagram_url = ?, picture = ?, active = ? WHERE id = ? RETURNING id, first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active").bind(
+      student.firstName.trim(), student.lastName.trim(), student.email.trim(), phone, typeof student.birthDate === "string" && student.birthDate.trim() ? student.birthDate.trim() : null, facebookUrl, instagramUrl, typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active ? 1 : 0, id,
     ).first<StudentRow>();
     if (!result) return Response.json({ error: "Student not found." }, { status: 404 });
     const previousImageKey = imageKey(existing.picture);

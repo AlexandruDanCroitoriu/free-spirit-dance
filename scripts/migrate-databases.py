@@ -24,7 +24,7 @@ def targets(scope):
     for name in names[scope]:
         binding = next(item for item in bindings if item['binding'] == name)
         remote = name == 'PRODUCTION_DB'
-        expected = '5c15ead5-18f8-49ec-a634-d89d2fd00daa' if remote else ('00000000-0000-0000-0000-' + f"{2 if name == 'CATALOG_DB' else 3 if name == 'WORKING_DB' else int(name[4:-3]) + 3:012d}")
+        expected = '6de090fa-ec37-493a-9818-a142f35552ae' if remote else ('00000000-0000-0000-0000-' + f"{2 if name == 'CATALOG_DB' else 3 if name == 'WORKING_DB' else int(name[4:-3]) + 3:012d}")
         if binding.get('remote') is not remote or binding['database_id'] != expected:
             raise RuntimeError(f'Unsafe or unexpected configuration for {name}.')
         result.append((name, remote))

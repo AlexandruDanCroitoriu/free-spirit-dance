@@ -1,6 +1,6 @@
 import { env } from "../../lib/storage";
 
-type StudentRow = { id: number; first_name: string; last_name: string; email: string; phone: string; birth_date: string | null; picture: string | null; active: number; course_ids?: string };
+type StudentRow = { id: number; first_name: string; last_name: string; email: string; phone: string; birth_date: string | null; facebook_url: string; instagram_url: string; picture: string | null; active: number; course_ids?: string };
 
 function json(data: unknown, init?: ResponseInit) { return Response.json(data, init); }
 
@@ -15,6 +15,15 @@ function validBirthDate(value: unknown) {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
+function validSocialUrl(value: unknown) {
+  if (typeof value !== "string") return false;
+  if (!value.trim()) return true;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:" && Boolean(url.hostname);
+  } catch { return false; }
+}
+
 function validateStudent(input: unknown) {
   if (!input || typeof input !== "object") return "A student object is required.";
   const student = input as Record<string, unknown>;
@@ -24,6 +33,7 @@ function validateStudent(input: unknown) {
   if (typeof student.phone !== "string") return "Phone must be text.";
   if (student.phone.trim() && !/^\d{10,}$/.test(student.phone.trim())) return "Phone must contain only numbers and be at least 10 digits.";
   if (!validBirthDate(student.birthDate)) return "Enter a valid birth date that is not in the future, or leave it empty.";
+  if (!validSocialUrl(student.facebookUrl) || !validSocialUrl(student.instagramUrl)) return "Facebook and Instagram links must be HTTPS URLs or left empty.";
   if (student.picture !== null && student.picture !== undefined && typeof student.picture !== "string") return "Picture must be a URL or empty.";
   if (student.active !== undefined && typeof student.active !== "boolean") return "Active must be true or false.";
   if (student.courseIds !== undefined && (!Array.isArray(student.courseIds) || !student.courseIds.every((id: unknown) => typeof id === "number" && Number.isSafeInteger(id) && id > 0) || new Set(student.courseIds).size !== student.courseIds.length)) return "Choose valid courses without duplicates.";
@@ -31,13 +41,13 @@ function validateStudent(input: unknown) {
 }
 
 function serialize(row: StudentRow) {
-  return { id: row.id, firstName: row.first_name, lastName: row.last_name, email: row.email, phone: row.phone, birthDate: row.birth_date, picture: row.picture, active: row.active === 1, ...(row.course_ids !== undefined ? { courseIds: JSON.parse(row.course_ids) as number[] } : {}) };
+  return { id: row.id, firstName: row.first_name, lastName: row.last_name, email: row.email, phone: row.phone, birthDate: row.birth_date, facebookUrl: row.facebook_url, instagramUrl: row.instagram_url, picture: row.picture, active: row.active === 1, ...(row.course_ids !== undefined ? { courseIds: JSON.parse(row.course_ids) as number[] } : {}) };
 }
 
 export async function GET() {
   try {
     const db = env.DB;
-    const result = await db.prepare("SELECT id, first_name, last_name, email, phone, birth_date, picture, active, (SELECT json_group_array(course_id) FROM student_courses WHERE student_id = students.id) AS course_ids FROM students ORDER BY id ASC").all<StudentRow>();
+    const result = await db.prepare("SELECT id, first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active, (SELECT json_group_array(course_id) FROM student_courses WHERE student_id = students.id) AS course_ids FROM students ORDER BY id ASC").all<StudentRow>();
     return json(result.results.map(serialize));
   } catch (error) {
     console.error("Could not load students", error);
@@ -61,8 +71,8 @@ export async function POST(request: Request) {
       const message = emailExists && phoneExists ? "A student with this email and phone number already exists." : emailExists ? "A student with this email already exists." : "A student with this phone number already exists.";
       return json({ error: message }, { status: 409 });
     }
-    const insert = db.prepare("INSERT INTO students (first_name, last_name, email, phone, birth_date, picture, active) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id, first_name, last_name, email, phone, birth_date, picture, active").bind(
-      (student.firstName as string).trim(), (student.lastName as string).trim(), email, phone, typeof student.birthDate === "string" && student.birthDate.trim() ? student.birthDate.trim() : null, typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active === false ? 0 : 1,
+    const insert = db.prepare("INSERT INTO students (first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active").bind(
+      (student.firstName as string).trim(), (student.lastName as string).trim(), email, phone, typeof student.birthDate === "string" && student.birthDate.trim() ? student.birthDate.trim() : null, (student.facebookUrl as string).trim(), (student.instagramUrl as string).trim(), typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active === false ? 0 : 1,
     );
     // Keep creation and assignments atomic; materialize the student id before inserting course rows.
     const results = await db.batch<StudentRow>([

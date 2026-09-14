@@ -57,7 +57,7 @@ export async function GET(request: Request, context: Context) {
     const creditData = await db.batch([
       db.prepare("SELECT course_id AS courseId, day_of_week AS day, start_time AS startTime FROM course_schedule"),
       db.prepare("SELECT course_id AS courseId, class_date AS classDate, start_time AS startTime, cancelled FROM classes"),
-      db.prepare(`SELECT p.id AS paymentId, a.course_id AS courseId, p.paid_on AS paidOn, a.allowance, ${coverageThrough} AS coverageThrough FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = ? ORDER BY p.paid_on, p.id`).bind(id),
+      db.prepare(`SELECT p.id AS paymentId, a.course_id AS courseId, p.paid_on AS paidOn, a.allowance, p.notes, ${coverageThrough} AS coverageThrough FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = ? ORDER BY p.paid_on, p.id`).bind(id),
       db.prepare("SELECT course_id AS courseId, attended_at AS attendedAt, complimentary FROM attendance WHERE student_id = ?").bind(id),
     ]);
     type CourseCredit = Parameters<typeof courseCreditBalance>[0];

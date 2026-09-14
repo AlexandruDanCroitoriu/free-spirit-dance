@@ -1,4 +1,10 @@
 export type PaymentCoverage = { classes: { startsAt: string; attended: boolean }[]; remaining: number };
+
+function dateAfterDays(day: string, days: number) {
+  const date = new Date(`${day}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
 export type PaymentLog = { id: number; givenToSchool: number; paidOn: string; amountMinor: number; receivedMethod: string; allocations: { courseId: number; courseName: string; allowance: number }[]; notes: string; recordedBy: string; recordedAt: string };
 export type AttendanceLog = { id: number; courseId: number; courseName: string; attendedAt: string; notes: string; recordedBy: string; recordedAt: string | null };
 export type ActivitySummary = { eventAttendanceCount?: number; donationsMinor?: number; missedClasses: number; attendanceCount: number; paymentCount: number; paidAllowance: number; remainingAllowance: number; excessAttendance: number; totalPaidMinor: number };
@@ -65,20 +71,22 @@ export async function readHistoricalAbsences(db: D1Database, studentId?: number)
   return (await statement.all<{ studentId: number; courseId: number; startsAt: string }>()).results;
 }
 
-// Each payment covers consecutive non-cancelled classes from the earliest unpaid attendance.
+// Each payment covers consecutive non-cancelled classes from an attendance no more
+// than four weeks before its coverage start.
 // A payment-date class counts only when the student attended it; an unattended
 // same-day class must not create a missed record or consume the new credit.
 export function courseCreditBalance(
   course: { courseId: number; courseName: string; startDate: string | null; endDate: string | null },
   schedules: { day: string; startTime: string }[],
   occurrences: { classDate: string; startTime: string; cancelled: number }[],
-  payments: { paymentId?: number; paidOn: string; allowance: number; coverageThrough?: string | null }[],
+  payments: { paymentId?: number; paidOn: string; allowance: number; notes?: string | null; coverageStart?: string | null; coverageThrough?: string | null }[],
   attendance: { attendedAt: string; complimentary?: number }[],
   now = new Date(),
   onCoverage?: (paymentId: number, coverage: PaymentCoverage) => void,
   onMissed?: (startsAt: string) => void,
   onCancelled?: (startsAt: string) => void,
   recordedAbsences?: readonly string[],
+  onUnpaidAttendance?: (startsAt: string) => void,
 ) {
   const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Bucharest", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(now);
   const part = (type: string) => parts.find((p) => p.type === type)!.value;
@@ -88,10 +96,14 @@ export function courseCreditBalance(
   const attended = new Set(attendance.map((entry) => entry.attendedAt.slice(0, 16)));
   const horizon = [today, ...[...attended].map((slot) => slot.slice(0, 10))].sort().at(-1)!;
   // Payments and attendance use the same timeline, including records entered in advance.
-  const ordered = [...payments].filter((payment) => payment.paidOn <= horizon).sort((a, b) => a.paidOn.localeCompare(b.paidOn));
+  const paymentDate = (payment: (typeof payments)[number]) => {
+    const subscriptionStart = payment.coverageStart ?? payment.notes?.match(/subscription starts: (\d{4}-\d{2}-\d{2});/)?.[1];
+    return /^\d{4}-\d{2}-\d{2}$/.test(subscriptionStart ?? "") ? subscriptionStart! : payment.paidOn;
+  };
+  const ordered = [...payments].filter((payment) => paymentDate(payment) <= horizon).sort((a, b) => paymentDate(a).localeCompare(paymentDate(b)) || a.paidOn.localeCompare(b.paidOn));
   const paidAllowance = ordered.reduce((sum, payment) => sum + payment.allowance, 0);
   const slots = new Map<string, boolean>();
-  const first = [...ordered.map((payment) => payment.paidOn), ...[...attended, ...(recordedAbsences ?? [])].map((slot) => slot.slice(0, 10))].sort()[0];
+  const first = [...ordered.map(paymentDate), ...[...attended, ...(recordedAbsences ?? [])].map((slot) => slot.slice(0, 10))].sort()[0];
   if (first && recordedAbsences === undefined) {
     const start = course.startDate && course.startDate > first ? course.startDate : first;
     // Recompute through the latest recorded attendance or today; retain unused credits.
@@ -112,7 +124,7 @@ export function courseCreditBalance(
   }
   for (const slot of attended) if (!slots.has(slot)) slots.set(slot, true);
   // Cancellations are known events, including upcoming classes after the student first participated.
-  const firstActivity = [...payments.map((payment) => payment.paidOn), ...[...attended].map((slot) => slot.slice(0, 10))].sort()[0];
+  const firstActivity = [...payments.map(paymentDate), ...[...attended].map((slot) => slot.slice(0, 10))].sort()[0];
   if (recordedAbsences === undefined && firstActivity && onCancelled) for (const [slot, active] of slots) {
     const date = slot.slice(0, 10);
     if (!active && date >= firstActivity && (!course.startDate || date >= course.startDate) && (!course.endDate || date <= course.endDate)) onCancelled(slot);
@@ -122,13 +134,42 @@ export function courseCreditBalance(
   const held = [...slots].filter(([slot, active]) => active && !free.has(slot) && slot.slice(0, 10) <= horizon).map(([slot]) => slot).sort();
   const covered = new Set<string>();
   for (const payment of ordered) {
-    const unpaid = held.find((slot) => attended.has(slot) && !covered.has(slot) && slot.slice(0, 10) <= payment.paidOn);
-    const start = unpaid ?? payment.paidOn;
+    const paymentStart = paymentDate(payment);
+    const earliestEligibleAttendance = dateAfterDays(paymentStart, -28);
+    const unpaid = held.find((slot) => attended.has(slot) && !covered.has(slot) && slot.slice(0, 10) >= earliestEligibleAttendance && slot.slice(0, 10) <= paymentStart);
+    const start = (unpaid ?? paymentStart).slice(0, 10);
+    // A payment covers four calendar weeks of classes. A recorded historical
+    // period can shorten that window. Each cancelled session in the window
+    // adds the next scheduled session, so cancellations do not shorten the
+    // usable attendance period or consume a credit.
+    const periodEnd = payment.coverageThrough ? dateAfterDays(payment.coverageThrough, 1) : dateAfterDays(start, 28);
+    let windowEnd = [dateAfterDays(start, 28), periodEnd].sort()[0];
+    // Historical sheets retain only explicit attendance and absence cells. Keep
+    // cancellations and their scheduled replacements separately, so blank cells
+    // do not consume credit yet still extend a package's usable period.
+    const coverageSlots = new Map(slots);
+    const cancelledCount = occurrences.filter((item) => item.cancelled && item.classDate >= start && item.classDate < windowEnd).length;
+    const extensionLimit = dateAfterDays(windowEnd, cancelledCount * 14);
+    const weekdayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    for (const date = new Date(`${windowEnd}T12:00:00Z`); date.toISOString().slice(0, 10) <= extensionLimit; date.setUTCDate(date.getUTCDate() + 1)) {
+      const day = date.toISOString().slice(0, 10);
+      for (const schedule of schedules) if (schedule.day === weekdayNames[date.getUTCDay()] && (!course.startDate || day >= course.startDate) && (!course.endDate || day <= course.endDate)) coverageSlots.set(`${day}T${schedule.startTime}`, true);
+    }
+    for (const occurrence of occurrences.filter((item) => item.cancelled)) coverageSlots.set(`${occurrence.classDate}T${occurrence.startTime}`, false);
+    let extendedCancellations = 0;
+    for (;;) {
+      const cancelledInWindow = [...coverageSlots].filter(([slot, active]) => !active && slot >= start && slot.slice(0, 10) < windowEnd).length;
+      if (cancelledInWindow <= extendedCancellations) break;
+      const replacement = [...coverageSlots].map(([slot]) => slot).filter((slot) => slot.slice(0, 10) >= windowEnd).sort()[0];
+      if (!replacement) break;
+      windowEnd = dateAfterDays(replacement.slice(0, 10), 1);
+      extendedCancellations++;
+    }
     let remaining = payment.allowance;
     const classes: PaymentCoverage["classes"] = [];
     for (const slot of held) {
       if (!remaining) break;
-      if (slot < start || covered.has(slot)) continue;
+      if (slot < start || slot.slice(0, 10) >= windowEnd || covered.has(slot)) continue;
       if (recordedAbsences === undefined && slot.slice(0, 10) === payment.paidOn && !attended.has(slot)) continue;
       covered.add(slot);
       classes.push({ startsAt: slot, attended: attended.has(slot) });
@@ -144,6 +185,7 @@ export function courseCreditBalance(
   if (onMissed) for (const slot of missed) onMissed(slot);
   const missedClasses = missed.length;
   const unpaidAttendance = held.filter((slot) => attended.has(slot) && !covered.has(slot)).length;
+  if (onUnpaidAttendance) for (const slot of held) if (attended.has(slot) && !covered.has(slot)) onUnpaidAttendance(slot);
   return { courseId: course.courseId, courseName: course.courseName, attendanceCount: attendance.length, paidAllowance,
     remainingAllowance: paidAllowance - used, missedClasses, excessAttendance: unpaidAttendance };
 }

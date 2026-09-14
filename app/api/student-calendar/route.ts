@@ -14,6 +14,10 @@ export async function GET(request: Request) {
   }
   try {
     if (!await env.DB.prepare("SELECT id FROM students WHERE id = ?").bind(studentId).first()) return Response.json({ error: "Student not found." }, { status: 404 });
+    const hasHistoricalPaymentPeriods = Boolean(await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'history_payment_periods'").first());
+    const coverageThrough = hasHistoricalPaymentPeriods
+      ? "(SELECT coverage_through FROM history_payment_periods hp WHERE CAST(hp.review_payment_id AS INTEGER) = p.id LIMIT 1)"
+      : "NULL";
     const [result, coursesResult, schedulesResult, occurrencesResult, paymentsResult, attendanceResult, historicalAbsences] = await Promise.all([
       env.DB.prepare(`
       WITH activity AS (
@@ -27,7 +31,7 @@ export async function GET(request: Request) {
       env.DB.prepare("SELECT id AS courseId, name AS courseName, start_date AS startDate, end_date AS endDate FROM courses").all<{ courseId: number; courseName: string; startDate: string | null; endDate: string | null }>(),
       env.DB.prepare("SELECT course_id AS courseId, day_of_week AS day, start_time AS startTime FROM course_schedule").all<{ courseId: number; day: string; startTime: string }>(),
       env.DB.prepare("SELECT course_id AS courseId, class_date AS classDate, start_time AS startTime, cancelled FROM classes").all<{ courseId: number; classDate: string; startTime: string; cancelled: number }>(),
-      env.DB.prepare("SELECT p.id AS paymentId, a.course_id AS courseId, a.course_name AS courseName, p.paid_on AS paidOn, a.allowance FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = ? ORDER BY p.paid_on, p.id").bind(studentId).all<{ paymentId: number; courseId: number; courseName: string; paidOn: string; allowance: number }>(),
+      env.DB.prepare(`SELECT p.id AS paymentId, a.course_id AS courseId, a.course_name AS courseName, p.paid_on AS paidOn, a.allowance, p.notes, ${coverageThrough} AS coverageThrough FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = ? ORDER BY p.paid_on, p.id`).bind(studentId).all<{ paymentId: number; courseId: number; courseName: string; paidOn: string; allowance: number; notes: string | null; coverageThrough: string | null }>(),
       env.DB.prepare("SELECT course_id AS courseId, attended_at AS attendedAt, complimentary FROM attendance WHERE student_id = ?").bind(studentId).all<{ courseId: number; attendedAt: string; complimentary: number }>(),
       readHistoricalAbsences(env.DB, studentId),
     ]);

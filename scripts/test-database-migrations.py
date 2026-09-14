@@ -73,7 +73,7 @@ with sqlite3.connect(':memory:') as db:
     db.executescript(plan)
     applied = {row[0] for row in db.execute('SELECT name FROM d1_migrations')}
     assert module.production_plan(objects, applied) is None
-    db.executescript(module.MIGRATIONS[-1].read_text())
+    db.executescript(next(path.read_text() for path in module.MIGRATIONS if path.name == '0052_payment_transfer_filter_collectors.sql'))
     assert 'collector_emails' in {row[1] for row in db.execute('PRAGMA table_info(payment_transfer_filters)')}
     objects = [row for row in objects if row['name'] != 'attendance']
     try:

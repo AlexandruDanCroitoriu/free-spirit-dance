@@ -1,0 +1,2 @@
+ALTER TABLE students ADD COLUMN facebook_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE students ADD COLUMN instagram_url TEXT NOT NULL DEFAULT '';

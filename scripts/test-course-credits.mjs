@@ -16,11 +16,11 @@ const { courseCreditBalance } = await import('data:text/javascript;base64,' + Bu
     new Date('2026-09-12T12:00:00Z'), (_, detail) => covered.push(...detail.classes.map(c => c.startsAt)),
     slot => missed.push(slot), slot => cancelled.push(slot), history,
   );
-  assert.deepEqual(missed, [...history.slice(0, 2), '2025-06-10T19:00', history[2]]);
+  assert.deepEqual(missed, ['2024-01-11T19:00']);
   assert.equal(result.attendanceCount, 3);
-  assert.equal(result.missedClasses, 4);
+  assert.equal(result.missedClasses, 1);
   assert.deepEqual(cancelled, []);
-  assert.equal(covered.length, 7, 'Historical credits consume the next held occurrences and render uncovered slots as missed.');
+  assert.equal(covered.length, 2, 'A payment cannot cover attendance more than four weeks before its coverage start.');
   const noHistory = [];
   courseCreditBalance({ courseId: 1, courseName: 'Historical', startDate: null, endDate: null },
     [{ day: 'Tuesday', startTime: '19:00' }], [], [], presence, new Date('2026-09-12T12:00:00Z'),
@@ -62,6 +62,28 @@ assert.equal(balance.excessAttendance, 0);
 assert.equal(run('2026-01-09T10:00:00Z', [], [], renewal).remainingAllowance, 4, 'absence before payment creates no debt');
 assert.equal(run('2026-01-09T10:00:00Z', [], prior, []).excessAttendance, 1);
 console.log('PASS: retroactive attendance credit, immediate and partial settlement, multiple payments, cancellations and prior absences.');
+
+const oldDebt = courseCreditBalance(course, schedules, [], [{ paidOn: '2026-02-16', allowance: 4 }], [
+  { attendedAt: '2026-01-05T19:00:00' }, { attendedAt: '2026-02-09T19:00:00' },
+], new Date('2026-02-17T20:00:00Z'));
+assert.equal(oldDebt.excessAttendance, 1, 'A February payment must not settle a January attendance more than four weeks earlier.');
+console.log('PASS: old debt remains unpaid when it is outside the payment coverage period.');
+
+const fourWeekWindow = courseCreditBalance(
+  course, schedules, [], [{ paidOn: '2026-01-05', allowance: 8 }],
+  ['2026-01-05', '2026-01-12', '2026-01-19', '2026-01-26', '2026-02-02', '2026-02-09'].map(date => ({ attendedAt: `${date}T19:00:00` })),
+  new Date('2026-02-10T12:00:00Z'),
+);
+assert.equal(fourWeekWindow.remainingAllowance, 4, 'classes after four weeks do not consume the payment');
+assert.equal(fourWeekWindow.excessAttendance, 2, 'attendance after the four-week window is not covered');
+const extendedForCancellation = courseCreditBalance(
+  course, schedules, [{ classDate: '2026-01-19', startTime: '19:00', cancelled: 1 }], [{ paidOn: '2026-01-05', allowance: 5 }],
+  ['2026-01-05', '2026-01-12', '2026-01-26', '2026-02-02'].map(date => ({ attendedAt: `${date}T19:00:00` })),
+  new Date('2026-02-03T12:00:00Z'),
+);
+assert.equal(extendedForCancellation.remainingAllowance, 1, 'a cancelled session extends coverage to the next scheduled class');
+assert.equal(extendedForCancellation.excessAttendance, 0, 'the replacement class remains covered');
+console.log('PASS: payment coverage ends after four weeks and extends for cancelled classes.');
 
 const recordedEarly = [
   { attendedAt: '2026-09-03T19:00:00' },

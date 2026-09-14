@@ -5,7 +5,7 @@ import StudentPanel from "./student-panel";
 
 const filterStorageKey = "free-spirit-dance.student-balances.filters.v1";
 
-type StudentBalance = { id: number; active: boolean; firstName: string; lastName: string; picture: string | null; balances: { courseId: number; courseName: string; remainingAllowance: number; excessAttendance: number }[] };
+type StudentBalance = { id: number; active: boolean; firstName: string; lastName: string; picture: string | null; balances: { courseId: number; courseName: string; remainingAllowance: number; excessAttendance: number; unpaidAttendances: string[] }[] };
 
 export default function StudentBalancesWidget() {
   const courseDropdown = useRef<HTMLDivElement>(null);
@@ -23,6 +23,7 @@ export default function StudentBalancesWidget() {
   const [error, setError] = useState("");
   const [reload, setReload] = useState(0);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [copyNotice, setCopyNotice] = useState("");
   const refresh = () => setReload((n) => n + 1);
   useEffect(() => {
     try {
@@ -93,9 +94,20 @@ export default function StudentBalancesWidget() {
   const remainingSummary = [...new Set([...selectedRemaining, ...(validRemaining ? [Number(remaining)] : [])])].sort((a, b) => a - b);
   const filterSummary = [showUnpaid ? "Unpaid" : "", remainingSummary.length ? `${remainingSummary.join(", ")} left` : ""].filter(Boolean).join(" · ") || "No balances selected";
   const matches = students.filter((student) => student.active).map((student) => ({ ...student, balances: student.balances.filter((balance) => (courseIds.length === 0 || courseIds.includes(String(balance.courseId))) && ((showUnpaid && balance.excessAttendance > 0) || selectedRemaining.includes(balance.remainingAllowance) || (validRemaining && balance.remainingAllowance === Number(remaining)))) })).filter((student) => student.balances.length > 0);
+  const unpaidMatches = students.filter((student) => student.active).map((student) => ({ ...student, balances: student.balances.filter((balance) => (courseIds.length === 0 || courseIds.includes(String(balance.courseId))) && balance.unpaidAttendances.length > 0) })).filter((student) => student.balances.length > 0);
+  async function copyUnpaidAttendance() {
+    const text = ["Free Spirit Dance · unpaid attendance review", ...unpaidMatches.flatMap((student) => ["", `${student.firstName} ${student.lastName} (student ${student.id})`, ...student.balances.flatMap((balance) => [`${balance.courseName}: ${balance.unpaidAttendances.length} unpaid attendance${balance.unpaidAttendances.length === 1 ? "" : "s"}`, ...balance.unpaidAttendances.map((attendedAt) => `- ${attendedAt.replace("T", " ")}`)])])].join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyNotice(`Copied ${unpaidMatches.length} ${unpaidMatches.length === 1 ? "student" : "students"}.`);
+    } catch {
+      setCopyNotice("Could not copy the review.");
+    }
+  }
   return <section aria-labelledby="student-balances-title" className="flex h-full w-full max-w-3xl self-start flex-col rounded-xl border border-stone-200 bg-white shadow-sm">
     <div className="border-b border-stone-200 px-3 py-2.5">
-      <h2 id="student-balances-title" className="m-0 text-base font-normal">Student balances</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="student-balances-title" className="m-0 text-base font-normal">Student balances</h2><button type="button" disabled={!unpaidMatches.length} onClick={() => void copyUnpaidAttendance()} className="rounded-md border border-stone-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-lime-50 focus:outline-none focus:ring-2 focus:ring-lime-600 disabled:cursor-not-allowed disabled:opacity-50">Copy unpaid attendance</button></div>
+      {copyNotice && <p role="status" className="mb-0 mt-2 font-sans text-xs text-slate-600">{copyNotice}</p>}
       <details className="mt-2" onToggle={(event) => { if (!event.currentTarget.open) setCoursesOpen(false); }}>
         <summary className="cursor-pointer rounded-md font-sans text-xs font-semibold text-slate-600 focus-visible:outline-lime-600">Filters
           <span className="mt-1 block break-words font-normal text-slate-500">{filterSummary} · {selectedCourseNames || "All courses"}</span>

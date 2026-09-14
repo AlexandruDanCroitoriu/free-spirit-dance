@@ -20,7 +20,7 @@ export const tableColumns = {
   qr_codes: ["id", "slug", "name", "destination_url", "active", "image_mode", "image_path", "module_shape", "foreground_color", "eye_shape", "eye_color", "logo_size", "logo_shape"],
   student_courses: ["student_id", "course_id"],
   student_payments: ["id", "student_id", "paid_on", "amount_minor", "notes", "recorded_by", "recorded_at", "request_key", "request_payload", "given_to_school", "received_method"],
-  students: ["id", "first_name", "last_name", "email", "phone", "picture", "active", "birth_date"],
+  students: ["id", "first_name", "last_name", "email", "phone", "picture", "active", "birth_date", "facebook_url", "instagram_url"],
 } as const;
 
 type TableRow = Record<string, unknown>;
