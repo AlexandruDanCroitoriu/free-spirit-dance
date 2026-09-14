@@ -5,6 +5,8 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "free-spirit-dance",
+	"keep_vars": true,
+	"secrets": { "required": ["BACKUP_API_TOKEN", "LOCAL_BACKUP_BRIDGE_SECRET"] },
 	"compatibility_date": "2026-09-03",
 	"compatibility_flags": ["nodejs_als"],
 	"main": "worker.ts",
