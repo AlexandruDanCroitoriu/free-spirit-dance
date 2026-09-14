@@ -26,12 +26,12 @@ try {
   assert.throws(() => localToUtc('2026-02-30T04:00'));
   assert.equal(sixMonthsAfter('2026-08-31T01:00:00Z'), '2027-02-28T01:00:00.000Z');
   assert.equal(sixMonthsAfter('2027-08-31T01:00:00Z'), '2028-02-29T01:00:00.000Z');
-  const reordered = prepareSqlForD1Import("PRAGMA defer_foreign_keys=TRUE; CREATE TABLE attendance (class_id INTEGER REFERENCES classes(id)); INSERT INTO attendance VALUES (1); CREATE TABLE classes (id INTEGER PRIMARY KEY); INSERT INTO classes VALUES (1); CREATE TRIGGER attendance_check BEFORE INSERT ON attendance BEGIN SELECT 1; END;");
+  const reordered = prepareSqlForD1Import("PRAGMA defer_foreign_keys=TRUE; BEGIN; CREATE TABLE attendance (class_id INTEGER REFERENCES classes(id)); INSERT INTO attendance VALUES (1); CREATE TABLE classes (id INTEGER PRIMARY KEY); INSERT INTO classes VALUES (1); CREATE TRIGGER attendance_check BEFORE INSERT ON attendance BEGIN SELECT 1; END; COMMIT;");
   assert.ok(reordered.indexOf("CREATE TABLE classes") < reordered.indexOf("INSERT INTO attendance"));
   assert.ok(reordered.indexOf("INSERT INTO classes") < reordered.indexOf("CREATE TRIGGER"));
   assert.ok(reordered.includes("BEGIN SELECT 1; END;"));
   const reorderedDatabase = new DatabaseSync(':memory:');
-  reorderedDatabase.exec("PRAGMA foreign_keys=ON; BEGIN;" + reordered + " COMMIT;");
+  reorderedDatabase.exec("PRAGMA foreign_keys=ON;" + reordered);
   assert.equal(reorderedDatabase.prepare("SELECT COUNT(*) AS count FROM attendance").get().count, 1);
 
   function state() {

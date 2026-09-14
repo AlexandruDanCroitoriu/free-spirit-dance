@@ -45,12 +45,17 @@ export function prepareSqlForD1Import(source: string) {
   const schema: string[] = [], data: string[] = [], finalization: string[] = [], leading: string[] = [];
   for (const statement of statements) {
     const sql = statement.replace(/^(?:\s|--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)+/, "").toUpperCase();
+    // The original dump's transaction surrounds table-by-table output. After
+    // separating schemas from rows, its COMMIT would otherwise run before the
+    // rows and immediately enforce their foreign keys.
+    if (/^(?:BEGIN(?:\s+(?:DEFERRED|IMMEDIATE|EXCLUSIVE|TRANSACTION))?|COMMIT(?:\s+TRANSACTION)?|END(?:\s+TRANSACTION)?|ROLLBACK(?:\s+TRANSACTION)?)\s*;?$/.test(sql)) continue;
+    if (/^PRAGMA\s+(?:FOREIGN_KEYS|DEFER_FOREIGN_KEYS)\b/.test(sql)) continue;
     if (/^CREATE\s+(?:TEMP(?:ORARY)?\s+)?(?:VIRTUAL\s+)?TABLE\b/.test(sql)) schema.push(statement);
     else if (/^(?:INSERT|UPDATE|DELETE|REPLACE)\b/.test(sql)) data.push(statement);
     else if (/^CREATE\s+(?:UNIQUE\s+)?(?:INDEX|TRIGGER|VIEW)\b/.test(sql)) finalization.push(statement);
     else leading.push(statement);
   }
-  return [...leading, ...schema, ...data, ...finalization].join("\n");
+  return ["BEGIN TRANSACTION;", "PRAGMA defer_foreign_keys = ON;", ...leading, ...schema, ...data, ...finalization, "COMMIT;"].join("\n");
 }
 
 export async function schemaFingerprint(db: D1Database) {
