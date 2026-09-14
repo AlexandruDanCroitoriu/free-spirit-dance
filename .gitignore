@@ -6,6 +6,20 @@ next-env.d.ts
 .vinext/
 .wrangler/
 
+# Keep the dedicated local Catalog D1 file at its deterministic Wrangler path so
+# a clone includes the same Catalog. All other Wrangler state remains local.
+!.wrangler/
+/.wrangler/*
+!.wrangler/state/
+/.wrangler/state/*
+!.wrangler/state/v3/
+/.wrangler/state/v3/*
+!.wrangler/state/v3/d1/
+/.wrangler/state/v3/d1/*
+!.wrangler/state/v3/d1/miniflare-D1DatabaseObject/
+/.wrangler/state/v3/d1/miniflare-D1DatabaseObject/*
+!.wrangler/state/v3/d1/miniflare-D1DatabaseObject/3dd27f64a8e6b7092b4dc42ea2a5f93d01d65d27a0f4927b2e4bc344a6a2f6f6.sqlite
+
 .dev.vars*
 !.dev.vars.example
 !.env.example
