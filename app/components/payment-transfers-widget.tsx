@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { readJson } from "../lib/http";
 import { formatLogDate, formatMoney } from "../lib/student-activity";
 import StudentPanel from "./student-panel";
@@ -14,11 +14,58 @@ type Draft = { collectorEmails: string[]; fromDate: string; toDate: string; paym
 const input = "h-8 w-full rounded border border-stone-300 bg-white px-2 text-xs leading-none disabled:opacity-50";
 const types = ["course", "practice_party"] as const;
 
+// Native popovers render above the card's clipping and scrolling containers.
+function useReportPopover() {
+  const id = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const popup = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  function position() {
+    const anchor = trigger.current?.getBoundingClientRect();
+    const element = popup.current;
+    if (!anchor || !element) return;
+    const margin = 8;
+    element.style.maxHeight = `${window.innerHeight - margin * 2}px`;
+    const below = anchor.bottom + 4;
+    const top = below + element.offsetHeight <= window.innerHeight - margin ? below : anchor.top - element.offsetHeight - 4;
+    element.style.left = `${Math.max(margin, Math.min(anchor.left, window.innerWidth - element.offsetWidth - margin))}px`;
+    element.style.top = `${Math.max(margin, Math.min(top, window.innerHeight - element.offsetHeight - margin))}px`;
+  }
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("resize", position);
+    window.addEventListener("scroll", position, true);
+    const observer = new ResizeObserver(position);
+    if (popup.current) observer.observe(popup.current);
+    return () => {
+      window.removeEventListener("resize", position);
+      window.removeEventListener("scroll", position, true);
+      observer.disconnect();
+    };
+  }, [open]);
+  function close() { popup.current?.hidePopover(); trigger.current?.focus(); }
+  return {
+    close,
+    triggerProps: { ref: trigger, popoverTarget: id, "aria-expanded": open, "aria-controls": id, "aria-haspopup": "dialog" as const },
+    popupProps: {
+      ref: popup, id, popover: "auto" as const, role: "dialog",
+      onToggle: (event: { newState: string }) => { const shown = event.newState === "open"; setOpen(shown); if (shown) position(); },
+      onClick: (event: { stopPropagation: () => void }) => event.stopPropagation(),
+      onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); close(); } },
+    },
+  };
+}
+
+const reportPopup = "fixed inset-auto m-0 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-md border border-stone-200 bg-white font-sans text-xs text-slate-800 shadow-xl";
+
 export default function PaymentTransfersWidget() {
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<number | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [paymentsError, setPaymentsError] = useState("");
+  const [paymentsRevision, setPaymentsRevision] = useState(0);
   const [moving, setMoving] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   const [giving, setGiving] = useState<string | null>(null);
@@ -36,16 +83,30 @@ export default function PaymentTransfersWidget() {
   }
   useEffect(() => { void load(); }, []);
 
-  async function toggle(filter: Filter) {
-    if (expanded === filter.id) { setExpanded(null); return; }
-    setExpanded(filter.id); setPayments([]);
-    try {
-      const response = await fetch(`/api/payment-transfer-filters?id=${filter.id}`);
-      const body = await readJson<{ payments?: Payment[]; error?: string }>(response);
-      if (!response.ok || !body.payments) throw new Error(body.error ?? "Could not load payments.");
-      setPayments(body.payments);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not load payments."); }
+  function toggle(filter: Filter) {
+    setPayments([]); setPaymentsError(""); setPaymentsLoading(true);
+    setExpanded((current) => current === filter.id ? null : filter.id);
   }
+
+  useEffect(() => {
+    if (expanded === null) return;
+    const controller = new AbortController();
+    setPayments([]); setPaymentsLoading(true); setPaymentsError("");
+    async function loadPayments() {
+      try {
+        const response = await fetch(`/api/payment-transfer-filters?id=${expanded}`, { signal: controller.signal });
+        const body = await readJson<{ payments?: Payment[]; error?: string }>(response);
+        if (!response.ok || !body.payments) throw new Error(body.error ?? "Could not load report payments.");
+        if (!controller.signal.aborted) setPayments(body.payments);
+      } catch (reason) {
+        if (!controller.signal.aborted) setPaymentsError(reason instanceof Error ? reason.message : "Could not load report payments.");
+      } finally {
+        if (!controller.signal.aborted) setPaymentsLoading(false);
+      }
+    }
+    void loadPayments();
+    return () => controller.abort();
+  }, [expanded, paymentsRevision]);
 
   async function reorder(source: number, target: number) {
     if (!data || source === target || moving !== null) return;
@@ -113,22 +174,28 @@ export default function PaymentTransfersWidget() {
     finally { setGivingAll(null); }
   }
 
-  return <section className="w-fit max-w-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+  return <section className="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
     {error && <p className="p-4 text-sm text-red-700">{error}</p>}
     <div className="overflow-x-auto">
-      <table className="w-max text-left font-sans text-xs">
+      <table className="w-full min-w-[56rem] table-fixed text-left font-sans text-xs">
+        <colgroup>
+          <col className="w-[6%]" /><col className="w-[17%]" />
+          <col className="w-[13%]" /><col className="w-[13%]" />
+          <col className="w-[15%]" /><col className="w-[13%]" />
+          <col className="w-[12%]" /><col className="w-[11%]" />
+        </colgroup>
         <thead className="text-xs text-white" style={{ backgroundColor: "#286653", color: "#ffffff" }}><tr>
-          <th className="w-16 px-2 py-1.5"><span className="sr-only">Reorder</span></th><th className="px-2 py-1.5">Collected by</th><th className="px-2 py-1.5">From</th><th className="px-2 py-1.5">To</th><th className="px-2 py-1.5">Types</th><th className="px-2 py-1.5 text-right">Total collected</th><th className="px-2 py-1.5">Given to school</th><th className="px-2 py-1.5 text-right"><button type="button" className="rounded border border-white/50 px-2 py-1 text-xs font-semibold hover:bg-white/15 disabled:opacity-50" disabled={adding} onClick={() => void add()}>{adding ? "Adding…" : "+ Add report row"}</button></th>
+          <th className="px-2 py-1.5"><span className="sr-only">Reorder</span></th><th className="px-2 py-1.5">Collected by</th><th className="px-2 py-1.5">From</th><th className="px-2 py-1.5">To</th><th className="px-2 py-1.5">Types</th><th className="px-2 py-1.5 text-right">Total collected</th><th className="px-2 py-1.5">Given to school</th><th className="px-2 py-1.5 text-right"><button type="button" className="rounded border border-white/50 px-2 py-1 text-xs font-semibold hover:bg-white/15 disabled:opacity-50" disabled={adding} onClick={() => void add()}>{adding ? "Adding…" : "+ Add report row"}</button></th>
         </tr></thead>
         <tbody>{data?.filters.map((filter, index) => <Fragment key={filter.id}>
           <tr className="cursor-pointer border-b border-stone-200 hover:bg-lime-50" onClick={() => void toggle(filter)}>
             <td className="px-2 py-1"><div className="flex gap-0.5"><button type="button" aria-label={`Move report for ${filter.collectorName || filter.collectorEmail} up`} title="Move up" disabled={index === 0 || moving !== null} className="rounded border border-stone-300 px-1 py-0.5 text-xs leading-none text-slate-700 hover:bg-lime-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={(event) => { event.stopPropagation(); void reorder(filter.id, data.filters[index - 1].id); }}>▲</button><button type="button" aria-label={`Move report for ${filter.collectorName || filter.collectorEmail} down`} title="Move down" disabled={index === data.filters.length - 1 || moving !== null} className="rounded border border-stone-300 px-1 py-0.5 text-xs leading-none text-slate-700 hover:bg-lime-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={(event) => { event.stopPropagation(); void reorder(filter.id, data.filters[index + 1].id); }}>▼</button></div></td>
             <EditableFields filter={filter} collectors={data.collectors} onSaved={async () => { setExpanded(null); setPayments([]); await load(); }} />
-            <td className="px-2 py-1 text-right"><button type="button" aria-expanded={expanded === filter.id} className="whitespace-nowrap" onClick={(event) => { event.stopPropagation(); void toggle(filter); }}>{expanded === filter.id ? "▾ " : "▸ "}{formatMoney(filter.totalMinor)} ({filter.paymentCount})</button></td>
-            <td className="px-2 py-1"><button type="button" disabled={!filter.paymentCount || !!filter.allGiven || givingAll !== null} className={`whitespace-nowrap rounded px-2 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${filter.allGiven ? "text-lime-800" : "border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"}`} onClick={(event) => { event.stopPropagation(); void giveAll(filter); }}>{givingAll === filter.id ? "Saving…" : filter.allGiven ? "✓ All given" : "Give all to school"}</button></td>
+            <td className="px-2 py-1 text-right"><button type="button" aria-expanded={expanded === filter.id} className="max-w-full" onClick={(event) => { event.stopPropagation(); void toggle(filter); }}>{expanded === filter.id ? "▾ " : "▸ "}{formatMoney(filter.totalMinor)} ({filter.paymentCount})</button></td>
+            <td className="px-2 py-1"><button type="button" disabled={!filter.paymentCount || !!filter.allGiven || givingAll !== null} className={`max-w-full rounded px-2 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${filter.allGiven ? "text-lime-800" : "border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"}`} onClick={(event) => { event.stopPropagation(); void giveAll(filter); }}>{givingAll === filter.id ? "Saving…" : filter.allGiven ? "✓ All given" : "Give all to school"}</button></td>
             <td className="px-2 py-1"><button type="button" className="rounded bg-red-700 px-2 py-1 text-xs font-bold text-white hover:bg-red-800" onClick={(event) => { event.stopPropagation(); setRemoving(filter.id); }}>Remove</button></td>
           </tr>
-          {expanded === filter.id && <tr><td colSpan={8} className="bg-stone-50 px-3 py-2"><div className="ml-3 border-l-2 border-lime-300 pl-3">{payments.map((payment) => <PaymentTreeRow key={`${payment.purpose}-${payment.id}`} payment={payment} giving={giving === `${payment.purpose}-${payment.id}`} onOpen={() => setStudent({ studentId: payment.studentId, paymentId: payment.id, purpose: payment.purpose })} onGive={(givenToSchool) => void setGiven(payment, givenToSchool)} />)}{!payments.length && <p className="m-0 py-2 text-xs text-slate-500">No payments match this report.</p>}</div></td></tr>}
+          {expanded === filter.id && <tr><td colSpan={8} className="bg-stone-50 px-3 py-2"><div className="ml-3 border-l-2 border-lime-300 pl-3">{payments.map((payment) => <PaymentTreeRow key={`${payment.purpose}-${payment.id}`} payment={payment} giving={giving === `${payment.purpose}-${payment.id}`} onOpen={() => setStudent({ studentId: payment.studentId, paymentId: payment.id, purpose: payment.purpose })} onGive={(givenToSchool) => void setGiven(payment, givenToSchool)} />)}{paymentsLoading && <p role="status" className="m-0 py-2 text-xs text-slate-500">Loading payments…</p>}{paymentsError && <p role="alert" className="m-0 py-2 text-xs text-red-700">{paymentsError} <button type="button" className="underline" onClick={() => setPaymentsRevision((value) => value + 1)}>Retry</button></p>}{!paymentsLoading && !paymentsError && !payments.length && <p className="m-0 py-2 text-xs text-slate-500">No payments match this report.</p>}</div></td></tr>}
         </Fragment>)}
         {!data?.filters.length && <tr><td colSpan={8} className="p-8 text-center text-slate-500">No saved reports.</td></tr>}
         </tbody>
@@ -144,10 +211,9 @@ function EditableFields({ filter, collectors, onSaved }: { filter: Filter; colle
   const [draft, setDraft] = useState<Draft>(initial);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState("");
-  const collectorMenu = useRef<HTMLDetailsElement>(null);
-  const typeMenu = useRef<HTMLDetailsElement>(null);
+  const collectorMenu = useReportPopover();
+  const typeMenu = useReportPopover();
   useEffect(() => { setDraft(initial()); }, [filter.collectorEmails, filter.fromDate, filter.toDate, filter.paymentTypes]);
-  useEffect(() => { const close = (event: PointerEvent) => { if (collectorMenu.current && !collectorMenu.current.contains(event.target as Node)) collectorMenu.current.removeAttribute("open"); if (typeMenu.current && !typeMenu.current.contains(event.target as Node)) typeMenu.current.removeAttribute("open"); }; document.addEventListener("pointerdown", close); return () => document.removeEventListener("pointerdown", close); }, []);
   const stop = (event: { stopPropagation: () => void; target: EventTarget | null; currentTarget: EventTarget | null }) => {
     if (event.target !== event.currentTarget) event.stopPropagation();
   };
@@ -166,13 +232,13 @@ function EditableFields({ filter, collectors, onSaved }: { filter: Filter; colle
   const options = [...collectors, ...selected.filter((item) => !collectors.some((collector) => collector.email === item.email))];
   const selectionLabel = selected.length ? selected.map((collector) => collector.name || collector.email).join(", ") : "Select administrators";
   return <>
-    <td className="py-1 pl-2 pr-8">
-      <details onClick={(event) => event.stopPropagation()} ref={collectorMenu} className="relative min-w-36">
-        <summary aria-label={`Collected by: ${selectionLabel}`} title={selectionLabel} className={`${input} flex cursor-pointer list-none items-center gap-1.5`}>
+    <td className="px-2 py-1">
+      <div onClick={(event) => event.stopPropagation()} className="relative min-w-0">
+        <button type="button" {...collectorMenu.triggerProps} aria-label={`Collected by: ${selectionLabel}`} title={selectionLabel} className={`${input} flex cursor-pointer list-none items-center gap-1.5`}>
           {selected.length ? <span className="flex min-w-0 items-center gap-1.5">{selected.map((collector) => <span className="flex min-w-0 items-center gap-1" key={collector.email}><Avatar collector={collector} /><span className="truncate">{collector.name || collector.email}</span></span>)}</span> : <><Avatar /><span>Select administrators</span></>}
           <span className="ml-auto">⌄</span>
-        </summary>
-        <div className="absolute left-0 top-full z-40 mt-1 max-h-60 min-w-full w-max overflow-y-auto rounded-md border border-stone-200 bg-white p-1 shadow-xl">
+        </button>
+        <div {...collectorMenu.popupProps} aria-label="Select administrators" className={`${reportPopup} w-max p-1`}>
           {options.map((collector) => <label key={collector.email} className="flex cursor-pointer items-center gap-2 rounded p-1.5 text-xs hover:bg-lime-50">
             <input type="checkbox" checked={draft.collectorEmails.includes(collector.email)} disabled={busy} onChange={(event) => {
               const collectorEmails = event.target.checked ? [...draft.collectorEmails, collector.email] : draft.collectorEmails.filter((email) => email !== collector.email);
@@ -181,12 +247,12 @@ function EditableFields({ filter, collectors, onSaved }: { filter: Filter; colle
             <Avatar collector={collector} />{collector.name || collector.email}
           </label>)}
         </div>
-      </details>
+      </div>
       {saveError && <p role="alert" className="mt-1 max-w-48 text-xs text-red-700">{saveError}</p>}
     </td>
     <td className="px-2 py-1" onClick={stop}><DateNameInput ariaLabel="From date" value={draft.fromDate} disabled={busy} onCommit={(fromDate) => void save({ ...draft, fromDate })} /></td>
     <td className="px-2 py-1" onClick={stop}><DateNameInput ariaLabel="To date" value={draft.toDate} disabled={busy} onCommit={(toDate) => void save({ ...draft, toDate })} /></td>
-    <td className="px-2 py-1" onClick={stop}><details ref={typeMenu} className="relative min-w-32"><summary className={`${input} cursor-pointer list-none`}>{draft.paymentTypes.length ? draft.paymentTypes.map((type) => type === "course" ? "Courses" : "Practice party").join(" + ") : "Select payment types"} ▾</summary><div className="absolute left-0 top-full z-40 mt-1 w-full rounded-md border border-stone-200 bg-white p-1.5 shadow-xl">{types.map((type) => <label key={type} className="flex items-center gap-2 p-1 text-xs"><input type="checkbox" checked={draft.paymentTypes.includes(type)} disabled={busy} onChange={() => { const paymentTypes = draft.paymentTypes.includes(type) ? draft.paymentTypes.filter((item) => item !== type) : [...draft.paymentTypes, type]; void save({ ...draft, paymentTypes }); }} />{type === "course" ? "Courses" : "Practice party"}</label>)}</div></details></td>
+    <td className="px-2 py-1" onClick={stop}><div className="relative min-w-0"><button type="button" {...typeMenu.triggerProps} aria-label="Select payment types" className={`${input} cursor-pointer list-none truncate`}>{draft.paymentTypes.length ? draft.paymentTypes.map((type) => type === "course" ? "Courses" : "Practice party").join(" + ") : "Select payment types"} ▾</button><div {...typeMenu.popupProps} aria-label="Select payment types" className={`${reportPopup} w-44 p-1.5`}>{types.map((type) => <label key={type} className="flex items-center gap-2 p-1 text-xs"><input type="checkbox" checked={draft.paymentTypes.includes(type)} disabled={busy} onChange={() => { const paymentTypes = draft.paymentTypes.includes(type) ? draft.paymentTypes.filter((item) => item !== type) : [...draft.paymentTypes, type]; void save({ ...draft, paymentTypes }); }} />{type === "course" ? "Courses" : "Practice party"}</label>)}</div></div></td>
   </>;
 }
 
@@ -224,31 +290,25 @@ function dateLabel(value: string) {
 }
 
 function DateNameInput({ value, disabled, ariaLabel, onCommit }: { value: string; disabled: boolean; ariaLabel: string; onCommit: (value: string) => void }) {
-  const root = useRef<HTMLDivElement>(null);
+  const calendar = useReportPopover();
   const selectedDate = dateFromIso(value);
-  const [open, setOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(() => selectedDate ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   useEffect(() => { if (selectedDate) setVisibleMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)); }, [value]);
-  useEffect(() => {
-    const close = (event: PointerEvent) => { if (root.current && !root.current.contains(event.target as Node)) setOpen(false); };
-    document.addEventListener("pointerdown", close);
-    return () => document.removeEventListener("pointerdown", close);
-  }, []);
   const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
   const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate();
   const leadingDays = (firstDay.getDay() + 6) % 7;
   const days = Array.from({ length: leadingDays + daysInMonth }, (_, index) => index < leadingDays ? null : index - leadingDays + 1);
   function select(day: number) {
     const date = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day);
-    onCommit(isoFromDate(date)); setOpen(false);
+    onCommit(isoFromDate(date)); calendar.close();
   }
-  return <div ref={root} className="relative" style={{ width: "9rem" }}>
-    <button type="button" aria-label={ariaLabel} aria-haspopup="dialog" aria-expanded={open} disabled={disabled} className={`${input} flex items-center justify-between gap-1 text-left`} onClick={() => setOpen((current) => !current)}><span className="truncate">{dateLabel(value)}</span><span aria-hidden="true">▾</span></button>
-    {open && <div role="dialog" aria-label={`${ariaLabel} calendar`} className="absolute left-0 top-full z-50 mt-1 w-60 rounded-md border border-stone-200 bg-white p-2 shadow-xl" onKeyDown={(event) => { if (event.key === "Escape") setOpen(false); }}>
+  return <div className="relative w-full min-w-0">
+    <button type="button" aria-label={ariaLabel} {...calendar.triggerProps} disabled={disabled} className={`${input} flex items-center justify-between gap-1 text-left`}><span className="truncate">{dateLabel(value)}</span><span aria-hidden="true">▾</span></button>
+    <div {...calendar.popupProps} aria-label={`${ariaLabel} calendar`} className={`${reportPopup} w-60 p-2`}>
       <div className="mb-2 flex items-center justify-between"><button type="button" aria-label="Previous month" className="rounded px-2 py-1 hover:bg-lime-50" onClick={() => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}>‹</button><span className="font-semibold text-slate-800">{monthNames[visibleMonth.getMonth()]} {visibleMonth.getFullYear()}</span><button type="button" aria-label="Next month" className="rounded px-2 py-1 hover:bg-lime-50" onClick={() => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}>›</button></div>
       <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-semibold text-slate-500">{weekdayNames.map((day) => <span key={day} className="py-1">{day}</span>)}</div>
       <div className="grid grid-cols-7 gap-0.5">{days.map((day, index) => day === null ? <span key={`empty-${index}`} /> : <button type="button" key={day} aria-label={`${day} ${monthNames[visibleMonth.getMonth()]} ${visibleMonth.getFullYear()}`} aria-pressed={selectedDate?.getFullYear() === visibleMonth.getFullYear() && selectedDate.getMonth() === visibleMonth.getMonth() && selectedDate.getDate() === day} className={`h-7 rounded text-xs hover:bg-lime-100 focus:outline-none focus:ring-2 focus:ring-lime-600 ${selectedDate?.getFullYear() === visibleMonth.getFullYear() && selectedDate.getMonth() === visibleMonth.getMonth() && selectedDate.getDate() === day ? "bg-lime-600 font-bold text-white hover:bg-lime-700" : "text-slate-700"}`} onClick={() => select(day)}>{day}</button>)}</div>
-      {value && <button type="button" className="mt-2 w-full rounded border border-stone-300 px-2 py-1 text-xs text-slate-700 hover:bg-stone-50" onClick={() => { onCommit(""); setOpen(false); }}>Clear date</button>}
-    </div>}
+      {value && <button type="button" className="mt-2 w-full rounded border border-stone-300 px-2 py-1 text-xs text-slate-700 hover:bg-stone-50" onClick={() => { onCommit(""); calendar.close(); }}>Clear date</button>}
+    </div>
   </div>;
 }

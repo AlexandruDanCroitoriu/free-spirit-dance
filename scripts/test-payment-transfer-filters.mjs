@@ -9,7 +9,7 @@ for (const name of readdirSync("migrations").filter((name) => name.endsWith(".sq
 function prepare(sql) {
   let values = [];
   const statement = {
-    bind(...args) { values = args; return statement; },
+    bind(...args) { assert.ok(args.length <= 100, "D1 queries allow at most 100 bound parameters"); values = args; return statement; },
     async first() { return sqlite.prepare(sql).get(...values) ?? null; },
     async run() { return statement.execute(); },
     async all() { return { results: sqlite.prepare(sql).all(...values) }; },
@@ -82,3 +82,20 @@ assert.deepEqual((await row()).collectorEmails,['b@test']);
 assert.equal((await row()).totalMinor,1000);
 assert.equal((await api.POST(req('POST',{empty:true}))).status,201);
 console.log('PASS: legacy migration, multi-collector persistence, totals, details, bulk handover, ownership, empty selections and validation.');
+
+// A large report must keep its details and course allocations in sync with totals.
+assert.equal((await api.PATCH(req('PATCH',{id,...selection}))).status,200);
+sqlite.exec("INSERT INTO courses (name) VALUES ('Regression course')");
+for (let index = 0; index < 390; index++) {
+  const payment = sqlite.prepare("INSERT INTO student_payments (student_id,paid_on,amount_minor,recorded_by,recorded_at,request_key,request_payload) VALUES (1,'2026-09-15',100,'a@test','now',?,'{}') RETURNING id").get('large-report-'+index);
+  sqlite.prepare("INSERT INTO payment_course_allowances (payment_id,course_id,course_name,allowance) VALUES (?,1,'Regression course',4)").run(payment.id);
+}
+const detailsResponse = await api.GET(req('GET',null,'?id='+id));
+assert.equal(detailsResponse.status,200);
+const details = (await detailsResponse.json()).payments;
+assert.equal(details.length,393);
+assert.equal(details.length,(await row()).paymentCount);
+assert.equal(details.reduce((sum,payment)=>sum+payment.amountMinor,0),(await row()).totalMinor);
+assert.equal(details.filter(payment=>payment.allocations.some(allocation=>allocation.courseName==='Regression course' && allocation.allowance===4)).length,390);
+assert.ok(details.filter(payment=>payment.purpose==='practice_donation').every(payment=>payment.allocations.length===0));
+console.log('PASS: 393-payment report loads all details and allocations within D1 parameter limits.');
