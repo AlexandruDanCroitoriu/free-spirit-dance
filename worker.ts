@@ -13,9 +13,10 @@ function isLocalhost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
 }
 
-type Permission = "dashboard" | "students" | "courses" | "qrCodes" | "owner" | "practiceParties";
+type Permission = "dashboard" | "students" | "courses" | "qrCodes" | "owner" | "practiceParties" | "tasks";
 
 function requiredPermission(pathname: string): Permission | null {
+  if (pathname === "/tasks" || pathname.startsWith("/tasks/") || pathname === "/api/tasks" || pathname.startsWith("/api/tasks/")) return "tasks";
   if (pathname === "/practice-parties" || pathname.startsWith("/practice-parties/")) return "practiceParties";
   if (pathname === "/administrators" || pathname === "/api/development-copy-production" || pathname === "/api/administrators" || pathname.startsWith("/api/administrators/")) return "owner";
   if (pathname === "/") return "dashboard";
@@ -52,9 +53,9 @@ const application = {
     if (permission && permission !== "owner" && !isLocalhost(url.hostname) && authenticatedEmail !== restrictedAdministrator) {
       if (!authenticatedEmail) return forbidden(url.pathname);
       try {
-        await env.DB.prepare("INSERT OR IGNORE INTO administrator_permissions (email) VALUES (?)").bind(authenticatedEmail).run();
-        const row = await env.DB.prepare("SELECT can_dashboard, can_students, can_courses, can_practice_parties, can_qr_codes FROM administrator_permissions WHERE email = ?").bind(authenticatedEmail).first<{ can_dashboard: number; can_students: number; can_courses: number; can_practice_parties: number; can_qr_codes: number }>();
-        const allowed = permission === "practiceParties" ? row?.can_practice_parties === 1 : permission === "dashboard" ? row?.can_dashboard === 1 : permission === "students" ? row?.can_students === 1 : permission === "courses" ? row?.can_courses === 1 : row?.can_qr_codes === 1;
+        if (permission !== "tasks") await env.DB.prepare("INSERT OR IGNORE INTO administrator_permissions (email) VALUES (?)").bind(authenticatedEmail).run();
+        const row = await env.DB.prepare("SELECT can_dashboard, can_students, can_courses, can_practice_parties, can_qr_codes, can_tasks FROM administrator_permissions WHERE email = ?").bind(authenticatedEmail).first<{ can_dashboard: number; can_students: number; can_courses: number; can_practice_parties: number; can_qr_codes: number; can_tasks: number }>();
+        const allowed = permission === "tasks" ? row?.can_tasks === 1 : permission === "practiceParties" ? row?.can_practice_parties === 1 : permission === "dashboard" ? row?.can_dashboard === 1 : permission === "students" ? row?.can_students === 1 : permission === "courses" ? row?.can_courses === 1 : row?.can_qr_codes === 1;
         if (!allowed) return forbidden(url.pathname);
       } catch (error) {
         console.error("Could not check administrator permissions", error);

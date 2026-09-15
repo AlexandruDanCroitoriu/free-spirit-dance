@@ -9,17 +9,18 @@ const code = stripTypeScriptTypes(readFileSync(new URL('../worker.ts', import.me
   .replace('import vinextHandler from "vinext/server/fetch-handler";', '')
   .replace('import { withStorage } from "./app/lib/storage";', '')
   .replace('import { copyBindings, listCopies } from "./app/lib/local-copies";', stripTypeScriptTypes(readFileSync('app/lib/local-copies.ts', 'utf8')).replaceAll('export ', ''))
-  .replace(/^import \{ backupManagement.*$/m, 'const backupManagement = async () => null; const backupsConfigured = () => false; const launchJob = async () => {}; const productionRequest = async (request, env, run) => run(request, env);')
+  .replace(/^import \{ backupManagement.*$/m, 'const backupManagement = async () => null; const backupsConfigured = () => false; const launchJob = async () => {}; const localBackupBridgeAuthorized = async () => false; const productionRequest = async (request, env, run) => run(request, env);')
   .replace(/^import \{ localBackupManagement.*$/m, 'const localBackupManagement = async () => null; const localBackupRequest = async (request, env, selected, run) => run(env);').replace(/^export \{ (ProductionBackup|LocalBackup).*$/gm, '')
+  .replace(/^import \{ localProductionBackupManagement.*$/m, 'const localProductionBackupManagement = async () => null;')
   .replace('export default', 'exports.default =');
 const exports = {};
 vm.runInNewContext(code, { exports, Request, Response, URL, console,
   vinextHandler: { fetch: async () => new Response('app') },
 });
-async function request(path, { qr = 0, email = 'admin@example.com', host = 'admin.example.com' } = {}) {
+async function request(path, { qr = 0, tasks = 0, email = 'admin@example.com', host = 'admin.example.com' } = {}) {
   const env = { PUBLIC_QR_BASE_URL: 'https://go.example.com', DB: {
     prepare: () => ({ bind: () => ({ run: async () => {}, first: async () => ({
-      can_dashboard: 0, can_students: 0, can_courses: 0, can_qr_codes: qr,
+      can_dashboard: 0, can_students: 0, can_courses: 0, can_qr_codes: qr, can_tasks: tasks,
     }) }) }),
   } };
   return exports.default.fetch(new Request(`https://${host}${path}`, {
@@ -59,4 +60,15 @@ test('shared payment records stay off the public host', async () => {
   assert.equal((await request(path, { email: '' })).status, 200);
   assert.equal((await request(path, { host: 'go.example.com' })).status, 404);
   assert.equal((await request(path, { email: 'croitoriu.alexandru.code@gmail.com' })).status, 200);
+});
+
+
+test('Tasks permission protects the page and all task APIs', async () => {
+  for (const path of ['/tasks', '/tasks/', '/api/tasks', '/api/tasks/manual:1', '/api/tasks/move', '/api/tasks/refresh', '/api/tasks/automatic:birthday:student%253A1:2027']) {
+    assert.equal((await request(path)).status, 403, path);
+    assert.equal((await request(path, { tasks: 1 })).status, 200, path);
+    assert.equal((await request(path, { email: '' })).status, 403, path);
+    assert.equal((await request(path, { email: 'croitoriu.alexandru.code@gmail.com' })).status, 200, path);
+    assert.equal((await request(path, { tasks: 1, host: 'go.example.com' })).status, 404, path);
+  }
 });

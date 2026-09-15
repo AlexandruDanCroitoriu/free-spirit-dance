@@ -27,6 +27,7 @@ production.sqlite.exec("INSERT INTO students (first_name,last_name,email,picture
 production.sqlite.exec("INSERT INTO admin_profiles (email,name) VALUES ('collector@example.test','Collector'); INSERT INTO administrator_payment_methods (email,method) VALUES ('collector@example.test','Transfer')");
 production.sqlite.exec("INSERT INTO admin_profiles (email,name) VALUES ('owner@example.test','Owner'); INSERT INTO payment_transfer_filters (administrator_email,collector_email,collector_emails,from_date,to_date,payment_kind,payment_types,sort_order,created_at) VALUES ('owner@example.test','collector@example.test','[\"collector@example.test\"]','2026-09-01','2026-09-30','course','course',1,'2026-09-01T00:00:00.000Z')");
 production.sqlite.exec("CREATE TABLE history_absences (student_id TEXT, course_id TEXT, class_date TEXT, start_time TEXT); INSERT INTO history_absences VALUES ('1','1','2026-09-02','19:00')");
+production.sqlite.exec("INSERT INTO manual_tasks (title,student_id,status,sort_order,created_by,created_at,updated_by,updated_at,request_key,request_payload) VALUES ('Preserve this task',1,'done',3,'owner@example.test','2026-09-15','owner@example.test','2026-09-15','copy-task-request-key','{}')");
 await productionImages.put('student-test', 'original-image');
 globalThis.copyTestEnv = { WORKING_DB: first, WORKING_IMAGES: firstImages, COPY2_DB: second, COPY2_IMAGES: secondImages, CATALOG_DB: catalog, CATALOG_IMAGES: catalogImages, PRODUCTION_DB: production, PRODUCTION_IMAGES: productionImages };
 // Reimport after environment initialization: each isolated test module captures its bindings.
@@ -72,6 +73,7 @@ assert.equal(second.sqlite.prepare('SELECT first_name FROM students').get().firs
 assert.equal(productionImages.items.get('student-test'), 'local-image');
 assert.deepEqual(production.sqlite.prepare('SELECT email,method FROM administrator_payment_methods ORDER BY email,method').all(), first.sqlite.prepare('SELECT email,method FROM administrator_payment_methods ORDER BY email,method').all());
 assert.deepEqual(production.sqlite.prepare('SELECT administrator_email,collector_email,collector_emails,from_date,to_date,payment_types FROM payment_transfer_filters').all(), first.sqlite.prepare('SELECT administrator_email,collector_email,collector_emails,from_date,to_date,payment_types FROM payment_transfer_filters').all());
+assert.deepEqual(production.sqlite.prepare('SELECT * FROM manual_tasks').all(), first.sqlite.prepare('SELECT * FROM manual_tasks').all());
 console.log('PASS: explicit upload uses the selected copy images and targets production only.');
 assert.equal((await api.DELETE(request('DELETE', { id: 'catalog' }))).status, 400);
 assert.equal((await api.DELETE(request('DELETE', { id: 'working' }, 'other@example.test'))).status, 403);
@@ -82,6 +84,8 @@ assert.equal(removed.status, 200);
 assert.match(removed.headers.get('Set-Cookie'), /fsd-storage=catalog/);
 assert.equal(first.sqlite.prepare('SELECT COUNT(*) n FROM students').get().n, 0);
 assert.equal(firstImages.items.size, 0);
+assert.equal(first.sqlite.prepare('SELECT COUNT(*) n FROM manual_tasks').get().n, 0);
+assert.equal(production.sqlite.prepare('SELECT COUNT(*) n FROM manual_tasks').get().n, 1);
 assert.equal(first.sqlite.prepare('SELECT COUNT(*) n FROM local_database_copies').get().n, 1);
 assert.equal(second.sqlite.prepare('SELECT COUNT(*) n FROM students').get().n, 1);
 assert.equal(production.sqlite.prepare('SELECT COUNT(*) n FROM students').get().n, 1);

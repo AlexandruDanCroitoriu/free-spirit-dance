@@ -8,10 +8,10 @@ import { compressImage } from "../lib/profile-image";
 import { useEffect, useRef, useState } from "react";
 import ConfirmationDialog from "../components/confirmation-dialog";
 
-type Administrator = { email: string; name: string; picture: string | null; dashboard: boolean; students: boolean; courses: boolean; practiceParties: boolean; qrCodes: boolean };
+type Administrator = { email: string; name: string; picture: string | null; dashboard: boolean; students: boolean; courses: boolean; practiceParties: boolean; qrCodes: boolean; tasks: boolean };
 type ApiError = { error?: string };
 type ExportTable = { name: string; columns: string[]; rows: Record<string, unknown>[] };
-const permissionFields = [["dashboard", "Dashboard"], ["students", "Students"], ["courses", "Courses"], ["practiceParties", "Practice Parties"], ["qrCodes", "QR Codes"]] as const;
+const permissionFields = [["dashboard", "Dashboard"], ["students", "Students"], ["courses", "Courses"], ["practiceParties", "Practice Parties"], ["qrCodes", "QR Codes"], ["tasks", "Tasks"]] as const;
 
 export default function AdministratorsPage() {
   return <AdministratorsContent />;
@@ -48,7 +48,7 @@ function AdministratorsContent() {
   useEffect(() => () => { if (profilePreview) URL.revokeObjectURL(profilePreview); }, [profilePreview]);
 
 
-  async function setPermission(administrator: Administrator, field: "dashboard" | "students" | "courses" | "practiceParties" | "qrCodes", value: boolean) {
+  async function setPermission(administrator: Administrator, field: "dashboard" | "students" | "courses" | "practiceParties" | "qrCodes" | "tasks", value: boolean) {
     const updated = { ...administrator, [field]: value };
     setSavingEmail(administrator.email); setError("");
     const response = await fetch(`/api/administrators/${encodeURIComponent(administrator.email)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updated) });

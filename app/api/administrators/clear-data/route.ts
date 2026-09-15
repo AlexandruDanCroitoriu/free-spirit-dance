@@ -32,6 +32,10 @@ export async function POST(request: Request) {
     // D1 batch operations are transactional. Keep administrator accounts, profiles,
     // payment methods, and their R2 images intact.
     await db.batch([
+      db.prepare("UPDATE task_board_state SET revision = revision + 1 WHERE id = 1"),
+      db.prepare("DELETE FROM automatic_task_occurrences"),
+      db.prepare("DELETE FROM task_rule_state"),
+      db.prepare("DELETE FROM manual_tasks"),
       db.prepare("DELETE FROM payment_preset_courses"),
       db.prepare("DELETE FROM payment_course_allowances"),
       db.prepare("DELETE FROM attendance"),

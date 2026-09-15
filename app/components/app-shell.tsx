@@ -9,7 +9,7 @@ import { Fragment, useEffect, useState, type ReactNode } from "react";
 
 type IconName = "book" | "home" | "qr-code" | "shield" | "users";
 type AdminProfile = { email: string; name: string; picture: string | null };
-type Permissions = { dashboard: boolean; students: boolean; courses: boolean; practiceParties: boolean; qrCodes: boolean; administrators: boolean };
+type Permissions = { dashboard: boolean; students: boolean; courses: boolean; practiceParties: boolean; qrCodes: boolean; tasks: boolean; administrators: boolean };
 
 const navigation: Array<{ label: string; href: string; icon: IconName; permission: keyof Permissions | null }> = [
   { label: "Dashboard", href: "/", icon: "home", permission: "dashboard" },
@@ -17,6 +17,7 @@ const navigation: Array<{ label: string; href: string; icon: IconName; permissio
   { label: "Courses", href: "/courses", icon: "book", permission: "courses" },
   { label: "Practice Parties", href: "/practice-parties", icon: "book", permission: "practiceParties" },
   { label: "QR Codes", href: "/qr-codes", icon: "qr-code", permission: "qrCodes" },
+  { label: "Tasks", href: "/tasks", icon: "book", permission: "tasks" },
   { label: "Administrators", href: "/administrators", icon: "shield", permission: "administrators" },
 ];
 
@@ -58,10 +59,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [profile, setProfile] = useState<AdminProfile>({ email: "", name: "Loading account...", picture: null });
-  const [permissions, setPermissions] = useState<Permissions>({ dashboard: false, students: false, courses: false, practiceParties: false, qrCodes: false, administrators: false });
+  const [permissions, setPermissions] = useState<Permissions>({ dashboard: false, students: false, courses: false, practiceParties: false, qrCodes: false, tasks: false, administrators: false });
   const pathname = usePathname();
   const studentDetailPage = pathname.startsWith("/students/");
-  const pageTitle = pathname === "/" ? "Dashboard" : pathname === "/students" ? "Students" : studentDetailPage ? "Student details" : pathname.startsWith("/courses") ? "Courses" : pathname.startsWith("/practice-parties") ? "Practice Parties" : pathname.startsWith("/administrators") ? "Administrators" : pathname.startsWith("/qr-codes") ? "QR Codes" : pathname.startsWith("/settings") ? "Settings" : "Free Spirit Dance";
+  const pageTitle = pathname === "/" ? "Dashboard" : pathname === "/students" ? "Students" : studentDetailPage ? "Student details" : pathname.startsWith("/courses") ? "Courses" : pathname.startsWith("/practice-parties") ? "Practice Parties" : pathname.startsWith("/administrators") ? "Administrators" : pathname.startsWith("/qr-codes") ? "QR Codes" : pathname.startsWith("/tasks") ? "Tasks" : pathname.startsWith("/settings") ? "Settings" : "Free Spirit Dance";
 
   useEffect(() => {
     const loadProfile = () => fetch("/api/admin-profile")
@@ -70,7 +71,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       .catch(() => setProfile({ email: "", name: "Profile", picture: null }));
     const updateProfile = (event: Event) => setProfile((event as CustomEvent<AdminProfile>).detail);
     void loadProfile();
-    void fetch("/api/access-permissions").then((response) => response.ok ? response.json() as Promise<Permissions> : Promise.reject()).then(setPermissions).catch(() => setPermissions({ dashboard: false, students: false, courses: false, practiceParties: false, qrCodes: false, administrators: false }));
+    void fetch("/api/access-permissions").then((response) => response.ok ? response.json() as Promise<Permissions> : Promise.reject()).then(setPermissions).catch(() => setPermissions({ dashboard: false, students: false, courses: false, practiceParties: false, qrCodes: false, tasks: false, administrators: false }));
     window.addEventListener("admin-profile-updated", updateProfile);
     return () => window.removeEventListener("admin-profile-updated", updateProfile);
   }, []);

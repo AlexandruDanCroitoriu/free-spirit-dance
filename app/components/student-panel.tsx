@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import StudentActivity from "./student-activity";
 import StudentCourses from "./student-courses";
 import StudentCard from "./student-card";
+import StudentTasks from "./student-tasks";
 
 export type Student = { id: number; firstName: string; lastName: string; email: string; phone: string; birthDate: string | null; facebookUrl: string; instagramUrl: string; picture: string | null; active: boolean };
 const studentTabs = [["logs", "Logs"], ["info", "Student info"]] as const;
@@ -156,6 +157,7 @@ export default function StudentPanel({ id, onClose, onUpdate, onDelete, editPaym
     </nav>
     <div id="student-panel-info" role="tabpanel" aria-labelledby="student-tab-info" hidden={activeTab !== "info"}>
       <StudentCourses key={student.id} studentId={student.id} />
+      <StudentTasks key={`tasks-${student.id}`} studentId={student.id} />
     <section aria-label="Student info" className="mt-4 overflow-hidden rounded-xl border border-stone-200 bg-white px-5 shadow-sm">
       <div className="flex items-center justify-between gap-4 border-b border-stone-200 py-4">
         <div className="min-w-0"><p className="m-0 font-sans text-xs font-bold uppercase tracking-wider text-slate-400">Profile photo</p><p className="mt-1 truncate font-sans text-sm text-slate-800">{savingPhoto ? "Saving photo…" : "Photo changes save automatically"}</p></div>

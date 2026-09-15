@@ -5,8 +5,8 @@ import { tableColumns, type ExportTable } from "../export/route";
 const ownerEmail = "croitoriu.alexandru.code@gmail.com";
 const tableNames = Object.keys(tableColumns) as Array<keyof typeof tableColumns>;
 const legacyEventDeleteOrder = ["event_refunds", "event_payment_handovers", "event_attendance", "event_session_changes", "event_cash_settlements", "event_requests", "event_sessions", "events"] as const;
-const deleteOrder = ["payment_transfer_filters", "payment_preset_courses", "payment_course_allowances", "attendance", "practice_attendance", "student_payments", "student_courses", "course_schedule", "classes", "payment_presets", "practice_parties", "courses", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
-const insertOrder = ["admin_profiles", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance"] as const;
+const deleteOrder = ["automatic_task_occurrences", "task_rule_state", "manual_tasks", "payment_transfer_filters", "payment_preset_courses", "payment_course_allowances", "attendance", "practice_attendance", "student_payments", "student_courses", "course_schedule", "classes", "payment_presets", "practice_parties", "courses", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
+const insertOrder = ["admin_profiles", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance", "manual_tasks", "task_rule_state", "automatic_task_occurrences"] as const;
 type DatabaseValue = string | number | null;
 type DevelopmentBindings = CloudflareEnv & Partial<LocalDevelopmentBindings>;
 
@@ -30,6 +30,7 @@ function parseTables(input: unknown): Map<keyof typeof tableColumns, Record<stri
   for (const name of tableNames) {
     const table = supplied.get(name);
     const columns = tableColumns[name];
+    if (!table && (name === "automatic_task_occurrences" || name === "task_rule_state")) { result.set(name, []); continue; }
     if (!table || !Array.isArray(table.columns) || table.columns.length !== columns.length || table.columns.some((column, index) => column !== columns[index]) || !Array.isArray(table.rows)) return null;
     const rows: Record<string, DatabaseValue>[] = [];
     for (const row of table.rows) {
@@ -125,6 +126,7 @@ export async function POST(request: Request) {
       // practice_attendance owns its optional donation fields. The database
       // prevents deleting attendance while a donation remains, so clear those
       // fields before deleting the old snapshot.
+      "UPDATE task_board_state SET revision = revision + 1 WHERE id = 1",
       "UPDATE practice_attendance SET donation_amount_minor = NULL, donation_paid_on = NULL, donation_notes = '', donation_recorded_by = NULL, donation_recorded_at = NULL, donation_received_method = '', donation_given_to_school = 0 WHERE donation_amount_minor IS NOT NULL",
       ...deleteOrder.map((name) => `DELETE FROM "${name}"`),
       ...insertOrder.flatMap((name) => insertStatements(name, tables.get(name)!).map((statement) => statement.slice(0, -1))),

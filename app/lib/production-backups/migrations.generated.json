@@ -556,5 +556,40 @@
       "DROP TABLE _preset_sequence;",
       "PRAGMA defer_foreign_keys = OFF;"
     ]
+  },
+  {
+    "name": "0055_manual_tasks.sql",
+    "statements": [
+      "-- Manual-task foundation. Automatic rules and their occurrence storage follow\n-- in a separate phase; no student records are changed by this migration.\nALTER TABLE administrator_permissions ADD COLUMN can_tasks INTEGER NOT NULL DEFAULT 0\n  CHECK (can_tasks IN (0, 1));",
+      "CREATE TABLE task_board_state (\n  id INTEGER PRIMARY KEY CHECK (id = 1),\n  revision INTEGER NOT NULL DEFAULT 0 CHECK (typeof(revision) = 'integer' AND revision >= 0)\n);",
+      "INSERT INTO task_board_state (id, revision) VALUES (1, 0);",
+      "-- Set the supplied expected revision + 1, not revision = revision + 1 with a\n-- WHERE predicate: a stale write must abort its entire batch, not match no rows.\nCREATE TRIGGER task_board_revision_matches BEFORE UPDATE OF revision ON task_board_state\nWHEN NEW.revision != OLD.revision + 1\nBEGIN SELECT RAISE(ABORT, 'Task board changed. Reload before saving.'); END;",
+      "CREATE TABLE manual_tasks (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  title TEXT NOT NULL CHECK (length(trim(title)) BETWEEN 1 AND 200),\n  description TEXT NOT NULL DEFAULT '' CHECK (length(description) <= 10000),\n  due_date TEXT CHECK (due_date IS NULL OR (due_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(due_date, '+0 days') IS NOT NULL AND date(due_date, '+0 days') = due_date)),\n  status TEXT NOT NULL DEFAULT 'todo' CHECK (status IN ('todo', 'in_progress', 'done')),\n  student_id INTEGER REFERENCES students(id) ON DELETE RESTRICT,\n  sort_order INTEGER NOT NULL CHECK (typeof(sort_order) = 'integer' AND sort_order >= 0),\n  created_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),\n  created_at TEXT NOT NULL,\n  updated_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),\n  updated_at TEXT NOT NULL,\n  request_key TEXT NOT NULL UNIQUE,\n  request_payload TEXT NOT NULL\n);",
+      "CREATE INDEX manual_tasks_order_idx ON manual_tasks (status, sort_order, id);",
+      "CREATE INDEX manual_tasks_due_idx ON manual_tasks (due_date, status);",
+      "CREATE INDEX manual_tasks_student_idx ON manual_tasks (student_id);",
+      "-- Include import/clear operations in revision invalidation, not just task APIs.\nCREATE TRIGGER manual_tasks_insert_revision AFTER INSERT ON manual_tasks\nBEGIN UPDATE task_board_state SET revision = revision + 1 WHERE id = 1; END;",
+      "CREATE TRIGGER manual_tasks_update_revision AFTER UPDATE ON manual_tasks\nBEGIN UPDATE task_board_state SET revision = revision + 1 WHERE id = 1; END;",
+      "CREATE TRIGGER manual_tasks_delete_revision AFTER DELETE ON manual_tasks\nBEGIN UPDATE task_board_state SET revision = revision + 1 WHERE id = 1; END;"
+    ]
+  },
+  {
+    "name": "0056_automatic_tasks.sql",
+    "statements": [
+      "-- Occurrences are separate from rule definitions. Birthdays retain only events\n-- that entered the eligible window; transient rules can store state on demand.\nCREATE TABLE task_rule_state (\n  rule_key TEXT PRIMARY KEY CHECK (length(rule_key) BETWEEN 1 AND 80),\n  activated_on TEXT NOT NULL CHECK (length(activated_on) = 10 AND date(activated_on, '+0 days') IS NOT NULL AND date(activated_on, '+0 days') = activated_on),\n  evaluated_on TEXT NOT NULL CHECK (length(evaluated_on) = 10 AND date(evaluated_on, '+0 days') IS NOT NULL AND date(evaluated_on, '+0 days') = evaluated_on AND evaluated_on >= activated_on)\n);",
+      "CREATE TABLE automatic_task_occurrences (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  rule_key TEXT NOT NULL CHECK (length(rule_key) BETWEEN 1 AND 80),\n  subject_key TEXT NOT NULL CHECK (length(subject_key) BETWEEN 1 AND 200),\n  occurrence_key TEXT NOT NULL CHECK (length(occurrence_key) BETWEEN 1 AND 200),\n  student_id INTEGER REFERENCES students(id) ON DELETE RESTRICT,\n  unlinked INTEGER NOT NULL DEFAULT 0 CHECK (unlinked IN (0, 1) AND (unlinked = 0 OR student_id IS NULL)),\n  title TEXT NOT NULL CHECK (length(trim(title)) BETWEEN 1 AND 200),\n  description TEXT NOT NULL DEFAULT '' CHECK (length(description) <= 10000),\n  due_date TEXT CHECK (due_date IS NULL OR (due_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(due_date, '+0 days') IS NOT NULL AND date(due_date, '+0 days') = due_date)),\n  status TEXT NOT NULL DEFAULT 'todo' CHECK (status IN ('todo', 'in_progress', 'done')),\n  dismissed INTEGER NOT NULL DEFAULT 0 CHECK (dismissed IN (0, 1)),\n  sort_order INTEGER NOT NULL CHECK (typeof(sort_order) = 'integer' AND sort_order >= 0),\n  created_by TEXT COLLATE NOCASE REFERENCES admin_profiles(email),\n  created_at TEXT NOT NULL,\n  updated_by TEXT COLLATE NOCASE REFERENCES admin_profiles(email),\n  updated_at TEXT NOT NULL,\n  UNIQUE (rule_key, subject_key, occurrence_key)\n);",
+      "CREATE INDEX automatic_tasks_student_idx ON automatic_task_occurrences(student_id);",
+      "CREATE INDEX automatic_tasks_order_idx ON automatic_task_occurrences(status, sort_order, id);",
+      "CREATE INDEX automatic_tasks_due_idx ON automatic_task_occurrences(due_date, status);",
+      "CREATE TRIGGER automatic_tasks_insert_revision AFTER INSERT ON automatic_task_occurrences\nBEGIN UPDATE task_board_state SET revision = revision + 1 WHERE id = 1; END;",
+      "CREATE TRIGGER automatic_tasks_update_revision AFTER UPDATE ON automatic_task_occurrences\nBEGIN UPDATE task_board_state SET revision = revision + 1 WHERE id = 1; END;",
+      "CREATE TRIGGER automatic_tasks_delete_revision AFTER DELETE ON automatic_task_occurrences\nBEGIN UPDATE task_board_state SET revision = revision + 1 WHERE id = 1; END;",
+      "CREATE TRIGGER task_rule_insert_revision AFTER INSERT ON task_rule_state\nBEGIN UPDATE task_board_state SET revision = revision + 1 WHERE id = 1; END;",
+      "CREATE TRIGGER task_rule_update_revision AFTER UPDATE ON task_rule_state\nBEGIN UPDATE task_board_state SET revision = revision + 1 WHERE id = 1; END;",
+      "CREATE TRIGGER task_rule_delete_revision AFTER DELETE ON task_rule_state\nBEGIN UPDATE task_board_state SET revision = revision + 1 WHERE id = 1; END;",
+      "-- Source changes invalidate any concurrent evaluation snapshot, including the\n-- first activation. No task content is generated by database triggers.\nCREATE TRIGGER task_student_insert_revision AFTER INSERT ON students\nBEGIN UPDATE task_board_state SET revision = revision + 1 WHERE id = 1; END;",
+      "CREATE TRIGGER task_student_delete_revision AFTER DELETE ON students\nBEGIN UPDATE task_board_state SET revision = revision + 1 WHERE id = 1; END;",
+      "CREATE TRIGGER task_student_update_revision AFTER UPDATE OF birth_date, active, first_name, last_name ON students\nWHEN NEW.birth_date IS NOT OLD.birth_date OR NEW.active IS NOT OLD.active OR NEW.first_name IS NOT OLD.first_name OR NEW.last_name IS NOT OLD.last_name\nBEGIN UPDATE task_board_state SET revision = revision + 1 WHERE id = 1; END;"
+    ]
   }
 ]

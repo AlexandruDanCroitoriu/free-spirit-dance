@@ -1,12 +1,14 @@
 import { env } from "../../../lib/storage";
 import { tableColumns } from "../export/route";
+import { studentTaskMutation, synchronizeTaskRules } from '../../../lib/task-rules-server';
+import { taskRules } from '../../../lib/task-rules';
 
 const ownerEmail = "croitoriu.alexandru.code@gmail.com";
-const protectedTables = new Set(["admin_profiles", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters"]);
+const protectedTables = new Set(["admin_profiles", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "task_board_state", "task_rule_state"]);
 const tableNames = (Object.keys(tableColumns) as Array<keyof typeof tableColumns>).filter((name) => !protectedTables.has(name));
-const insertOrder = ["students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance"] as const;
+const insertOrder = ["students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance", "manual_tasks", "automatic_task_occurrences"] as const;
 const legacyNullableColumns: Partial<Record<keyof typeof tableColumns, readonly string[]>> = {
-  students: ["picture", "birth_date", "facebook_url", "instagram_url"],
+  students: ["picture", "birth_date"],
   qr_codes: ["image_path"],
   courses: ["start_date", "end_date", "class_cost_minor"],
   course_schedule: ["rent_cost_minor"],
@@ -22,8 +24,10 @@ type DatabaseValue = string | number | null;
 type ImportRow = Record<string, DatabaseValue>;
 type GeneratedId = { id: number };
 type ImportEnv = CloudflareEnv & { PRODUCTION_IMAGES?: R2Bucket };
-const generatedIdTables = new Set(["students", "qr_codes", "courses", "classes", "payment_presets", "student_payments", "practice_parties", "attendance", "practice_attendance"]);
+const generatedIdTables = new Set(["students", "qr_codes", "courses", "classes", "payment_presets", "student_payments", "practice_parties", "attendance", "practice_attendance", "manual_tasks", "automatic_task_occurrences"]);
 const foreignKeys: Partial<Record<keyof typeof tableColumns, Record<string, keyof typeof tableColumns>>> = {
+  manual_tasks: { student_id: "students" },
+  automatic_task_occurrences: { student_id: "students" },
   course_schedule: { course_id: "courses" },
   student_courses: { student_id: "students", course_id: "courses" },
   classes: { course_id: "courses" },
@@ -35,6 +39,8 @@ const foreignKeys: Partial<Record<keyof typeof tableColumns, Record<string, keyo
   practice_attendance: { student_id: "students", practice_id: "practice_parties" },
 };
 const administratorReferenceColumns: Partial<Record<keyof typeof tableColumns, readonly string[]>> = {
+  manual_tasks: ["created_by", "updated_by"],
+  automatic_task_occurrences: ["created_by", "updated_by"],
   classes: ["cancelled_by"],
   student_payments: ["recorded_by"],
   attendance: ["recorded_by", "complimentary_by"],
@@ -63,6 +69,8 @@ function parseTables(input: unknown): Map<string, ImportRow[]> | null {
   for (const name of tableNames) {
     const table = supplied.get(name);
     const columns = tableColumns[name];
+    // Pre-task exports contain all old tables but no manual_tasks table.
+    if (!table && (name === "manual_tasks" || name === "automatic_task_occurrences")) { rows.set(name, []); continue; }
     if (!table || !Array.isArray(table.columns) || table.columns.length !== columns.length || table.columns.some((column, index) => column !== columns[index]) || !Array.isArray(table.rows)) return null;
     const validatedRows: ImportRow[] = [];
     for (const row of table.rows) {
@@ -97,17 +105,31 @@ async function insertRows(name: typeof insertOrder[number], rows: ImportRow[], g
   const columns = tableColumns[name];
   const references = foreignKeys[name] ?? {};
   const statements = rows.map((row) => {
+    // A remapped birthday subject and its live relationship must identify the
+    // same student; otherwise refresh could generate a second yearly task.
+    if (name === 'automatic_task_occurrences' && row.rule_key === 'birthday' &&
+      (typeof row.subject_key !== 'string' || !/^student:(?:[1-9]\d*|new:[a-z][a-z0-9_-]*)$/i.test(row.subject_key) ||
+        typeof row.occurrence_key !== 'string' || !/^[0-9]{4}$/.test(row.occurrence_key) ||
+        (row.student_id !== null && row.subject_key !== `student:${row.student_id}`))) {
+      throw new Error('Birthday occurrence identity does not match its student relationship.');
+    }
     const temporary = generatedIdTables.has(name) && (row.id === null || temporaryId(row.id as DatabaseValue));
     const selectedColumns = temporary ? columns.filter((column) => column !== "id") : columns;
     const values = selectedColumns.map((column) => {
       const value = row[column] ?? null;
+      if (name === 'automatic_task_occurrences' && column === 'subject_key') {
+        const rule = taskRules.find(rule => rule.key === row.rule_key);
+        return rule?.remapSubject && typeof value === 'string' ? rule.remapSubject(value, id => String(mappedValue(id, 'students', generatedIds))) : value;
+      }
       return references[column] ? mappedValue(value, references[column], generatedIds) : value;
     });
-    const sql = `INSERT OR IGNORE INTO "${name}" (${selectedColumns.map((column) => `"${column}"`).join(", ")}) VALUES (${selectedColumns.map(() => "?").join(", ")})${temporary ? " RETURNING id" : ""}`;
+    const task = name === 'manual_tasks' || name === 'automatic_task_occurrences';
+    const sql = `INSERT ${task ? "" : "OR IGNORE "}INTO "${name}" (${selectedColumns.map((column) => `"${column}"`).join(", ")}) VALUES (${selectedColumns.map(() => "?").join(", ")})${task ? " ON CONFLICT DO NOTHING" : ""}${temporary ? " RETURNING id" : ""}`;
     return { temporaryId: temporary && typeof row.id === "string" ? row.id : null, statement: env.DB.prepare(sql).bind(...values) };
   });
   if (!statements.length) return;
-  const results = await env.DB.batch(statements.map(({ statement }) => statement));
+  const batch = statements.map(({ statement }) => statement);
+  const results = name === 'students' ? await studentTaskMutation(batch) : await env.DB.batch(batch);
   for (let index = 0; index < statements.length; index++) {
     const tag = statements[index].temporaryId;
     if (!tag) continue;
@@ -177,6 +199,7 @@ export async function POST(request: Request) {
     const generatedIds = new Map<string, number>();
     await ensureAuditProfiles(rows);
     for (const name of insertOrder) await insertRows(name, rows.get(name)!, generatedIds);
+    await synchronizeTaskRules(false);
     let imagesCopied = 0;
     try {
       imagesCopied = await copyProductionImages(rows);

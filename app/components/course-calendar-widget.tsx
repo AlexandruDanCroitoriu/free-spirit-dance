@@ -238,7 +238,7 @@ export default function CourseCalendarWidget() {
       const selection = (event as CustomEvent<unknown>).detail;
       if (!selection || typeof selection !== "object") return;
       const { studentId, range } = selection as Partial<StudentCalendarSelection>;
-      if (!Number.isInteger(studentId) || studentId <= 0 || (range !== "month" && range !== "year")) return;
+      if (typeof studentId !== "number" || !Number.isInteger(studentId) || studentId <= 0 || (range !== "month" && range !== "year")) return;
       setCalendarMode("student");
       setCalendarModeBeforeYears("student");
       setCalendarRange(range);

@@ -109,6 +109,8 @@ The public QR hostname, `go.alexandru-croitoriu.dev`, routes to this Worker. Pro
 
 ## Application behavior
 
+- Tasks: the responsive `/tasks` board supports manual task creation, editing, deletion, due dates, student links, filters, and saved ordering through drag-and-drop and explicit movement controls. Dedicated handles support mouse, touch, and keyboard dragging with previews and rollback on failed saves. The owner grants Tasks access on the Administrators page. Student profiles list linked tasks, including completed tasks, with explicit unlink actions. Migrations `0055` and `0056` are required. Student birthdays share the board, filters, and movement controls, with occurrence-specific completion, dismissal, and explicit unlinking. Eligible birthdays are retained overdue; future years remain independent. See [the UI guide](docs/task-ui.md) and [backend API documentation](docs/task-backend.md).
+
 - Students: manage profiles, optional email, unique nonempty phone numbers, active status, images, and course assignments. Existing `/students/:id` links open the same student panel. Students with history cannot be deleted; mark them inactive instead.
 - Courses: maintain one to five weekly classes, a required start date when saving, and an optional inclusive end date. Stored class occurrences preserve recorded classes when schedules change. Courses with linked records cannot be deleted.
 - Attendance: open a calendar class to select attendance changes. Ordinary administrators can change attendance on the class date; the main administrator can edit other dates. Submission is atomic, supports additions/removals, and avoids duplicates. Cancelled classes reject attendance; remove attendance before cancellation.

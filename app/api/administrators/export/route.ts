@@ -4,9 +4,13 @@ const ownerEmail = "croitoriu.alexandru.code@gmail.com";
 // Keep this list aligned with migrations. D1's local development runtime blocks
 // PRAGMA table_info, so the export cannot discover columns at request time.
 export const tableColumns = {
+  task_board_state: ["id", "revision"],
+  task_rule_state: ["rule_key", "activated_on", "evaluated_on"],
+  automatic_task_occurrences: ["id", "rule_key", "subject_key", "occurrence_key", "student_id", "unlinked", "title", "description", "due_date", "status", "dismissed", "sort_order", "created_by", "created_at", "updated_by", "updated_at"],
+  manual_tasks: ["id", "title", "description", "due_date", "status", "student_id", "sort_order", "created_by", "created_at", "updated_by", "updated_at", "request_key", "request_payload"],
   admin_profiles: ["email", "name", "picture"],
   administrator_payment_methods: ["email", "method"],
-  administrator_permissions: ["email", "can_dashboard", "can_students", "can_courses", "can_qr_codes", "can_practice_parties"],
+  administrator_permissions: ["email", "can_dashboard", "can_students", "can_courses", "can_qr_codes", "can_practice_parties", "can_tasks"],
   attendance: ["id", "student_id", "course_id", "course_name", "attended_at", "recorded_by", "recorded_at", "notes", "request_key", "request_payload", "class_id", "complimentary", "complimentary_by", "complimentary_at"],
   classes: ["id", "course_id", "class_date", "start_time", "end_time", "cancelled", "cancelled_by", "cancelled_at", "rent_cost_minor", "rent_paid", "location"],
   course_schedule: ["id", "course_id", "day_of_week", "start_time", "end_time", "rent_cost_minor"],

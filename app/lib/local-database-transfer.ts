@@ -2,8 +2,8 @@ import { tableColumns, type ExportTable } from "../api/administrators/export/rou
 const tableNames = Object.keys(tableColumns) as Array<keyof typeof tableColumns>;
 const legacyEventDeleteOrder = ["event_refunds", "event_payment_handovers", "event_attendance", "event_session_changes", "event_cash_settlements", "event_requests", "event_sessions", "events"] as const;
 const catalogAuxiliaryDeleteOrder = ["group_sheet_audit", "catalog_v2_audit", "catalog_v2_runs", "group_sheet_runs", "practica_2026_audit", "practica_2026_runs", "_fsd_catalog_import", "history_import_notes", "history_issues", "history_payment_periods", "history_source_cells", "history_unmapped_classes"] as const;
-export const deleteOrder = ["payment_transfer_filters", "payment_preset_courses", "payment_course_allowances", "attendance", "practice_attendance", "student_payments", "student_courses", "course_schedule", "classes", "payment_presets", "practice_parties", "courses", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
-const insertOrder = ["admin_profiles", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance"] as const;
+export const deleteOrder = ["automatic_task_occurrences", "task_rule_state", "manual_tasks", "payment_transfer_filters", "payment_preset_courses", "payment_course_allowances", "attendance", "practice_attendance", "student_payments", "student_courses", "course_schedule", "classes", "payment_presets", "practice_parties", "courses", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
+const insertOrder = ["admin_profiles", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance", "manual_tasks", "task_rule_state", "automatic_task_occurrences"] as const;
 const historicalAbsenceColumns = ["student_id", "course_id", "class_date", "start_time"] as const;
 type DatabaseValue = string | number | null;
 
@@ -92,6 +92,7 @@ export async function replaceDatabase(target: D1Database, tables: ExportTable[],
   const statements = [
     ...legacyEventDeleteOrder.filter((name) => legacyTables.has(name)).map((name) => `DELETE FROM "${name}"`),
     ...catalogAuxiliaryDeleteOrder.filter((name) => legacyTables.has(name)).map((name) => `DELETE FROM "${name}"`),
+    "UPDATE task_board_state SET revision = revision + 1 WHERE id = 1",
     "UPDATE practice_attendance SET donation_amount_minor = NULL, donation_paid_on = NULL, donation_notes = '', donation_recorded_by = NULL, donation_recorded_at = NULL, donation_received_method = '', donation_given_to_school = 0 WHERE donation_amount_minor IS NOT NULL",
     ...(historicalTable || historicalAbsences ? ["DELETE FROM history_absences"] : []),
     ...deleteOrder.map((name) => `DELETE FROM "${name}"`),
