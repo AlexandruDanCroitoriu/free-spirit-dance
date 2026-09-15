@@ -109,7 +109,7 @@ export default {
     if (management) return management;
     if (!development) {
       if (!env.PRODUCTION_BACKUPS) return application.fetch(request, env, ctx);
-      return productionRequest(request, env, (scopedRequest, scopedEnv) => application.fetch(scopedRequest, scopedEnv, ctx));
+      return productionRequest(request, env, (scopedRequest, scopedEnv) => application.fetch(scopedRequest, scopedEnv, ctx), ctx);
     }
     if (!env.CATALOG_DB || !env.CATALOG_IMAGES) return new Response("Catalog storage is not configured.", { status: 503 });
     if (canSwitch && selected !== "production" && env.LOCAL_BACKUPS) {

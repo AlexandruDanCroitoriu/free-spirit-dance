@@ -102,6 +102,23 @@ try {
   };
   const step=()=>({async do(_name,config,fn){return (fn??config)();},async sleep(){}});
   const run=job=>new ProductionBackupWorkflow({},env).run({payload:job},step());
+  const recoveryState = state();
+  const recovery = new ProductionBackupCoordinator(recoveryState, env);
+  recovery.enter('1', true);
+  assert.throws(() => recovery.recoverRequests(), /recent/);
+  recoveryState.storage.sql.exec('UPDATE requests SET started_at = ?', new Date(Date.now() - 11 * 60_000).toISOString());
+  const recoveryJob = recovery.reserve('backup', '', '', 'owner');
+  assert.throws(() => recovery.recoverRequests(), /current backup/);
+  recovery.finish(recoveryJob.id, true);
+  assert.equal(recovery.recoverRequests(), 1);
+  assert.equal(recovery.pending(), 0);
+  assert.equal(recovery.enter('1', true).status, 409);
+  assert.equal(recovery.status().backups.length, 1);
+  const keptAlive = [];
+  await assert.rejects(productionRequest(new Request('https://school.test/api/students'), env, async () => { throw new Error('Interrupted handler'); }, { waitUntil(promise) { keptAlive.push(promise); } }), /Interrupted handler/);
+  await Promise.all(keptAlive);
+  assert.equal(keptAlive.length, 1);
+  assert.equal(coordinator.pending(), 0);
   try {
     assert.equal(coordinator.enter('0',true).status,409);
     const ticket=coordinator.enter('1',true); assert.ok(ticket.ticket);

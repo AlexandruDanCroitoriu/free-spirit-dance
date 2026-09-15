@@ -55,7 +55,10 @@ export async function backupManagement(request: Request, env: CloudflareEnv, dev
     if (raw.length > 4096) return new Response(null, { status: 413, headers });
     const input = JSON.parse(raw) as Record<string, unknown>;
     if (!input || typeof input !== "object") throw new Error("Invalid request.");
-    if (input.action === "schedule") {
+    if (input.action === "recover-requests") {
+      if (input.confirmedIdle !== true) throw new Error("Confirm that every administrator has stopped using the application.");
+      await coordinator.recoverRequests();
+    } else if (input.action === "schedule") {
       if (typeof input.enabled !== "boolean" || typeof input.weekday !== "number" || typeof input.time !== "string" || !(input.once === null || typeof input.once === "string")) throw new Error("Invalid schedule.");
       await coordinator.schedule({ enabled: input.enabled, weekday: input.weekday, time: input.time, once: input.once });
     } else if (input.action === "rename") {
@@ -79,7 +82,13 @@ export async function backupManagement(request: Request, env: CloudflareEnv, dev
 export function generationScript(generation: number) {
   return `<script>window.__fsdGeneration=${generation};(()=>{const original=window.fetch;window.fetch=function(input,init){const url=new URL(input instanceof Request?input.url:String(input),location.href);const method=(init?.method||(input instanceof Request?input.method:'GET')).toUpperCase();if(url.origin===location.origin&&url.pathname.startsWith('/api/')&&!['GET','HEAD','OPTIONS'].includes(method)){const headers=new Headers(init?.headers||(input instanceof Request?input.headers:undefined));headers.set('X-FSD-Generation',String(window.__fsdGeneration));init={...init,headers};}return original.call(this,input,init);};})();</script>`;
 }
-export async function productionRequest(request: Request, env: CloudflareEnv, run: (request: Request, env: CloudflareEnv) => Promise<Response>): Promise<Response> {
+export function productionRequest(request: Request, env: CloudflareEnv, run: (request: Request, env: CloudflareEnv) => Promise<Response>, ctx?: Pick<ExecutionContext, "waitUntil">): Promise<Response> {
+  const operation = trackedProductionRequest(request, env, run);
+  // Keep admission, handler and cleanup alive if the browser disconnects.
+  ctx?.waitUntil(operation.then(() => undefined, () => undefined));
+  return operation;
+}
+async function trackedProductionRequest(request: Request, env: CloudflareEnv, run: (request: Request, env: CloudflareEnv) => Promise<Response>): Promise<Response> {
   const url = new URL(request.url);
   const mutation = !["GET", "HEAD", "OPTIONS"].includes(request.method);
   if (mutation && request.headers.get("Origin") !== url.origin) return new Response(null, { status: 403, headers });
@@ -90,10 +99,10 @@ export async function productionRequest(request: Request, env: CloudflareEnv, ru
   const dataRequest = url.pathname !== "/administrators" && !shellAsset;
   const entry = dataRequest ? await coordinator.enter(request.headers.get("X-FSD-Generation"), mutation) : await coordinator.status();
   if ("error" in entry) return Response.json({ error: entry.error }, { status: entry.status, headers: { ...headers, "Retry-After": "5" } });
-  const backup = "backups" in entry ? entry.backups.find(b => b.id === entry.active) : null;
-  const databaseId = "databaseId" in entry ? entry.databaseId : backup?.databaseId;
-  const scoped = entry.active === "production" ? env : { ...env, DB: workingDatabase(env, databaseId!), STUDENT_IMAGES: prefixedImages(env.BACKUP_BUCKET, `working/${entry.active}/`) };
   try {
+    const backup = "backups" in entry ? entry.backups.find(b => b.id === entry.active) : null;
+    const databaseId = "databaseId" in entry ? entry.databaseId : backup?.databaseId;
+    const scoped = entry.active === "production" ? env : { ...env, DB: workingDatabase(env, databaseId!), STUDENT_IMAGES: prefixedImages(env.BACKUP_BUCKET, `working/${entry.active}/`) };
     let response = await withStorage(scoped, () => run(request, scoped));
     response = new Response(response.body, response);
     response.headers.set("Cache-Control", "no-store");

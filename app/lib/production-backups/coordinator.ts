@@ -36,6 +36,21 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
     });
   }
   leave(ticket: string) { this.ctx.storage.sql.exec("DELETE FROM requests WHERE id = ?", ticket); }
+  recoverRequests() {
+    return this.ctx.storage.transactionSync(() => {
+      const control = this.control();
+      if (control.job || control.maintenance) throw new Error("Wait for the current backup operation to finish before recovery.");
+      const cutoff = new Date(Date.now() - 10 * 60_000).toISOString();
+      const recent = this.ctx.storage.sql.exec<{ count: number }>("SELECT COUNT(*) AS count FROM requests WHERE started_at > ?", cutoff).one().count;
+      if (recent) throw new Error("Requests are still recent. Close other application tabs, stop all saves and imports, then wait 10 minutes before recovery.");
+      const count = this.pending();
+      this.ctx.storage.sql.exec("DELETE FROM requests");
+      // Invalidate old pages before admitting any subsequent saves.
+      this.write("control", { ...control, generation: control.generation + 1 });
+      this.write(`recovery:${crypto.randomUUID()}`, { recoveredAt: new Date().toISOString(), count });
+      return count;
+    });
+  }
   reserve(kind: Job["kind"], id: string, name: string, actor: string, generation?: number) {
     return this.ctx.storage.transactionSync(() => {
       const control = this.control();
