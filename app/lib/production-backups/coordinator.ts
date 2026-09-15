@@ -79,12 +79,7 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
         if (control.active === id && !(kind === 'activate' && Boolean(control.readOnly) !== readOnly)) throw new Error("Return to production before changing or deleting this copy.");
         if (kind === 'delete' && control.previewPrevious === id) throw new Error('This backup is still production while another backup is being previewed.');
         if (kind === "activate" && (backup.status !== "ready" || Date.parse(backup.expiresAt) <= Date.now())) throw new Error("Choose a ready, unexpired backup.");
-        if (kind === "activate" && backup.category === "automatic") {
-          sourceBackupId = backup.id;
-          id = crypto.randomUUID();
-          const createdAt = new Date().toISOString();
-          this.write(`backup:${id}`, { id, name: `Copy of ${backup.name}`.slice(0,80), createdAt, expiresAt: sixMonthsAfter(createdAt), category: 'manual', sourceBackupId, status: 'creating', schema: '', bytes: 0, photos: 0 } satisfies Backup);
-        }
+        if (kind === "activate" && backup.category === "automatic" && control.previewPrevious === id) throw new Error("Exit the read-only preview before replacing the current production snapshot.");
         if (kind === "delete") this.write(`backup:${id}`, { ...backup, status: "deleting" });
       }
       const job: Job = { id: crypto.randomUUID(), kind, backupId: id, actor, startedAt: new Date().toISOString(), sourceBackupId, readOnly: kind === 'activate' && readOnly };

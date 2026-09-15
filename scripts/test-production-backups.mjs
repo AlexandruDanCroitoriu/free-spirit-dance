@@ -243,10 +243,14 @@ try {
     await assert.rejects(run(blockedSwitch));
     assert.equal(coordinator.status().active, 'production', 'Failed safety snapshot prevents switching');
     failExport = false;
+    const manualCount = coordinator.status().backups.filter(b => b.category === 'manual').length;
+    const automaticCount = coordinator.status().backups.filter(b => b.category === 'automatic').length;
     const automaticSwitch = coordinator.reserve('activate', automatic.id, '', 'owner', coordinator.status().generation);
     await run(automaticSwitch);
-    assert.notEqual(coordinator.status().active, automatic.id);
-    assert.equal(coordinator.backup(coordinator.status().active).category, 'manual');
+    assert.equal(coordinator.status().active, automatic.id);
+    assert.equal(coordinator.backup(coordinator.status().active).category, 'automatic');
+    assert.equal(coordinator.status().backups.filter(b => b.category === 'manual').length, manualCount);
+    assert.equal(coordinator.status().backups.filter(b => b.category === 'automatic').length, automaticCount + 1);
     assert.deepEqual(bucket.objects.get(`snapshots/${automatic.id}/database.sql`).bytes, automaticBytes);
     const productionBeforePreview = coordinator.status().active;
     const snapshotsBeforePreview = coordinator.status().backups.length;
@@ -262,6 +266,18 @@ try {
     assert.equal(coordinator.status().active, productionBeforePreview);
     assert.equal(coordinator.status().readOnly, false);
     assert.equal(coordinator.status().backups.length, snapshotsBeforePreview);
+
+    const priorAutomaticDb = coordinator.backup(automatic.id).databaseId;
+    databases.get(priorAutomaticDb).db.exec("UPDATE students SET name='Edited production'");
+    await bucket.put(`working/${automatic.id}/extra.jpg`, 'new photo');
+    await run(coordinator.reserve('activate', manualJob.backupId, '', 'owner', coordinator.status().generation));
+    await run(coordinator.reserve('activate', automatic.id, '', 'owner', coordinator.status().generation));
+    const restoredAutomaticDb = coordinator.backup(automatic.id).databaseId;
+    assert.notEqual(restoredAutomaticDb, priorAutomaticDb);
+    assert.equal(databases.get(restoredAutomaticDb).db.prepare('SELECT name FROM students').get().name, 'Synthetic student');
+    assert.equal(bucket.objects.has(`working/${automatic.id}/extra.jpg`), false);
+    assert.deepEqual(bucket.objects.get(`snapshots/${automatic.id}/database.sql`).bytes, automaticBytes);
+    assert.equal(coordinator.status().backups.filter(b => b.category === 'manual').length, manualCount);
 
     // Fetch wrapping pins a tab to its original generation, not a shared cookie.
     const calls=[];const context={window:{fetch:async(input,init)=>{calls.push({input,init});return new Response();}},location:{href:'https://school.test/',origin:'https://school.test'},URL,Request,Headers};

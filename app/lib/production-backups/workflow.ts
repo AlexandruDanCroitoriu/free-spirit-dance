@@ -197,6 +197,20 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
         }
         if (job.sourceBackupId) await cloneSnapshot();
         const backup = await step.do<Backup>("load backup", () => coordinator.backup(job.backupId));
+        // Automatic snapshots never resume edits from a previous activation.
+        // The outgoing production snapshot has already completed above.
+        if (backup.category === 'automatic') {
+          backup.workingReady = false;
+          await step.do('reset automatic restore readiness', () => coordinator.updateBackup(job.id, { workingReady: false }));
+          for (let page = 0; ; page++) {
+            const removed = await step.do(`clear automatic working photos ${page}`, config, async () => {
+              const objects = await bucket.list({ prefix: workingPrefix, limit: 100 });
+              if (objects.objects.length) await bucket.delete(objects.objects.map(o => o.key));
+              return objects.objects.length;
+            });
+            if (!removed) break;
+          }
+        }
         if (backup.databaseId && !backup.workingReady) await step.do("discard incomplete previous restore", config, async () => {
           if (backup.databaseId === this.env.BACKUP_PRODUCTION_DATABASE_ID) throw new Error("Cannot modify original production.");
           const existing = await cloudApi<Array<{ uuid: string }>>(this.env, `?name=${encodeURIComponent(`fsd-backup-${backup.id}`)}`, undefined, "GET");
