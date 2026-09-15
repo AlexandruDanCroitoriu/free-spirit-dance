@@ -10,6 +10,14 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
     ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS records (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
     ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS requests (id TEXT PRIMARY KEY, started_at TEXT NOT NULL)");
     if (!this.read<Control>("control")) this.write("control", initialControl());
+    if (!this.read<boolean>('backup-categories-v1')) {
+      for (const row of ctx.storage.sql.exec<{ value: string }>("SELECT value FROM records WHERE key LIKE 'audit:%'").toArray()) {
+        const audit = JSON.parse(row.value) as Job;
+        const backup = this.read<Backup>(`backup:${audit.backupId}`);
+        if (audit.kind === 'backup' && backup && !backup.category) this.write(`backup:${backup.id}`, { ...backup, category: audit.actor === 'schedule' ? 'automatic' : 'manual' });
+      }
+      this.write('backup-categories-v1', true);
+    }
   }
   private read<T>(key: string): T | undefined {
     const row = this.ctx.storage.sql.exec<{ value: string }>("SELECT value FROM records WHERE key = ?", key).toArray()[0];

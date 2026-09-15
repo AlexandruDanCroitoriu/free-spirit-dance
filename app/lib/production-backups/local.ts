@@ -56,7 +56,7 @@ export class LocalBackupCoordinator extends ProductionBackupCoordinator {
           cursor = page.truncated ? page.cursor : undefined;
         } while (cursor);
         this.updateBackup(job.id, { status: "ready", schema: "local-transfer-v1", photos, bytes });
-        if (job.actor === "schedule") this.rename(job.backupId, `Local Catalog ${new Date().toISOString().slice(0,16)} UTC`);
+        if (job.actor === "schedule") this.updateBackup(job.id, { name: `Local Catalog ${new Date().toISOString().slice(0,16)} UTC` });
       } else if (job.kind === "activate") {
         const backup = this.backup(job.backupId);
         let slot = backup.databaseId;
