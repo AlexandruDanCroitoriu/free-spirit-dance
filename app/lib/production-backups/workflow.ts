@@ -1,6 +1,7 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { cloudApi, workingDatabase } from "./cloud";
 import type { Backup, Job } from "./model";
+import { migrateRestoredDatabase } from "./migrate";
 
 type Transfer = { status?: string; success?: boolean; at_bookmark?: string; upload_url?: string; filename?: string; result?: { signed_url?: string }; error?: string; messages?: string[] };
 
@@ -163,9 +164,6 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
         });
       } else if (job.kind === "activate") {
         const backup = await step.do<Backup>("load backup", () => coordinator.backup(job.backupId));
-        await step.do("check schema compatibility", config, async () => {
-          if (await schemaFingerprint(this.env.DB) !== backup.schema) throw new Error("Backup schema differs from production. Migrate a separate copy before activating it.");
-        });
         if (backup.databaseId && !backup.workingReady) await step.do("discard incomplete previous restore", config, async () => {
           if (backup.databaseId === this.env.BACKUP_PRODUCTION_DATABASE_ID) throw new Error("Cannot modify original production.");
           const existing = await cloudApi<Array<{ uuid: string }>>(this.env, `?name=${encodeURIComponent(`fsd-backup-${backup.id}`)}`, undefined, "GET");
@@ -220,9 +218,17 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
           });
           await step.do("remove prepared SQL", () => bucket.delete(`temporary/${job.backupId}/database.import.sql`));
         }
+        if (databaseId === this.env.BACKUP_PRODUCTION_DATABASE_ID) throw new Error("Cannot modify original production.");
         await drain();
+        await step.do("upgrade restored working copy", config, async () => {
+          const db = workingDatabase(this.env, databaseId);
+          if (await schemaFingerprint(db) !== await schemaFingerprint(this.env.DB)) await migrateRestoredDatabase(this.env.DB, db);
+        });
         await step.do("verify schema at switch", config, async () => {
-          if (await schemaFingerprint(this.env.DB) !== backup.schema || await schemaFingerprint(workingDatabase(this.env, databaseId)) !== backup.schema) throw new Error("Database schema changed. Activation cancelled.");
+          const db = workingDatabase(this.env, databaseId);
+          if (await schemaFingerprint(this.env.DB) !== await schemaFingerprint(db)) throw new Error("Database schema changed or the restored schema is incompatible. Activation cancelled.");
+          const checks = await db.batch([db.prepare("PRAGMA quick_check"), db.prepare("PRAGMA foreign_key_check")]);
+          if (JSON.stringify(checks[0].results) !== '[{"quick_check":"ok"}]' || checks[1].results.length) throw new Error("Migrated database integrity verification failed.");
         });
         await step.do("activate working copy", () => coordinator.switchDatabase(job.id, job.backupId));
       } else if (job.kind === "return") {

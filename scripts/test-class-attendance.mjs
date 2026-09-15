@@ -176,7 +176,7 @@ const editDetails = (original, details, authenticated = true) => api.PATCH(new R
   method: 'PATCH', headers: { 'Content-Type': 'application/json', ...(authenticated ? { 'cf-access-authenticated-user-email': 'admin@example.test' } : {}) },
   body: JSON.stringify({ ...original, details }),
 }));
-const details = { classDate: newClass.classDate, startTime: newClass.startTime, endTime: '17:00', rentCostMinor: 15050, rentPaid: true };
+const details = { courseId: newClass.courseId, classDate: newClass.classDate, startTime: newClass.startTime, endTime: '17:00', rentCostMinor: 15050, rentPaid: true };
 assert.equal((await editDetails(newClass, details, false)).status, 401);
 for (const invalid of [null, {}, { ...details, classDate: '2026-02-30' }, { ...details, startTime: '25:00' }, { ...details, endTime: '14:59' }, { ...details, rentCostMinor: -1 }, { ...details, rentCostMinor: 1.1 }, { ...details, rentCostMinor: 100_000_000 }, { ...details, rentPaid: 'true' }]) assert.equal((await editDetails(newClass, invalid)).status, 400);
 const attendanceBefore = sqlite.prepare('SELECT * FROM attendance WHERE class_id = ?').all(createdClass.id);
@@ -192,7 +192,7 @@ assert.equal(movedRow.class_date, movedDetails.classDate);
 assert.equal(movedRow.start_time, movedDetails.startTime);
 assert.equal(movedRow.rent_paid, 1);
 assert.deepEqual(sqlite.prepare('SELECT * FROM attendance WHERE class_id = ?').all(createdClass.id).map(row => ({ ...row })), attendanceBefore.map(row => ({ ...row, attended_at: '2026-09-13T16:00:00' })), 'Moving a class preserves IDs, notes, complimentary status and attribution');
-assert.equal((await (await get(newClass)).json()).cancelled, true, 'Original occurrence is cancelled');
+assert.equal((await get(newClass)).status, 404, 'A past original occurrence is removed instead of kept as an empty cancellation');
 assert.equal((await (await get(movedSlot)).json()).students.find(student => student.id === 1).attended, 1);
 assert.equal((await editDetails(newClass, movedDetails)).status, 409, 'Retry cannot duplicate the moved class');
 assert.equal((await api.POST(request({ ...movedSlot, studentIds: [2] }))).status, 200, 'Further attendance uses the new time');
@@ -202,19 +202,33 @@ assert.deepEqual(sqlite.prepare('SELECT * FROM course_schedule').all(), weeklyBe
 // Reject both stored and not-yet-materialized recurring destination classes.
 sqlite.exec("INSERT INTO course_schedule (course_id,day_of_week,start_time,end_time) VALUES (2,'Monday','16:00','17:00')");
 assert.equal((await editDetails(movedSlot, { ...movedDetails, classDate: '2026-09-14' })).status, 409);
-assert.equal((await editDetails(movedSlot, { ...movedDetails, classDate: newClass.classDate, startTime: newClass.startTime })).status, 409);
 assert.equal(sqlite.prepare('SELECT class_date FROM classes WHERE id = ?').get(createdClass.id).class_date, '2026-09-13');
 
 // A failed attendance update rolls back the class move and all associated writes.
 sqlite.exec("CREATE TRIGGER fail_test_move BEFORE UPDATE OF attended_at ON attendance WHEN NEW.attended_at = '2026-09-15T16:00:00' BEGIN SELECT RAISE(ABORT, 'test move failure'); END");
 assert.equal((await editDetails(movedSlot, { ...movedDetails, classDate: '2026-09-15' })).status, 500);
 assert.equal(sqlite.prepare('SELECT class_date FROM classes WHERE id = ?').get(createdClass.id).class_date, '2026-09-13');
-assert.equal(sqlite.prepare("SELECT count(*) n FROM classes WHERE course_id = 2 AND class_date = '2026-09-15'").get().n, 0);
+assert.equal(sqlite.prepare("SELECT count(*) n FROM classes WHERE course_id = 2 AND class_date = '2026-09-15' AND start_time = '16:00'").get().n, 0);
 sqlite.exec('DROP TRIGGER fail_test_move');
 console.log('PASS: class details validation, rent editing, attendance-preserving moves, destination conflicts, recurring schedule preservation and atomic rollback.');
 
-assert.equal((await api.PATCH(cancellationRequest(false, newClass))).status, 200, 'Original slot can be deliberately restored');
-assert.equal((await api.POST(request({ ...newClass, studentIds: [1] }))).status, 200, 'Restored class has distinct attendance retry keys');
-assert.equal((await api.POST(request({ ...newClass, studentIds: [1] }))).status, 200, 'Restored attendance retry remains safe');
-assert.equal(sqlite.prepare("SELECT count(*) n FROM attendance WHERE student_id = 1 AND course_id = 2 AND attended_at = '2026-09-12T15:00:00'").get().n, 1);
-console.log('PASS: restoring the old occurrence preserves moved attendance and supports safe attendance retries.');
+const changedCourseDetails = { ...movedDetails, courseId: 1, classDate: '2026-09-13', startTime: '17:00' };
+assert.equal((await editDetails(movedSlot, changedCourseDetails)).status, 200);
+const changedCourseSlot = { courseId: 1, classDate: changedCourseDetails.classDate, startTime: changedCourseDetails.startTime };
+const changedClass = sqlite.prepare('SELECT course_id, class_date, start_time FROM classes WHERE id = ?').get(createdClass.id);
+assert.deepEqual({ ...changedClass }, { course_id: 1, class_date: '2026-09-13', start_time: '17:00' });
+const changedAttendance = sqlite.prepare('SELECT course_id, course_name, attended_at FROM attendance WHERE class_id = ?').all(createdClass.id);
+assert.ok(changedAttendance.every(row => row.course_id === 1 && row.course_name === 'Zouk' && row.attended_at === '2026-09-13T17:00:00'));
+assert.equal((await (await get(changedCourseSlot)).json()).courseName, 'Zouk');
+assert.equal((await get(movedSlot)).status, 404, 'Changing a past class course removes the prior course occurrence');
+assert.equal((await editDetails(changedCourseSlot, { ...changedCourseDetails, courseId: 999 })).status, 404);
+console.log('PASS: class course changes preserve recorded attendance and show the target course.');
+
+const removableClass = { ...newClass, classDate: '2026-09-11', startTime: '11:00', endTime: '12:00' };
+assert.equal((await createClass(removableClass)).status, 200);
+const remove = (target, authenticated = true) => api.DELETE(new Request(`https://school.example.test/api/class-attendance?${new URLSearchParams(target)}`, { headers: authenticated ? { 'cf-access-authenticated-user-email': 'admin@example.test' } : {} }));
+assert.equal((await remove(removableClass, false)).status, 401);
+assert.equal((await remove(removableClass)).status, 200);
+assert.equal((await get(removableClass)).status, 404, 'A past class without attendance can be removed');
+assert.equal((await remove(changedCourseSlot)).status, 409, 'A class with attendance cannot be removed');
+console.log('PASS: past occurrences are removed after a course move, and empty saved classes can be removed safely.');

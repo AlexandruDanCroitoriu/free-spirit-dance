@@ -14,13 +14,14 @@ const emptyForm = (): CourseInput => ({ name: "", startDate: "", endDate: "", sc
 const inputClass = "mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-3 text-sm font-normal text-slate-800 focus:outline-none focus:ring-2 focus:ring-lime-600";
 const buttonClass = "rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold disabled:opacity-50";
 const primaryClass = "rounded-md bg-slate-800 px-4 py-3 font-sans text-xs font-bold text-stone-100 disabled:opacity-50";
+const moneyInputPattern = /^\d*(?:[.,]\d{0,2})?$/;
 
 export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [tab, setTab] = useState<"courses" | "payment-presets">("courses");
   const [form, setForm] = useState<CourseInput>(emptyForm);
   const [rentCosts, setRentCosts] = useState<Record<string, string>>({ Monday: "0.00" });
-  const [presetAmount, setPresetAmount] = useState("");
+  const [presetAmount, setPresetAmount] = useState("0");
   const [presetAllowance, setPresetAllowance] = useState("1");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -80,8 +81,8 @@ export default function CoursesPage() {
     const open = () => {
       if (busy) return;
       const fresh = emptyForm(), costs = { Monday: "0.00" };
-      initialForm.current = formSnapshot(fresh, costs, "", "1");
-      setForm(fresh); setRentCosts(costs); setPresetAmount(""); setPresetAllowance("1"); setEditingId(null); setError(""); setNotice(""); setOperationError(""); setFormOpen(true);
+      initialForm.current = formSnapshot(fresh, costs, "0", "1");
+      setForm(fresh); setRentCosts(costs); setPresetAmount("0"); setPresetAllowance("1"); setEditingId(null); setError(""); setNotice(""); setOperationError(""); setFormOpen(true);
     };
     window.addEventListener("open-add-course", open);
     return () => window.removeEventListener("open-add-course", open);
@@ -111,12 +112,15 @@ export default function CoursesPage() {
   }
   function edit(course: Course) {
     const schedules = course.schedules.length ? course.schedules.map((s) => ({ ...s })) : [newSchedule()];
-    const value = { name: course.name, startDate: course.startDate ?? "", endDate: course.endDate ?? "", schedules }, costs = Object.fromEntries(schedules.map((schedule) => [schedule.day, (schedule.rentCostMinor / 100).toFixed(2)])), amount = course.paymentPreset ? (course.paymentPreset.amountMinor / 100).toFixed(2) : "", allowance = course.paymentPreset ? String(course.paymentPreset.allowance) : "1";
+    const value = { name: course.name, startDate: course.startDate ?? "", endDate: course.endDate ?? "", schedules }, costs = Object.fromEntries(schedules.map((schedule) => [schedule.day, (schedule.rentCostMinor / 100).toFixed(2)])), amount = course.paymentPreset ? (course.paymentPreset.amountMinor / 100).toFixed(2) : "0", allowance = course.paymentPreset ? String(course.paymentPreset.allowance) : "1";
     initialForm.current = formSnapshot(value, costs, amount, allowance);
     setForm(value); setRentCosts(costs); setPresetAmount(amount); setPresetAllowance(allowance); setEditingId(course.id); setError(""); setNotice(""); setOperationError(""); setFormOpen(true);
   }
   function updateSchedule(index: number, values: Partial<Schedule>) {
     setForm((current) => ({ ...current, schedules: current.schedules.map((s, i) => i === index ? { ...s, ...values } : s) }));
+  }
+  function updatePresetAmount(value: string) {
+    if (moneyInputPattern.test(value)) setPresetAmount(value);
   }
   function toggleDay(day: string) {
     setRentCosts((current) => ({ ...current, [day]: current[day] ?? "0.00" }));
@@ -138,9 +142,9 @@ export default function CoursesPage() {
     if (schedules.some((schedule) => schedule === null)) { setError("Enter a rent cost from 0 to 999,999.99 RON for each class day."); return; }
     const input = parseCourse({ ...form, schedules: schedules as Schedule[] });
     if (typeof input === "string") { setError(input); return; }
-    const amountMinor = parseAmount(presetAmount);
+    const amountMinor = parseAmount(presetAmount, true);
     const allowance = Number(presetAllowance);
-    if (amountMinor === null) { setError("Enter a positive payment preset amount from 0.01 to 999,999.99 RON."); return; }
+    if (amountMinor === null) { setError("Enter a payment preset amount from 0 to 999,999.99 RON."); return; }
     if (!Number.isSafeInteger(allowance) || allowance < 1 || allowance > 10_000) { setError("Enter between 1 and 10,000 classes for the payment preset."); return; }
     setBusy(true);
     try {
@@ -182,13 +186,13 @@ export default function CoursesPage() {
           <fieldset className="rounded-lg border border-stone-200 p-4 font-sans text-xs text-slate-600">
             <legend className="px-1 font-semibold">Course payment preset</legend>
             <p className="mb-0 mt-1 font-normal text-slate-500">This preset uses the course name and is managed here.</p>
-            <div className="mt-3 grid grid-cols-2 gap-3 font-semibold"><label>Amount (RON)<input required inputMode="decimal" pattern="[0-9]{1,6}([.,][0-9]{1,2})?" maxLength={9} placeholder="e.g. 200.00" className={inputClass} value={presetAmount} onChange={(event) => setPresetAmount(event.target.value)} /></label><label>Classes covered<input required type="number" min="1" max="10000" step="1" className={inputClass} value={presetAllowance} onChange={(event) => setPresetAllowance(event.target.value)} /></label></div>
+            <div className="mt-3 grid grid-cols-2 gap-3 font-semibold"><label>Amount (RON)<input required inputMode="decimal" pattern="[0-9]{1,6}([.,][0-9]{1,2})?" maxLength={9} placeholder="e.g. 200.00" className={inputClass} value={presetAmount} onChange={(event) => updatePresetAmount(event.target.value)} /></label><label>Classes covered<input required type="number" min="1" max="10000" step="1" className={inputClass} value={presetAllowance} onChange={(event) => setPresetAllowance(event.target.value)} /></label></div>
           </fieldset>
           <div className="grid grid-cols-2 gap-3 font-sans text-xs font-semibold text-slate-600">
-            <label>Start date<input required type="date" min="1900-01-01" max={form.endDate || "9999-12-31"} className={inputClass} value={form.startDate ?? ""} onChange={(event) => setForm((current) => ({ ...current, startDate: event.target.value }))} /></label>
+            <label>Start date (optional)<input type="date" min="1900-01-01" max={form.endDate || "9999-12-31"} className={inputClass} value={form.startDate ?? ""} onChange={(event) => setForm((current) => ({ ...current, startDate: event.target.value }))} /></label>
             <label>End date (optional)<input type="date" min={form.startDate || "1900-01-01"} max="9999-12-31" className={inputClass} value={form.endDate ?? ""} onChange={(event) => setForm((current) => ({ ...current, endDate: event.target.value }))} /></label>
           </div>
-          <p className="font-sans text-xs text-slate-500">Weekly classes appear from the start date through the end date, inclusive. Leave the end date empty for an ongoing course.</p>
+          <p className="font-sans text-xs text-slate-500">Weekly classes follow the dates you set, inclusive. Leave both dates empty for an ongoing course.</p>
           <fieldset className="min-w-0 font-sans text-xs font-semibold text-slate-600">
             <legend>Days of the week</legend>
             <p className="mt-2 text-xs font-normal text-slate-500">Select up to 5 days ({new Set(form.schedules.map((schedule) => schedule.day)).size}/5).</p>

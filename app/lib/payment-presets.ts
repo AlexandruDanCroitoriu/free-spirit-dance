@@ -6,8 +6,8 @@ export function parsePreset(value: unknown): PresetInput | string {
   if (!value || typeof value !== "object") return "Enter a payment preset.";
   const input = value as Record<string, unknown>;
   if (typeof input.name !== "string" || !input.name.trim() || input.name.trim().length > 120) return "Enter a name of up to 120 characters.";
-  const amountMinor = parseAmount(input.amount);
-  if (amountMinor === null) return "Enter a positive RON amount with up to two decimal places.";
+  const amountMinor = parseAmount(input.amount, true);
+  if (amountMinor === null) return "Enter a RON amount of zero or more with up to two decimal places.";
   if (!Array.isArray(input.allocations) || input.allocations.length < 1 || input.allocations.length > 100) return "Select between one and 100 courses.";
   const allocations: PresetInput["allocations"] = [];
   for (const value of input.allocations) {

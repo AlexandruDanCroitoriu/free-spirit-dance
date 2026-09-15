@@ -18,6 +18,7 @@ type StudentCalendarEvent = { date: string; kind: "attendance" | "missed" | "pay
 type CoverageLine = { key: string; x1: number; y1: number; x2: number; y2: number };
 type HoveredPayment = { event: StudentCalendarEvent; element: HTMLElement; studentId?: number };
 type AttendancePreset = { course: string; year: number; studentIds: number[] };
+type StudentCalendarSelection = { studentId: number; range: "month" | "year" };
 
 const dayLabels: Record<string, string> = { Monday: "Luni", Tuesday: "Marți", Wednesday: "Miercuri", Thursday: "Joi", Friday: "Vineri", Saturday: "Sâmbătă", Sunday: "Duminică" };
 const monthStorageKey = "fsd-calendar-month";
@@ -233,6 +234,24 @@ export default function CourseCalendarWidget() {
     return () => window.removeEventListener("calendar-updated", refresh);
   }, []);
   useEffect(() => {
+    const selectStudentCalendar = (event: Event) => {
+      const selection = (event as CustomEvent<unknown>).detail;
+      if (!selection || typeof selection !== "object") return;
+      const { studentId, range } = selection as Partial<StudentCalendarSelection>;
+      if (!Number.isInteger(studentId) || studentId <= 0 || (range !== "month" && range !== "year")) return;
+      setCalendarMode("student");
+      setCalendarModeBeforeYears("student");
+      setCalendarRange(range);
+      setSelectedStudentId(studentId);
+      setSelectedDay(null);
+      setSelectedClass(null);
+      setOpenedAttendanceDate(null);
+      setOpenedPaymentId(null);
+    };
+    window.addEventListener("student-calendar-selected", selectStudentCalendar);
+    return () => window.removeEventListener("student-calendar-selected", selectStudentCalendar);
+  }, []);
+  useEffect(() => {
     const selectMatrixDay = (event: MouseEvent) => {
       const target = event.target as Element | null;
       const dateCell = target?.closest<HTMLTableCellElement>("th[scope='row']");
@@ -345,10 +364,27 @@ export default function CourseCalendarWidget() {
       });
       setCoverageLines(lines);
     };
+    let frame: number | null = null;
+    const scheduleUpdate = () => {
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        updateLines();
+      });
+    };
     updateLines();
-    window.addEventListener("resize", updateLines);
-    return () => window.removeEventListener("resize", updateLines);
-  }, [hoveredPayment, showPaymentCoverage, studentEvents, multipleStudentEvents, selectedStudentIds, students, calendarRange, visibleMonth]);
+    // Scroll events do not bubble: capture also tracks nested matrix scrollers.
+    window.addEventListener("scroll", scheduleUpdate, { capture: true, passive: true });
+    window.addEventListener("resize", scheduleUpdate);
+    const observer = new ResizeObserver(scheduleUpdate);
+    observer.observe(calendarBodyRef.current);
+    return () => {
+      window.removeEventListener("scroll", scheduleUpdate, true);
+      window.removeEventListener("resize", scheduleUpdate);
+      observer.disconnect();
+      if (frame !== null) window.cancelAnimationFrame(frame);
+    };
+  }, [hoveredPayment, showPaymentCoverage, studentEvents, multipleStudentEvents, selectedStudentIds, students, calendarRange, visibleMonth, selectedCourseIds, selectedYears, courses, loading, error]);
   useEffect(() => {
     const toggleGlow = (element: HTMLElement, active: boolean) => ["ring-2", "ring-emerald-500", "shadow-[0_0_8px_rgba(16,185,129,0.9)]", "relative", "z-10"].forEach((name) => element.classList.toggle(name, active));
     const matrixKeys = new Set(Object.entries(multipleStudentEvents).flatMap(([studentId, events]) => events.filter((event) => event.kind === "attendance" && event.complimentary).map((event) => `${studentId}|${event.date}|${event.courseName}`)));

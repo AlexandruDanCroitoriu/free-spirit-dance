@@ -36,7 +36,7 @@ export default function ClassAttendancePanel({
 }) {
   const [slot, setSlot] = useState(initialSlot);
   const [tab, setTab] = useState<"attendance" | "details">("attendance");
-  const [details, setDetails] = useState({ classDate: initialSlot.classDate, startTime: initialSlot.startTime, endTime: "", rent: "0", rentPaid: false });
+  const [details, setDetails] = useState({ courseId: initialSlot.courseId, classDate: initialSlot.classDate, startTime: initialSlot.startTime, endTime: "", rent: "0", rentPaid: false });
   const dialog = useRef<HTMLDialogElement>(null);
   const saving = useRef(false);
   const [data, setData] = useState<ClassRoster | null>(null);
@@ -51,7 +51,7 @@ export default function ClassAttendancePanel({
   const [busy, setBusy] = useState(false);
   const [retry, setRetry] = useState(0);
   const [studentPanelId, setStudentPanelId] = useState<number | null>(null);
-  const detailsChanged = Boolean(data && (details.classDate !== slot.classDate || details.startTime !== slot.startTime || details.endTime !== (data.endTime ?? "") || details.rent !== String(data.rentCostMinor / 100) || details.rentPaid !== data.rentPaid));
+  const detailsChanged = Boolean(data && (details.courseId !== slot.courseId || details.classDate !== slot.classDate || details.startTime !== slot.startTime || details.endTime !== (data.endTime ?? "") || details.rent !== String(data.rentCostMinor / 100) || details.rentPaid !== data.rentPaid));
   const editable = data?.canEdit === true;
   const query = new URLSearchParams({
     courseId: String(slot.courseId),
@@ -78,7 +78,7 @@ export default function ClassAttendancePanel({
       .then((result) => {
         if (!controller.signal.aborted) {
           setData(result);
-          setDetails({ classDate: slot.classDate, startTime: slot.startTime, endTime: result.endTime ?? "", rent: String(result.rentCostMinor / 100), rentPaid: result.rentPaid });
+          setDetails({ courseId: slot.courseId, classDate: slot.classDate, startTime: slot.startTime, endTime: result.endTime ?? "", rent: String(result.rentCostMinor / 100), rentPaid: result.rentPaid });
           setSelected([]); setComplimentary([]); setComplimentaryChanges({}); setComplimentaryReason("");
         }
       })
@@ -125,6 +125,17 @@ export default function ClassAttendancePanel({
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update class."); }
     finally { saving.current = false; setBusy(false); }
   }
+  async function removeClass() {
+    if (saving.current || !data?.canRemoveClass || changeCount > 0 || detailsChanged) return;
+    if (!await confirmAction("Remove class?", "Remove this class occurrence? It has no recorded attendance.", "Remove class", true)) return;
+    saving.current = true; setBusy(true); setError("");
+    try {
+      await readResponse(await fetch(`/api/class-attendance?${query}`, { method: "DELETE" }));
+      window.dispatchEvent(new Event("calendar-updated"));
+      onClose();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not remove class."); }
+    finally { saving.current = false; setBusy(false); }
+  }
   async function saveDetails() {
     if (saving.current || !data?.canManageClass || !detailsChanged || changeCount > 0) return;
     if (!details.endTime || details.endTime <= details.startTime || !/^\d+(?:\.\d{1,2})?$/.test(details.rent)) {
@@ -134,10 +145,10 @@ export default function ClassAttendancePanel({
     try {
       const result = await readResponse<CalendarClass & { endTime: string; rentCostMinor: number; rentPaid: boolean }>(await fetch("/api/class-attendance", {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...slot, details: { classDate: details.classDate, startTime: details.startTime, endTime: details.endTime, rentCostMinor: Math.round(Number(details.rent) * 100), rentPaid: details.rentPaid } }),
+        body: JSON.stringify({ ...slot, details: { courseId: details.courseId, classDate: details.classDate, startTime: details.startTime, endTime: details.endTime, rentCostMinor: Math.round(Number(details.rent) * 100), rentPaid: details.rentPaid } }),
       }));
       setData(current => current ? { ...current, endTime: result.endTime, rentCostMinor: result.rentCostMinor, rentPaid: result.rentPaid } : current);
-      setDetails({ classDate: result.classDate, startTime: result.startTime, endTime: result.endTime, rent: String(result.rentCostMinor / 100), rentPaid: result.rentPaid });
+      setDetails({ courseId: result.courseId, classDate: result.classDate, startTime: result.startTime, endTime: result.endTime, rent: String(result.rentCostMinor / 100), rentPaid: result.rentPaid });
       setSlot({ courseId: result.courseId, classDate: result.classDate, startTime: result.startTime });
       window.dispatchEvent(new Event("calendar-updated"));
       window.dispatchEvent(new Event("student-activity-updated"));
@@ -294,6 +305,7 @@ export default function ClassAttendancePanel({
           {data && <form onSubmit={event => { event.preventDefault(); void saveDetails(); }} className="space-y-4">
             <p className="font-sans text-sm text-slate-500">Changes apply to this class only. Recorded attendance follows any date or start-time change.</p>
             <fieldset disabled={busy || loading || !data.canManageClass} className="space-y-4 font-sans text-sm">
+              <label className="block">Course<select required value={details.courseId} onChange={event => setDetails(current => ({ ...current, courseId: Number(event.target.value) }))} className="mt-2 w-full rounded-md border border-stone-300 bg-white p-2">{data.courses.map(course => <option key={course.id} value={course.id}>{course.name}</option>)}</select></label>
               <label className="block">Date<input required type="date" min="1900-01-01" max="9999-12-31" value={details.classDate} onChange={event => setDetails(current => ({ ...current, classDate: event.target.value }))} className="mt-2 w-full rounded-md border border-stone-300 bg-white p-2" /></label>
               <div className="grid gap-3 sm:grid-cols-2">
                 <TimeSelector label="Start time (Bucharest)" value={details.startTime} onChange={startTime => setDetails(current => ({ ...current, startTime }))} />
@@ -308,6 +320,7 @@ export default function ClassAttendancePanel({
           </form>}
         {data?.canManageClass && <div>
           <button type="button" className={button + " text-red-700"} disabled={busy || loading || changeCount > 0 || detailsChanged || (!data.cancelled && data.students.some((student) => student.attended))} onClick={() => void changeCancellation()}>{data.cancelled ? "Restore class" : "Cancel class"}</button>
+          {data.canRemoveClass && <button type="button" className={button + " ml-2 text-red-700"} disabled={busy || loading || changeCount > 0 || detailsChanged} onClick={() => void removeClass()}>Remove class</button>}
           {!data.cancelled && data.students.some((student) => student.attended) && <p className="font-sans text-xs text-slate-500">Remove recorded attendance before cancelling this class.</p>}
         </div>}
           {detailsChanged && <p className="font-sans text-xs text-slate-500">Save class details before cancelling or restoring this class.</p>}

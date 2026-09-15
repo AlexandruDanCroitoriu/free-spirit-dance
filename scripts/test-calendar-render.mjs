@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { build } from "esbuild";
+import { build, transform } from "esbuild";
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import { runInNewContext } from "node:vm";
@@ -57,6 +57,55 @@ try {
   console.log("PASS: Calendar renders current API schedules, including multiple days, empty schedules, and sorted classes.");
 
   const widget = await readFile("app/components/course-calendar-widget.tsx", "utf8");
+  const coverageEffect = widget.slice(widget.indexOf("    if (!calendarBodyRef.current)"), widget.indexOf("  }, [hoveredPayment, showPaymentCoverage"));
+  const { code: coverageCode } = await transform(`(() => {${coverageEffect}})()`, { loader: "ts" });
+  const listeners = new Map();
+  const frames = new Map();
+  let frameId = 0;
+  let lines;
+  let updates = 0;
+  let scrollTop = 0;
+  let scrollLeft = 0;
+  let disconnected = false;
+  const rect = (left, top) => ({ left: left - scrollLeft, top: top - scrollTop, width: 24, height: 30 });
+  const payment = { getBoundingClientRect: () => rect(120, 300) };
+  const target = { getBoundingClientRect: () => rect(120, 600) };
+  const cleanup = runInNewContext(coverageCode, {
+    calendarBodyRef: { current: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } },
+    hoveredPayment: null, showPaymentCoverage: true, calendarRange: "years",
+    selectedMatrixStudents: [{ id: 1 }],
+    multipleStudentEvents: { 1: [{ kind: "payment", paymentId: 10, coveredClasses: [{ startsAt: "2025-01-09T19:00", courseName: "Beginners" }] }] },
+    matrixPaymentCardRefs: { current: new Map([["1|10", payment]]) },
+    matrixActivityCardRefs: { current: new Map([["1|2025-01-09|Beginners", target]]) },
+    setCoverageLines: value => { lines = value; updates++; },
+    window: {
+      addEventListener: (type, callback, options) => { listeners.set(type, callback); if (type === "scroll") assert.equal(options.capture, true); },
+      removeEventListener: (type, callback) => { assert.equal(listeners.get(type), callback); listeners.delete(type); },
+      requestAnimationFrame: callback => { frames.set(++frameId, callback); return frameId; },
+      cancelAnimationFrame: id => frames.delete(id),
+    },
+    ResizeObserver: class { observe() {} disconnect() { disconnected = true; } },
+  });
+  assert.equal(lines[0].y1, 315);
+  assert.equal(lines[0].y2, 615);
+  scrollTop = 200;
+  scrollLeft = 40;
+  listeners.get("scroll")();
+  listeners.get("scroll")();
+  assert.equal(frames.size, 1, "Scroll events share one animation frame");
+  const flush = () => { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(callback => callback()); };
+  flush();
+  assert.equal(updates, 2);
+  assert.equal(lines[0].y1, 115, "Payment endpoint follows vertical scrolling");
+  assert.equal(lines[0].y2, 415, "Covered class endpoint follows vertical scrolling");
+  assert.equal(lines[0].x1, 92, "Payment endpoint follows horizontal scrolling");
+  assert.equal(lines[0].x2, 92, "Covered class endpoint follows horizontal scrolling");
+  listeners.get("scroll")();
+  cleanup();
+  assert.equal(frames.size, 0, "Cleanup cancels pending updates");
+  assert.equal(listeners.size, 0, "Cleanup removes listeners");
+  assert.equal(disconnected, true);
+  console.log("PASS: Payment coverage follows vertical and horizontal scrolling and cleans up pending updates.");
   const presetIds = [47, 55, 54, 92, 81, 137, 101, 53, 124, 37, 87, 91, 138, 150, 78, 114, 99, 63, 122, 89, 96, 43, 86, 140, 82, 65, 40, 60, 44, 35, 85, 70, 52, 56, 134, 71, 29, 145, 18];
   const activeIds = new Set([44, 53, 56, 96, 137, 145]);
   const directoryStudents = presetIds.map((id) => ({ id, firstName: `Student${id}`, lastName: "Fixture", active: activeIds.has(id), picture: null })).reverse();

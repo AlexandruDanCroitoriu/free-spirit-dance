@@ -7,6 +7,14 @@ function actor(request: Request) {
 function canEdit(request: Request) {
   return Boolean(actor(request));
 }
+function hasStarted(slot: CalendarClass) {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Bucharest", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
+  const value = (type: string) => parts.find((part) => part.type === type)!.value;
+  return `${slot.classDate}T${slot.startTime}` <= `${value("year")}-${value("month")}-${value("day")}T${value("hour")}:${value("minute")}`;
+}
+async function isRecurringClass(db: D1Database, slot: CalendarClass) {
+  return Boolean(await db.prepare("SELECT 1 FROM course_schedule WHERE course_id = ? AND day_of_week = ? AND start_time = ? AND ((SELECT start_date FROM courses WHERE id = ?) IS NULL OR (SELECT start_date FROM courses WHERE id = ?) <= ?) AND ((SELECT end_date FROM courses WHERE id = ?) IS NULL OR (SELECT end_date FROM courses WHERE id = ?) >= ?)").bind(slot.courseId, classWeekday(slot.classDate), slot.startTime, slot.courseId, slot.courseId, slot.classDate, slot.courseId, slot.courseId, slot.classDate).first());
+}
 async function scheduledClass(db: D1Database, slot: CalendarClass) {
   const recorded = await db.prepare("SELECT c.name AS courseName, cl.end_time AS endTime, cl.rent_cost_minor AS rentCostMinor, cl.rent_paid AS rentPaid FROM classes cl JOIN courses c ON c.id = cl.course_id WHERE cl.course_id = ? AND cl.class_date = ? AND cl.start_time = ?").bind(slot.courseId, slot.classDate, slot.startTime).first<{ courseName: string; endTime: string | null; rentCostMinor: number; rentPaid: number }>();
   if (recorded) return recorded;
@@ -24,8 +32,12 @@ export async function GET(request: Request) {
       EXISTS (SELECT 1 FROM attendance a WHERE a.student_id = s.id AND a.course_id = ? AND a.attended_at = ?) AS attended,
       EXISTS (SELECT 1 FROM attendance a WHERE a.student_id = s.id AND a.course_id = ? AND a.attended_at = ? AND a.complimentary = 1) AS complimentary
       FROM students s ORDER BY s.last_name COLLATE NOCASE, s.first_name COLLATE NOCASE, s.id`).bind(slot.courseId, slot.courseId, `${slot.classDate}T${slot.startTime}:00`, slot.courseId, `${slot.classDate}T${slot.startTime}:00`).all<ClassStudent>();
-    const cancelled = Boolean(await db.prepare("SELECT 1 FROM classes WHERE course_id = ? AND class_date = ? AND start_time = ? AND cancelled = 1").bind(slot.courseId, slot.classDate, slot.startTime).first());
-    return json({ ...scheduled, rentPaid: Boolean(scheduled.rentPaid), cancelled, canManageClass: Boolean(actor(request)), canEdit: !cancelled && canEdit(request), students: rows.results });
+    const courses = await db.prepare("SELECT id, name FROM courses ORDER BY name COLLATE NOCASE, id").all<{ id: number; name: string }>();
+    const recorded = await db.prepare("SELECT id, cancelled FROM classes WHERE course_id = ? AND class_date = ? AND start_time = ?").bind(slot.courseId, slot.classDate, slot.startTime).first<{ id: number; cancelled: number }>();
+    const cancelled = Boolean(recorded?.cancelled);
+    const hasAttendance = recorded ? Boolean(await db.prepare("SELECT 1 FROM attendance WHERE class_id = ?").bind(recorded.id).first()) : false;
+    const canRemoveClass = Boolean(recorded && !hasAttendance && (hasStarted(slot) || !await isRecurringClass(db, slot)));
+    return json({ ...scheduled, rentPaid: Boolean(scheduled.rentPaid), cancelled, canManageClass: Boolean(actor(request)), canEdit: !cancelled && canEdit(request), canRemoveClass, courses: courses.results, students: rows.results });
   } catch (error) { console.error("Could not load class roster", error); return json({ error: "Could not load the class students." }, 500); }
 }
 export async function POST(request: Request) {
@@ -83,22 +95,24 @@ export async function PATCH(request: Request) {
   if (!slot) return json({ error: "Invalid class update." }, 400);
   if (input?.details !== undefined) {
     const details = input.details as Record<string, unknown> | null;
-    const next = details && typeof details === "object" && parseClass({ ...details, courseId: slot.courseId });
+    const next = details && typeof details === "object" && parseClass(details);
     if (!next || typeof details?.endTime !== "string" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(details.endTime) || details.endTime <= next.startTime || typeof details.rentCostMinor !== "number" || !Number.isSafeInteger(details.rentCostMinor) || details.rentCostMinor < 0 || details.rentCostMinor > 99_999_999 || typeof details.rentPaid !== "boolean") return json({ error: "Enter a valid date, an end time after the start time, and rent from 0 to 999,999.99 RON." }, 400);
     try {
       const db = env.DB;
       const scheduled = await scheduledClass(db, slot);
       if (!scheduled) return json({ error: "This class is no longer scheduled. Reload the calendar." }, 409);
-      const moved = next.classDate !== slot.classDate || next.startTime !== slot.startTime;
+      const nextCourse = await db.prepare("SELECT name FROM courses WHERE id = ?").bind(next.courseId).first<{ name: string }>();
+      if (!nextCourse) return json({ error: "This course no longer exists. Reload the calendar." }, 404);
+      const moved = next.courseId !== slot.courseId || next.classDate !== slot.classDate || next.startTime !== slot.startTime;
       if (moved && await scheduledClass(db, next)) return json({ error: "A class already exists at this date and start time. Choose another time." }, 409);
       await db.batch([
         db.prepare("INSERT INTO admin_profiles (email, name) VALUES (?, '') ON CONFLICT(email) DO NOTHING").bind(email),
         db.prepare("INSERT INTO classes (course_id, class_date, start_time, end_time, rent_cost_minor) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING").bind(slot.courseId, slot.classDate, slot.startTime, scheduled.endTime, scheduled.rentCostMinor),
-        db.prepare("UPDATE classes SET class_date = ?, start_time = ?, end_time = ?, rent_cost_minor = ?, rent_paid = ? WHERE course_id = ? AND class_date = ? AND start_time = ?").bind(next.classDate, next.startTime, details.endTime, details.rentCostMinor, details.rentPaid ? 1 : 0, slot.courseId, slot.classDate, slot.startTime),
+        db.prepare("UPDATE classes SET course_id = ?, class_date = ?, start_time = ?, end_time = ?, rent_cost_minor = ?, rent_paid = ? WHERE course_id = ? AND class_date = ? AND start_time = ?").bind(next.courseId, next.classDate, next.startTime, details.endTime, details.rentCostMinor, details.rentPaid ? 1 : 0, slot.courseId, slot.classDate, slot.startTime),
         ...(moved ? [
-          db.prepare("UPDATE attendance SET attended_at = ? WHERE class_id = (SELECT id FROM classes WHERE course_id = ? AND class_date = ? AND start_time = ?)").bind(`${next.classDate}T${next.startTime}:00`, next.courseId, next.classDate, next.startTime),
-          // Keep the original occurrence cancelled so its recurring schedule cannot recreate it.
-          db.prepare("INSERT INTO classes (course_id, class_date, start_time, end_time, rent_cost_minor, cancelled, cancelled_by, cancelled_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)").bind(slot.courseId, slot.classDate, slot.startTime, scheduled.endTime, scheduled.rentCostMinor, email, new Date().toISOString()),
+          db.prepare("UPDATE attendance SET course_id = ?, course_name = ?, attended_at = ? WHERE class_id = (SELECT id FROM classes WHERE course_id = ? AND class_date = ? AND start_time = ?)").bind(next.courseId, nextCourse.name, `${next.classDate}T${next.startTime}:00`, next.courseId, next.classDate, next.startTime),
+          // Future recurring slots need a cancellation record so their weekly schedule does not recreate them.
+          ...(!hasStarted(slot) ? [db.prepare("INSERT INTO classes (course_id, class_date, start_time, end_time, rent_cost_minor, cancelled, cancelled_by, cancelled_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)").bind(slot.courseId, slot.classDate, slot.startTime, scheduled.endTime, scheduled.rentCostMinor, email, new Date().toISOString())] : []),
         ] : []),
       ]);
       return json({ ...next, endTime: details.endTime, rentCostMinor: details.rentCostMinor, rentPaid: details.rentPaid });
@@ -125,4 +139,20 @@ export async function PATCH(request: Request) {
     console.error("Could not change class cancellation", error);
     return json({ error: "Could not update the class. Please retry." }, 500);
   }
+}
+
+export async function DELETE(request: Request) {
+  const email = actor(request);
+  if (!email) return json({ error: "Sign in to remove a class." }, 401);
+  const slot = parseClass(Object.fromEntries(new URL(request.url).searchParams));
+  if (!slot) return json({ error: "Invalid calendar class." }, 400);
+  try {
+    const db = env.DB;
+    const recorded = await db.prepare("SELECT id FROM classes WHERE course_id = ? AND class_date = ? AND start_time = ?").bind(slot.courseId, slot.classDate, slot.startTime).first<{ id: number }>();
+    if (!recorded) return json({ error: "This class is not a saved occurrence." }, 404);
+    if (await db.prepare("SELECT 1 FROM attendance WHERE class_id = ?").bind(recorded.id).first()) return json({ error: "Remove recorded attendance before removing this class." }, 409);
+    if (!hasStarted(slot) && await isRecurringClass(db, slot)) return json({ error: "Cancel a future recurring class instead of removing it." }, 409);
+    await db.prepare("DELETE FROM classes WHERE id = ?").bind(recorded.id).run();
+    return json({ removed: true });
+  } catch (error) { console.error("Could not remove class", error); return json({ error: "Could not remove class. Please retry." }, 500); }
 }

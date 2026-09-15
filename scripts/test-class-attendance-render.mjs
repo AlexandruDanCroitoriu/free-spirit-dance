@@ -6,7 +6,7 @@ import { build } from 'esbuild';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 const directory=resolve('.wrangler/class-attendance-render-test');await mkdir(directory,{recursive:true});
-const data={canEdit:true,canManageClass:true,cancelled:false,rentCostMinor:12500,rentPaid:false,courseName:'Zouk',endTime:'19:30',students:[{id:1,firstName:'Assigned',lastName:'Student',picture:null,active:1,assigned:1,attended:0},{id:2,firstName:'Other',lastName:'Dancer',picture:null,active:1,assigned:0,attended:0},{id:3,firstName:'Recorded',lastName:'Student',picture:null,active:1,assigned:0,attended:1},{id:4,firstName:'Inactive',lastName:'Assigned',picture:null,active:0,assigned:1,attended:0}]};
+const data={canEdit:true,canManageClass:true,canRemoveClass:true,cancelled:false,rentCostMinor:12500,rentPaid:false,courseName:'Zouk',endTime:'19:30',courses:[{id:1,name:'Zouk'},{id:2,name:'Basics'}],students:[{id:1,firstName:'Assigned',lastName:'Student',picture:null,active:1,assigned:1,attended:0},{id:2,firstName:'Other',lastName:'Dancer',picture:null,active:1,assigned:0,attended:0},{id:3,firstName:'Recorded',lastName:'Student',picture:null,active:1,assigned:0,attended:1},{id:4,firstName:'Inactive',lastName:'Assigned',picture:null,active:0,assigned:1,attended:0}]};
 try {
  const source=await readFile('app/components/class-attendance-panel.tsx','utf8');
  {
@@ -37,7 +37,7 @@ try {
   const {default:Panel}=await import(pathToFileURL(outfile).href);
   const html=renderToString(createElement(Panel,{slot:{courseId:1,classDate:'2026-09-09',startTime:'18:30'},courseName:'Zouk',onClose(){}}));
   assert.match(html, /role="tab" id="class-details-tab"[^>]*aria-selected="true"/);
-  for (const text of ['class-details-panel', 'type="date"', 'Start time (Bucharest)', 'End time (Bucharest)', 'Rent cost (RON)', 'Rent money given', 'Save class details', 'Cancel class']) assert.ok(html.includes(text), text);
+  for (const text of ['class-details-panel', 'Course', 'Zouk', 'Basics', 'type="date"', 'Start time (Bucharest)', 'End time (Bucharest)', 'Rent cost (RON)', 'Rent money given', 'Save class details', 'Cancel class', 'Remove class']) assert.ok(html.includes(text), text);
   assert.doesNotMatch(html, /Submit attendance|Assigned students|Other students/);
  }
  console.log('PASS: class sidebar, assigned-first cards, green selections, recorded states, and future-date controls render.');

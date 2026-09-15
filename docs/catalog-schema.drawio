@@ -1,0 +1,1143 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="catalog-schema" name="Local Catalog — all tables">
+    <mxGraphModel dx="3600" dy="3260" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3600" pageHeight="3260" math="0" shadow="0" background="#ffffff">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="panel:students" value="" style="rounded=1;arcSize=3;absoluteArcSize=1;html=0;fillColor=#F0FDFA;strokeColor=#99CCC4;strokeWidth=1;pointerEvents=0;connectable=0;" vertex="1" parent="1">
+          <mxGeometry x="60" y="330" width="1120" height="560" as="geometry" />
+        </mxCell>
+        <mxCell id="panel:courses" value="" style="rounded=1;arcSize=3;absoluteArcSize=1;html=0;fillColor=#EFF6FF;strokeColor=#B5CAF1;strokeWidth=1;pointerEvents=0;connectable=0;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="330" width="1120" height="560" as="geometry" />
+        </mxCell>
+        <mxCell id="panel:practice" value="" style="rounded=1;arcSize=3;absoluteArcSize=1;html=0;fillColor=#F5F3FF;strokeColor=#C4B5FD;strokeWidth=1;pointerEvents=0;connectable=0;" vertex="1" parent="1">
+          <mxGeometry x="2420" y="330" width="1120" height="560" as="geometry" />
+        </mxCell>
+        <mxCell id="panel:payments" value="" style="rounded=1;arcSize=3;absoluteArcSize=1;html=0;fillColor=#FFFBEB;strokeColor=#E7C894;strokeWidth=1;pointerEvents=0;connectable=0;" vertex="1" parent="1">
+          <mxGeometry x="60" y="950" width="1120" height="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="panel:attendance" value="" style="rounded=1;arcSize=3;absoluteArcSize=1;html=0;fillColor=#F0FDF4;strokeColor=#9CCFB4;strokeWidth=1;pointerEvents=0;connectable=0;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="950" width="1120" height="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="panel:admin" value="" style="rounded=1;arcSize=3;absoluteArcSize=1;html=0;fillColor=#F8FAFC;strokeColor=#CBD5E1;strokeWidth=1;pointerEvents=0;connectable=0;" vertex="1" parent="1">
+          <mxGeometry x="2420" y="950" width="1120" height="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="panel:history" value="" style="rounded=1;arcSize=3;absoluteArcSize=1;html=0;fillColor=#FFFCF5;strokeColor=#E5D4B6;strokeWidth=1;pointerEvents=0;connectable=0;" vertex="1" parent="1">
+          <mxGeometry x="60" y="2040" width="3480" height="490" as="geometry" />
+        </mxCell>
+        <mxCell id="panel:imports" value="" style="rounded=1;arcSize=3;absoluteArcSize=1;html=0;fillColor=#FFFCF5;strokeColor=#E5D4B6;strokeWidth=1;pointerEvents=0;connectable=0;" vertex="1" parent="1">
+          <mxGeometry x="60" y="2590" width="1120" height="490" as="geometry" />
+        </mxCell>
+        <mxCell id="panel:system" value="" style="rounded=1;arcSize=3;absoluteArcSize=1;html=0;fillColor=#F8FAFC;strokeColor=#CBD5E1;strokeWidth=1;pointerEvents=0;connectable=0;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="2590" width="1120" height="490" as="geometry" />
+        </mxCell>
+        <mxCell id="panel:tools" value="" style="rounded=1;arcSize=3;absoluteArcSize=1;html=0;fillColor=#F8FAFC;strokeColor=#CBD5E1;strokeWidth=1;pointerEvents=0;connectable=0;" vertex="1" parent="1">
+          <mxGeometry x="2420" y="2590" width="1120" height="490" as="geometry" />
+        </mxCell>
+        <mxCell id="fk:14" value="" edge="1" parent="1" source="field:payment_course_allowances:payment_id" target="field:student_payments:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#B45309;strokeWidth=1.8;fontFamily=Helvetica;fontSize=13;fontColor=#B45309;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:16" value="DELETE CASCADE" edge="1" parent="1" source="field:payment_preset_courses:preset_id" target="field:payment_presets:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#B45309;strokeWidth=1.8;fontFamily=Helvetica;fontSize=13;fontColor=#B45309;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:26" value="DELETE CASCADE" edge="1" parent="1" source="field:student_courses:student_id" target="field:students:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#0F766E;strokeWidth=1.8;fontFamily=Helvetica;fontSize=13;fontColor=#0F766E;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:25" value="" edge="1" parent="1" source="field:student_courses:course_id" target="field:courses:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#1D4ED8;strokeWidth=1.8;fontFamily=Helvetica;fontSize=13;fontColor=#1D4ED8;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1242" y="503.0" />
+              <mxPoint x="1242" y="477.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:8" value="" edge="1" parent="1" source="field:course_schedule:course_id" target="field:courses:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#1D4ED8;strokeWidth=1.8;fontFamily=Helvetica;fontSize=13;fontColor=#1D4ED8;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1758" y="503.0" />
+              <mxPoint x="1758" y="477.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:22" value="" edge="1" parent="1" source="field:practice_attendance:practice_id" target="field:practice_parties:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#7C3AED;strokeWidth=1.8;fontFamily=Helvetica;fontSize=13;fontColor=#7C3AED;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2938" y="529.0" />
+              <mxPoint x="2938" y="477.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:2" value="" edge="1" parent="1" source="field:attendance:class_id" target="field:classes:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERzeroToOne;endFill=0;startSize=12;endSize=12;strokeColor=#047857;strokeWidth=1.8;fontFamily=Helvetica;fontSize=13;fontColor=#047857;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1758" y="1357.0" />
+              <mxPoint x="1758" y="1097.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:7" value="" edge="1" parent="1" source="field:classes:course_id" target="field:courses:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#1D4ED8;strokeWidth=1.8;fontFamily=Helvetica;fontSize=13;fontColor=#1D4ED8;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1222" y="1123.0" />
+              <mxPoint x="1222" y="477.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:15" value="" edge="1" parent="1" source="field:payment_preset_courses:course_id" target="field:courses:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#1D4ED8;strokeWidth=1.8;fontFamily=Helvetica;fontSize=13;fontColor=#1D4ED8;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1218" y="1123.0" />
+              <mxPoint x="1218" y="428.0" />
+              <mxPoint x="1242" y="428.0" />
+              <mxPoint x="1242" y="477.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:4" value="" edge="1" parent="1" source="field:attendance:course_id" target="field:courses:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#1D4ED8;strokeWidth=1.8;fontFamily=Helvetica;fontSize=13;fontColor=#1D4ED8;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2358" y="1149.0" />
+              <mxPoint x="2358" y="642" />
+              <mxPoint x="1778" y="642" />
+              <mxPoint x="1778" y="477.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:28" value="" edge="1" parent="1" source="field:student_payments:student_id" target="field:students:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#0F766E;strokeWidth=1.8;fontFamily=Helvetica;fontSize=13;fontColor=#0F766E;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="62" y="1573.0" />
+              <mxPoint x="62" y="477.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:13" value="" edge="1" parent="1" source="field:payment_course_allowances:course_id" target="field:courses:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#1D4ED8;strokeWidth=1.8;fontFamily=Helvetica;fontSize=13;fontColor=#1D4ED8;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1242" y="1573.0" />
+              <mxPoint x="1242" y="477.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:17" value="" edge="1" parent="1" source="field:payment_presets:course_id" target="field:courses:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERzeroToOne;endFill=0;startSize=12;endSize=12;strokeColor=#1D4ED8;strokeWidth=1.8;fontFamily=Helvetica;fontSize=13;fontColor=#1D4ED8;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="662" y="1175.0" />
+              <mxPoint x="662" y="1184" />
+              <mxPoint x="1202" y="1184" />
+              <mxPoint x="1202" y="477.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:5" value="" edge="1" parent="1" source="field:attendance:student_id" target="field:students:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#0F766E;strokeWidth=1.8;fontFamily=Helvetica;fontSize=13;fontColor=#0F766E;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2378" y="1123.0" />
+              <mxPoint x="2378" y="648" />
+              <mxPoint x="578" y="648" />
+              <mxPoint x="578" y="477.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:23" value="" edge="1" parent="1" source="field:practice_attendance:student_id" target="field:students:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#0F766E;strokeWidth=1.8;fontFamily=Helvetica;fontSize=13;fontColor=#0F766E;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2958" y="503.0" />
+              <mxPoint x="2958" y="882" />
+              <mxPoint x="598" y="882" />
+              <mxPoint x="598" y="428.0" />
+              <mxPoint x="578" y="428.0" />
+              <mxPoint x="578" y="477.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:10" value="" edge="1" parent="1" source="field:group_sheet_audit:attendance_id" target="field:attendance:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERzeroToOne;endFill=0;startSize=12;endSize=12;strokeColor=#B7791F;strokeWidth=1.8;dashed=1;dashPattern=2 4;fontFamily=Helvetica;fontSize=13;fontColor=#B7791F;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1842" y="1773.0" />
+              <mxPoint x="1842" y="1097.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:11" value="" edge="1" parent="1" source="field:group_sheet_audit:class_id" target="field:classes:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERzeroToOne;endFill=0;startSize=12;endSize=12;strokeColor=#B7791F;strokeWidth=1.8;dashed=1;dashPattern=2 4;fontFamily=Helvetica;fontSize=13;fontColor=#B7791F;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1778" y="1721.0" />
+              <mxPoint x="1778" y="1097.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:9" value="" edge="1" parent="1" source="field:group_sheet_audit:payment_id" target="field:student_payments:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERzeroToOne;endFill=0;startSize=12;endSize=12;strokeColor=#B7791F;strokeWidth=1.8;dashed=1;dashPattern=2 4;fontFamily=Helvetica;fontSize=13;fontColor=#B7791F;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="578" y="1877.0" />
+              <mxPoint x="578" y="1547.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:12" value="" edge="1" parent="1" source="field:group_sheet_audit:student_id" target="field:students:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERzeroToOne;endFill=0;startSize=12;endSize=12;strokeColor=#B7791F;strokeWidth=1.8;dashed=1;dashPattern=2 4;fontFamily=Helvetica;fontSize=13;fontColor=#B7791F;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1758" y="1695.0" />
+              <mxPoint x="1758" y="1398" />
+              <mxPoint x="42" y="1398" />
+              <mxPoint x="42" y="477.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:1" value="" edge="1" parent="1" source="field:administrator_payment_methods:email" target="field:admin_profiles:email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#64748B;strokeWidth=1.8;dashed=1;dashPattern=7 5;fontFamily=Helvetica;fontSize=13;fontColor=#64748B;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:3" value="" edge="1" parent="1" source="field:attendance:recorded_by" target="field:admin_profiles:email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#64748B;strokeWidth=1.8;dashed=1;dashPattern=7 5;fontFamily=Helvetica;fontSize=13;fontColor=#64748B;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2422" y="1227.0" />
+              <mxPoint x="2422" y="1097.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:24" value="" edge="1" parent="1" source="field:practice_parties:recorded_by" target="field:admin_profiles:email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#64748B;strokeWidth=1.8;dashed=1;dashPattern=7 5;fontFamily=Helvetica;fontSize=13;fontColor=#64748B;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2422" y="633.0" />
+              <mxPoint x="2422" y="1097.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:20" value="" edge="1" parent="1" source="field:practice_attendance:donation_recorded_by" target="field:admin_profiles:email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERzeroToOne;endFill=0;startSize=12;endSize=12;strokeColor=#64748B;strokeWidth=1.8;dashed=1;dashPattern=7 5;fontFamily=Helvetica;fontSize=13;fontColor=#64748B;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2978" y="711.0" />
+              <mxPoint x="2978" y="944.0" />
+              <mxPoint x="2402" y="944.0" />
+              <mxPoint x="2402" y="1097.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:19" value="" edge="1" parent="1" source="field:payment_transfer_filters:administrator_email" target="field:admin_profiles:email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#64748B;strokeWidth=1.8;dashed=1;dashPattern=7 5;fontFamily=Helvetica;fontSize=13;fontColor=#64748B;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2938" y="1493.0" />
+              <mxPoint x="2938" y="1097.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:18" value="" edge="1" parent="1" source="field:payment_transfer_filters:collector_email" target="field:admin_profiles:email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#64748B;strokeWidth=1.8;dashed=1;dashPattern=7 5;fontFamily=Helvetica;fontSize=13;fontColor=#64748B;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2958" y="1519.0" />
+              <mxPoint x="2958" y="1048.0" />
+              <mxPoint x="2938" y="1048.0" />
+              <mxPoint x="2938" y="1097.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:21" value="" edge="1" parent="1" source="field:practice_attendance:recorded_by" target="field:admin_profiles:email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#64748B;strokeWidth=1.8;dashed=1;dashPattern=7 5;fontFamily=Helvetica;fontSize=13;fontColor=#64748B;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2938" y="555.0" />
+              <mxPoint x="2938" y="926" />
+              <mxPoint x="2398" y="926" />
+              <mxPoint x="2398" y="1097.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:6" value="" edge="1" parent="1" source="field:classes:cancelled_by" target="field:admin_profiles:email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERzeroToOne;endFill=0;startSize=12;endSize=12;strokeColor=#64748B;strokeWidth=1.8;dashed=1;dashPattern=7 5;fontFamily=Helvetica;fontSize=13;fontColor=#64748B;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1822" y="1253.0" />
+              <mxPoint x="1822" y="1476" />
+              <mxPoint x="2402" y="1476" />
+              <mxPoint x="2402" y="1123.0" />
+              <mxPoint x="2422" y="1123.0" />
+              <mxPoint x="2422" y="1097.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk:27" value="" edge="1" parent="1" source="field:student_payments:recorded_by" target="field:admin_profiles:email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;startArrow=ERzeroToMany;startFill=0;endArrow=ERmandOne;endFill=0;startSize=12;endSize=12;strokeColor=#64748B;strokeWidth=1.8;dashed=1;dashPattern=7 5;fontFamily=Helvetica;fontSize=13;fontColor=#64748B;labelBackgroundColor=#ffffff;jumpStyle=arc;jumpSize=7;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1222" y="1677.0" />
+              <mxPoint x="1222" y="1493.0" />
+              <mxPoint x="2398" y="1493.0" />
+              <mxPoint x="2398" y="1097.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="table:students" value="students" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#0F766E;swimlaneFillColor=#ffffff;strokeColor=#0F766E;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="90" y="420" width="460" height="304" as="geometry" />
+        </mxCell>
+        <mxCell id="field:students:id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F0FDFA;fontColor=#0F766E;fontStyle=1;" vertex="1" parent="table:students">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:students:first_name" value="first_name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:students">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:students:last_name" value="last_name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:students">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:students:email" value="email : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:students">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:students:phone" value="phone : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:students">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:students:picture" value="picture : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:students">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:students:active" value="active : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:students">
+          <mxGeometry x="0" y="200" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:students:birth_date" value="birth_date : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:students">
+          <mxGeometry x="0" y="226" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:students:facebook_url" value="facebook_url : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:students">
+          <mxGeometry x="0" y="252" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:students:instagram_url" value="instagram_url : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:students">
+          <mxGeometry x="0" y="278" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:student_courses" value="student_courses" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#0F766E;swimlaneFillColor=#ffffff;strokeColor=#0F766E;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="690" y="420" width="460" height="96" as="geometry" />
+        </mxCell>
+        <mxCell id="field:student_courses:student_id" value="student_id : INTEGER  [PK, FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F0FDFA;fontColor=#0F766E;fontStyle=1;" vertex="1" parent="table:student_courses">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:student_courses:course_id" value="course_id : INTEGER  [PK, FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F0FDFA;fontColor=#0F766E;fontStyle=1;" vertex="1" parent="table:student_courses">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:courses" value="courses" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#1D4ED8;swimlaneFillColor=#ffffff;strokeColor=#1D4ED8;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="420" width="460" height="174" as="geometry" />
+        </mxCell>
+        <mxCell id="field:courses:id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#EFF6FF;fontColor=#1D4ED8;fontStyle=1;" vertex="1" parent="table:courses">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:courses:name" value="name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:courses">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:courses:start_date" value="start_date : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:courses">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:courses:end_date" value="end_date : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:courses">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:courses:class_cost_minor" value="class_cost_minor : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:courses">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:course_schedule" value="course_schedule" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#1D4ED8;swimlaneFillColor=#ffffff;strokeColor=#1D4ED8;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="1870" y="420" width="460" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="field:course_schedule:id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#EFF6FF;fontColor=#1D4ED8;fontStyle=1;" vertex="1" parent="table:course_schedule">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:course_schedule:course_id" value="course_id : INTEGER  [FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#EFF6FF;fontColor=#1D4ED8;fontStyle=0;" vertex="1" parent="table:course_schedule">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:course_schedule:day_of_week" value="day_of_week : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:course_schedule">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:course_schedule:start_time" value="start_time : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:course_schedule">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:course_schedule:end_time" value="end_time : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:course_schedule">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:course_schedule:rent_cost_minor" value="rent_cost_minor : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:course_schedule">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:practice_parties" value="practice_parties" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#7C3AED;swimlaneFillColor=#ffffff;strokeColor=#7C3AED;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="2450" y="420" width="460" height="434" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_parties:id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F5F3FF;fontColor=#7C3AED;fontStyle=1;" vertex="1" parent="table:practice_parties">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_parties:starts_at" value="starts_at : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_parties">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_parties:starts_utc" value="starts_utc : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_parties">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_parties:duration_minutes" value="duration_minutes : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_parties">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_parties:cancelled" value="cancelled : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_parties">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_parties:revision" value="revision : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_parties">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_parties:recorded_by" value="recorded_by : TEXT  [FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F5F3FF;fontColor=#7C3AED;fontStyle=0;" vertex="1" parent="table:practice_parties">
+          <mxGeometry x="0" y="200" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_parties:recorded_at" value="recorded_at : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_parties">
+          <mxGeometry x="0" y="226" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_parties:request_key" value="request_key : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_parties">
+          <mxGeometry x="0" y="252" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_parties:request_hash" value="request_hash : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_parties">
+          <mxGeometry x="0" y="278" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_parties:last_request_key" value="last_request_key : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_parties">
+          <mxGeometry x="0" y="304" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_parties:last_request_hash" value="last_request_hash : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_parties">
+          <mxGeometry x="0" y="330" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_parties:location" value="location : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_parties">
+          <mxGeometry x="0" y="356" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_parties:rent_cost_minor" value="rent_cost_minor : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_parties">
+          <mxGeometry x="0" y="382" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_parties:rent_paid" value="rent_paid : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_parties">
+          <mxGeometry x="0" y="408" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:practice_attendance" value="practice_attendance" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#7C3AED;swimlaneFillColor=#ffffff;strokeColor=#7C3AED;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="3050" y="420" width="460" height="382" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_attendance:id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F5F3FF;fontColor=#7C3AED;fontStyle=1;" vertex="1" parent="table:practice_attendance">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_attendance:student_id" value="student_id : INTEGER  [FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F5F3FF;fontColor=#7C3AED;fontStyle=0;" vertex="1" parent="table:practice_attendance">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_attendance:practice_id" value="practice_id : INTEGER  [FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F5F3FF;fontColor=#7C3AED;fontStyle=0;" vertex="1" parent="table:practice_attendance">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_attendance:recorded_by" value="recorded_by : TEXT  [FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F5F3FF;fontColor=#7C3AED;fontStyle=0;" vertex="1" parent="table:practice_attendance">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_attendance:recorded_at" value="recorded_at : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_attendance">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_attendance:notes" value="notes : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_attendance">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_attendance:donation_amount_minor" value="donation_amount_minor : INTEGER" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_attendance">
+          <mxGeometry x="0" y="200" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_attendance:donation_paid_on" value="donation_paid_on : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_attendance">
+          <mxGeometry x="0" y="226" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_attendance:donation_notes" value="donation_notes : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_attendance">
+          <mxGeometry x="0" y="252" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_attendance:donation_recorded_by" value="donation_recorded_by : TEXT  [FK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F5F3FF;fontColor=#7C3AED;fontStyle=0;" vertex="1" parent="table:practice_attendance">
+          <mxGeometry x="0" y="278" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_attendance:donation_recorded_at" value="donation_recorded_at : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_attendance">
+          <mxGeometry x="0" y="304" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_attendance:donation_given_to_school" value="donation_given_to_school : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_attendance">
+          <mxGeometry x="0" y="330" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practice_attendance:donation_received_method" value="donation_received_method : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practice_attendance">
+          <mxGeometry x="0" y="356" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:payment_presets" value="payment_presets" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#B45309;swimlaneFillColor=#ffffff;strokeColor=#B45309;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="90" y="1040" width="460" height="148" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_presets:id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFBEB;fontColor=#B45309;fontStyle=1;" vertex="1" parent="table:payment_presets">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_presets:name" value="name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:payment_presets">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_presets:amount_minor" value="amount_minor : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:payment_presets">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_presets:course_id" value="course_id : INTEGER  [FK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFBEB;fontColor=#B45309;fontStyle=0;" vertex="1" parent="table:payment_presets">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:payment_preset_courses" value="payment_preset_courses" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#B45309;swimlaneFillColor=#ffffff;strokeColor=#B45309;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="690" y="1040" width="460" height="122" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_preset_courses:preset_id" value="preset_id : INTEGER  [PK, FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFBEB;fontColor=#B45309;fontStyle=1;" vertex="1" parent="table:payment_preset_courses">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_preset_courses:course_id" value="course_id : INTEGER  [PK, FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFBEB;fontColor=#B45309;fontStyle=1;" vertex="1" parent="table:payment_preset_courses">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_preset_courses:allowance" value="allowance : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:payment_preset_courses">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:student_payments" value="student_payments" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#B45309;swimlaneFillColor=#ffffff;strokeColor=#B45309;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="90" y="1490" width="460" height="330" as="geometry" />
+        </mxCell>
+        <mxCell id="field:student_payments:id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFBEB;fontColor=#B45309;fontStyle=1;" vertex="1" parent="table:student_payments">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:student_payments:student_id" value="student_id : INTEGER  [FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFBEB;fontColor=#B45309;fontStyle=0;" vertex="1" parent="table:student_payments">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:student_payments:paid_on" value="paid_on : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:student_payments">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:student_payments:amount_minor" value="amount_minor : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:student_payments">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:student_payments:notes" value="notes : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:student_payments">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:student_payments:recorded_by" value="recorded_by : TEXT  [FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFBEB;fontColor=#B45309;fontStyle=0;" vertex="1" parent="table:student_payments">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:student_payments:recorded_at" value="recorded_at : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:student_payments">
+          <mxGeometry x="0" y="200" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:student_payments:request_key" value="request_key : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:student_payments">
+          <mxGeometry x="0" y="226" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:student_payments:request_payload" value="request_payload : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:student_payments">
+          <mxGeometry x="0" y="252" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:student_payments:given_to_school" value="given_to_school : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:student_payments">
+          <mxGeometry x="0" y="278" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:student_payments:received_method" value="received_method : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:student_payments">
+          <mxGeometry x="0" y="304" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:payment_course_allowances" value="payment_course_allowances" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#B45309;swimlaneFillColor=#ffffff;strokeColor=#B45309;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="690" y="1490" width="460" height="148" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_course_allowances:payment_id" value="payment_id : INTEGER  [PK, FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFBEB;fontColor=#B45309;fontStyle=1;" vertex="1" parent="table:payment_course_allowances">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_course_allowances:course_id" value="course_id : INTEGER  [PK, FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFBEB;fontColor=#B45309;fontStyle=1;" vertex="1" parent="table:payment_course_allowances">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_course_allowances:course_name" value="course_name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:payment_course_allowances">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_course_allowances:allowance" value="allowance : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:payment_course_allowances">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:classes" value="classes" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#047857;swimlaneFillColor=#ffffff;strokeColor=#047857;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="1040" width="460" height="330" as="geometry" />
+        </mxCell>
+        <mxCell id="field:classes:id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F0FDF4;fontColor=#047857;fontStyle=1;" vertex="1" parent="table:classes">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:classes:course_id" value="course_id : INTEGER  [FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F0FDF4;fontColor=#047857;fontStyle=0;" vertex="1" parent="table:classes">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:classes:class_date" value="class_date : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:classes">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:classes:start_time" value="start_time : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:classes">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:classes:end_time" value="end_time : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:classes">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:classes:cancelled" value="cancelled : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:classes">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:classes:cancelled_by" value="cancelled_by : TEXT  [FK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F0FDF4;fontColor=#047857;fontStyle=0;" vertex="1" parent="table:classes">
+          <mxGeometry x="0" y="200" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:classes:cancelled_at" value="cancelled_at : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:classes">
+          <mxGeometry x="0" y="226" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:classes:rent_cost_minor" value="rent_cost_minor : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:classes">
+          <mxGeometry x="0" y="252" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:classes:rent_paid" value="rent_paid : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:classes">
+          <mxGeometry x="0" y="278" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:classes:location" value="location : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:classes">
+          <mxGeometry x="0" y="304" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:attendance" value="attendance" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#047857;swimlaneFillColor=#ffffff;strokeColor=#047857;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="1870" y="1040" width="460" height="408" as="geometry" />
+        </mxCell>
+        <mxCell id="field:attendance:id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F0FDF4;fontColor=#047857;fontStyle=1;" vertex="1" parent="table:attendance">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:attendance:student_id" value="student_id : INTEGER  [FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F0FDF4;fontColor=#047857;fontStyle=0;" vertex="1" parent="table:attendance">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:attendance:course_id" value="course_id : INTEGER  [FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F0FDF4;fontColor=#047857;fontStyle=0;" vertex="1" parent="table:attendance">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:attendance:course_name" value="course_name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:attendance">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:attendance:attended_at" value="attended_at : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:attendance">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:attendance:recorded_by" value="recorded_by : TEXT  [FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F0FDF4;fontColor=#047857;fontStyle=0;" vertex="1" parent="table:attendance">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:attendance:recorded_at" value="recorded_at : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:attendance">
+          <mxGeometry x="0" y="200" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:attendance:notes" value="notes : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:attendance">
+          <mxGeometry x="0" y="226" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:attendance:request_key" value="request_key : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:attendance">
+          <mxGeometry x="0" y="252" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:attendance:request_payload" value="request_payload : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:attendance">
+          <mxGeometry x="0" y="278" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:attendance:class_id" value="class_id : INTEGER  [FK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F0FDF4;fontColor=#047857;fontStyle=0;" vertex="1" parent="table:attendance">
+          <mxGeometry x="0" y="304" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:attendance:complimentary" value="complimentary : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:attendance">
+          <mxGeometry x="0" y="330" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:attendance:complimentary_by" value="complimentary_by : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:attendance">
+          <mxGeometry x="0" y="356" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:attendance:complimentary_at" value="complimentary_at : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:attendance">
+          <mxGeometry x="0" y="382" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:group_sheet_runs" value="group_sheet_runs" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#9A6B25;swimlaneFillColor=#ffffff;strokeColor=#9A6B25;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="1560" width="460" height="122" as="geometry" />
+        </mxCell>
+        <mxCell id="field:group_sheet_runs:digest" value="digest : TEXT  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFCF5;fontColor=#9A6B25;fontStyle=1;" vertex="1" parent="table:group_sheet_runs">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:group_sheet_runs:imported_at" value="imported_at : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:group_sheet_runs">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:group_sheet_runs:summary" value="summary : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:group_sheet_runs">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:group_sheet_audit" value="group_sheet_audit" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#9A6B25;swimlaneFillColor=#ffffff;strokeColor=#9A6B25;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="1870" y="1560" width="460" height="330" as="geometry" />
+        </mxCell>
+        <mxCell id="field:group_sheet_audit:sheet" value="sheet : TEXT  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFCF5;fontColor=#9A6B25;fontStyle=1;" vertex="1" parent="table:group_sheet_audit">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:group_sheet_audit:source_cell" value="source_cell : TEXT  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFCF5;fontColor=#9A6B25;fontStyle=1;" vertex="1" parent="table:group_sheet_audit">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:group_sheet_audit:source_json" value="source_json : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:group_sheet_audit">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:group_sheet_audit:student_id" value="student_id : INTEGER  [FK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFCF5;fontColor=#9A6B25;fontStyle=0;" vertex="1" parent="table:group_sheet_audit">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:group_sheet_audit:class_id" value="class_id : INTEGER  [FK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFCF5;fontColor=#9A6B25;fontStyle=0;" vertex="1" parent="table:group_sheet_audit">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:group_sheet_audit:decision" value="decision : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:group_sheet_audit">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:group_sheet_audit:attendance_id" value="attendance_id : INTEGER  [FK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFCF5;fontColor=#9A6B25;fontStyle=0;" vertex="1" parent="table:group_sheet_audit">
+          <mxGeometry x="0" y="200" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:group_sheet_audit:absence_rowid" value="absence_rowid : INTEGER" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:group_sheet_audit">
+          <mxGeometry x="0" y="226" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:group_sheet_audit:payment_evidence" value="payment_evidence : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:group_sheet_audit">
+          <mxGeometry x="0" y="252" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:group_sheet_audit:payment_decision" value="payment_decision : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:group_sheet_audit">
+          <mxGeometry x="0" y="278" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:group_sheet_audit:payment_id" value="payment_id : INTEGER  [FK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFCF5;fontColor=#9A6B25;fontStyle=0;" vertex="1" parent="table:group_sheet_audit">
+          <mxGeometry x="0" y="304" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:admin_profiles" value="admin_profiles" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#475569;swimlaneFillColor=#ffffff;strokeColor=#475569;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="2450" y="1040" width="460" height="122" as="geometry" />
+        </mxCell>
+        <mxCell id="field:admin_profiles:email" value="email : TEXT  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#475569;fontStyle=1;" vertex="1" parent="table:admin_profiles">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:admin_profiles:name" value="name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:admin_profiles">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:admin_profiles:picture" value="picture : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:admin_profiles">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:administrator_payment_methods" value="administrator_payment_methods" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#475569;swimlaneFillColor=#ffffff;strokeColor=#475569;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="3050" y="1040" width="460" height="96" as="geometry" />
+        </mxCell>
+        <mxCell id="field:administrator_payment_methods:email" value="email : TEXT  [PK, FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#475569;fontStyle=1;" vertex="1" parent="table:administrator_payment_methods">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:administrator_payment_methods:method" value="method : TEXT  [PK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#475569;fontStyle=1;" vertex="1" parent="table:administrator_payment_methods">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:administrator_permissions" value="administrator_permissions" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#475569;swimlaneFillColor=#ffffff;strokeColor=#475569;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="2450" y="1410" width="460" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="field:administrator_permissions:email" value="email : TEXT  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#475569;fontStyle=1;" vertex="1" parent="table:administrator_permissions">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:administrator_permissions:can_dashboard" value="can_dashboard : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:administrator_permissions">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:administrator_permissions:can_students" value="can_students : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:administrator_permissions">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:administrator_permissions:can_courses" value="can_courses : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:administrator_permissions">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:administrator_permissions:can_qr_codes" value="can_qr_codes : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:administrator_permissions">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:administrator_permissions:can_practice_parties" value="can_practice_parties : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:administrator_permissions">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:payment_transfer_filters" value="payment_transfer_filters" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#475569;swimlaneFillColor=#ffffff;strokeColor=#475569;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="3050" y="1410" width="460" height="304" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_transfer_filters:id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#475569;fontStyle=1;" vertex="1" parent="table:payment_transfer_filters">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_transfer_filters:administrator_email" value="administrator_email : TEXT  [FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#475569;fontStyle=0;" vertex="1" parent="table:payment_transfer_filters">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_transfer_filters:collector_email" value="collector_email : TEXT  [FK, NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#475569;fontStyle=0;" vertex="1" parent="table:payment_transfer_filters">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_transfer_filters:from_date" value="from_date : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:payment_transfer_filters">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_transfer_filters:to_date" value="to_date : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:payment_transfer_filters">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_transfer_filters:payment_kind" value="payment_kind : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:payment_transfer_filters">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_transfer_filters:created_at" value="created_at : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:payment_transfer_filters">
+          <mxGeometry x="0" y="200" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_transfer_filters:payment_types" value="payment_types : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:payment_transfer_filters">
+          <mxGeometry x="0" y="226" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_transfer_filters:sort_order" value="sort_order : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:payment_transfer_filters">
+          <mxGeometry x="0" y="252" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:payment_transfer_filters:collector_emails" value="collector_emails : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:payment_transfer_filters">
+          <mxGeometry x="0" y="278" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:history_source_cells" value="history_source_cells" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#9A6B25;swimlaneFillColor=#ffffff;strokeColor=#9A6B25;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="90" y="2130" width="460" height="356" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_source_cells:student_id" value="student_id : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_source_cells">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_source_cells:student_name" value="student_name : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_source_cells">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_source_cells:source_name" value="source_name : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_source_cells">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_source_cells:date" value="date : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_source_cells">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_source_cells:course_id" value="course_id : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_source_cells">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_source_cells:course_name" value="course_name : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_source_cells">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_source_cells:class_id" value="class_id : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_source_cells">
+          <mxGeometry x="0" y="200" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_source_cells:raw_mark" value="raw_mark : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_source_cells">
+          <mxGeometry x="0" y="226" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_source_cells:fill_argb" value="fill_argb : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_source_cells">
+          <mxGeometry x="0" y="252" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_source_cells:new_payment" value="new_payment : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_source_cells">
+          <mxGeometry x="0" y="278" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_source_cells:source_cell" value="source_cell : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_source_cells">
+          <mxGeometry x="0" y="304" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_source_cells:mapping_status" value="mapping_status : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_source_cells">
+          <mxGeometry x="0" y="330" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:history_payment_periods" value="history_payment_periods" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#9A6B25;swimlaneFillColor=#ffffff;strokeColor=#9A6B25;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="690" y="2130" width="460" height="356" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_payment_periods:review_payment_id" value="review_payment_id : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_payment_periods">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_payment_periods:student_id" value="student_id : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_payment_periods">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_payment_periods:student_name" value="student_name : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_payment_periods">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_payment_periods:paid_on" value="paid_on : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_payment_periods">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_payment_periods:amount_minor" value="amount_minor : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_payment_periods">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_payment_periods:payment_type" value="payment_type : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_payment_periods">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_payment_periods:next_payment_on" value="next_payment_on : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_payment_periods">
+          <mxGeometry x="0" y="200" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_payment_periods:coverage_through" value="coverage_through : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_payment_periods">
+          <mxGeometry x="0" y="226" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_payment_periods:beginners_allowance" value="beginners_allowance : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_payment_periods">
+          <mxGeometry x="0" y="252" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_payment_periods:intermediates_allowance" value="intermediates_allowance : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_payment_periods">
+          <mxGeometry x="0" y="278" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_payment_periods:source_cells" value="source_cells : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_payment_periods">
+          <mxGeometry x="0" y="304" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_payment_periods:review_status" value="review_status : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_payment_periods">
+          <mxGeometry x="0" y="330" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:history_absences" value="history_absences" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#9A6B25;swimlaneFillColor=#ffffff;strokeColor=#9A6B25;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="2130" width="460" height="304" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_absences:student_id" value="student_id : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_absences">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_absences:student_name" value="student_name : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_absences">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_absences:course_id" value="course_id : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_absences">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_absences:course_name" value="course_name : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_absences">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_absences:class_id" value="class_id : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_absences">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_absences:class_date" value="class_date : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_absences">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_absences:start_time" value="start_time : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_absences">
+          <mxGeometry x="0" y="200" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_absences:mark" value="mark : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_absences">
+          <mxGeometry x="0" y="226" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_absences:source_cells" value="source_cells : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_absences">
+          <mxGeometry x="0" y="252" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_absences:review_status" value="review_status : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_absences">
+          <mxGeometry x="0" y="278" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:history_unmapped_classes" value="history_unmapped_classes" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#9A6B25;swimlaneFillColor=#ffffff;strokeColor=#9A6B25;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="1870" y="2130" width="460" height="252" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_unmapped_classes:student_id" value="student_id : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_unmapped_classes">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_unmapped_classes:student_name" value="student_name : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_unmapped_classes">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_unmapped_classes:date" value="date : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_unmapped_classes">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_unmapped_classes:course_name" value="course_name : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_unmapped_classes">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_unmapped_classes:mark" value="mark : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_unmapped_classes">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_unmapped_classes:new_payment" value="new_payment : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_unmapped_classes">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_unmapped_classes:source_cell" value="source_cell : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_unmapped_classes">
+          <mxGeometry x="0" y="200" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_unmapped_classes:reason" value="reason : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_unmapped_classes">
+          <mxGeometry x="0" y="226" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:history_issues" value="history_issues" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#9A6B25;swimlaneFillColor=#ffffff;strokeColor=#9A6B25;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="2450" y="2130" width="460" height="252" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_issues:issue" value="issue : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_issues">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_issues:student_id" value="student_id : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_issues">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_issues:student_name" value="student_name : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_issues">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_issues:date" value="date : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_issues">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_issues:course" value="course : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_issues">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_issues:source_cells" value="source_cells : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_issues">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_issues:details" value="details : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_issues">
+          <mxGeometry x="0" y="200" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_issues:review_status" value="review_status : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_issues">
+          <mxGeometry x="0" y="226" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:history_import_notes" value="history_import_notes" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#9A6B25;swimlaneFillColor=#ffffff;strokeColor=#9A6B25;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="3050" y="2130" width="460" height="96" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_import_notes:topic" value="topic : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_import_notes">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:history_import_notes:details" value="details : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:history_import_notes">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:catalog_v2_audit" value="catalog_v2_audit" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#9A6B25;swimlaneFillColor=#ffffff;strokeColor=#9A6B25;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="90" y="2680" width="460" height="148" as="geometry" />
+        </mxCell>
+        <mxCell id="field:catalog_v2_audit:sheet" value="sheet : TEXT  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFCF5;fontColor=#9A6B25;fontStyle=1;" vertex="1" parent="table:catalog_v2_audit">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:catalog_v2_audit:source_row" value="source_row : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFCF5;fontColor=#9A6B25;fontStyle=1;" vertex="1" parent="table:catalog_v2_audit">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:catalog_v2_audit:source_json" value="source_json : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:catalog_v2_audit">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:catalog_v2_audit:decision" value="decision : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:catalog_v2_audit">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:catalog_v2_runs" value="catalog_v2_runs" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#9A6B25;swimlaneFillColor=#ffffff;strokeColor=#9A6B25;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="690" y="2680" width="460" height="122" as="geometry" />
+        </mxCell>
+        <mxCell id="field:catalog_v2_runs:digest" value="digest : TEXT  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFCF5;fontColor=#9A6B25;fontStyle=1;" vertex="1" parent="table:catalog_v2_runs">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:catalog_v2_runs:imported_at" value="imported_at : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:catalog_v2_runs">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:catalog_v2_runs:summary" value="summary : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:catalog_v2_runs">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:practica_2026_audit" value="practica_2026_audit" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#9A6B25;swimlaneFillColor=#ffffff;strokeColor=#9A6B25;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="90" y="2880" width="460" height="148" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practica_2026_audit:source_row" value="source_row : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFCF5;fontColor=#9A6B25;fontStyle=1;" vertex="1" parent="table:practica_2026_audit">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practica_2026_audit:section" value="section : TEXT  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFCF5;fontColor=#9A6B25;fontStyle=1;" vertex="1" parent="table:practica_2026_audit">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practica_2026_audit:source_json" value="source_json : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practica_2026_audit">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practica_2026_audit:target_id" value="target_id : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practica_2026_audit">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:practica_2026_runs" value="practica_2026_runs" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#9A6B25;swimlaneFillColor=#ffffff;strokeColor=#9A6B25;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="690" y="2880" width="460" height="122" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practica_2026_runs:digest" value="digest : TEXT  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFCF5;fontColor=#9A6B25;fontStyle=1;" vertex="1" parent="table:practica_2026_runs">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practica_2026_runs:imported_at" value="imported_at : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practica_2026_runs">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:practica_2026_runs:summary" value="summary : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:practica_2026_runs">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:_fsd_catalog_import" value="_fsd_catalog_import" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#475569;swimlaneFillColor=#ffffff;strokeColor=#475569;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="2680" width="460" height="96" as="geometry" />
+        </mxCell>
+        <mxCell id="field:_fsd_catalog_import:source_sha256" value="source_sha256 : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:_fsd_catalog_import">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:_fsd_catalog_import:imported_at" value="imported_at : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:_fsd_catalog_import">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:d1_migrations" value="d1_migrations" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#475569;swimlaneFillColor=#ffffff;strokeColor=#475569;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="1870" y="2680" width="460" height="122" as="geometry" />
+        </mxCell>
+        <mxCell id="field:d1_migrations:id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#475569;fontStyle=1;" vertex="1" parent="table:d1_migrations">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:d1_migrations:name" value="name : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:d1_migrations">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:d1_migrations:applied_at" value="applied_at : TIMESTAMP  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:d1_migrations">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:_cf_METADATA" value="_cf_METADATA" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#475569;swimlaneFillColor=#ffffff;strokeColor=#475569;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="2880" width="460" height="96" as="geometry" />
+        </mxCell>
+        <mxCell id="field:_cf_METADATA:key" value="key : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#475569;fontStyle=1;" vertex="1" parent="table:_cf_METADATA">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:_cf_METADATA:value" value="value : BLOB" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:_cf_METADATA">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:sqlite_sequence" value="sqlite_sequence" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#475569;swimlaneFillColor=#ffffff;strokeColor=#475569;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="1870" y="2880" width="460" height="96" as="geometry" />
+        </mxCell>
+        <mxCell id="field:sqlite_sequence:name" value="name : untyped" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:sqlite_sequence">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:sqlite_sequence:seq" value="seq : untyped" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:sqlite_sequence">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="table:qr_codes" value="qr_codes" style="swimlane;html=0;startSize=44;horizontal=1;rounded=0;collapsible=0;fillColor=#475569;swimlaneFillColor=#ffffff;strokeColor=#475569;strokeWidth=1.2;fontColor=#ffffff;fontFamily=Helvetica;fontSize=19;fontStyle=1;align=left;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="2450" y="2680" width="460" height="382" as="geometry" />
+        </mxCell>
+        <mxCell id="field:qr_codes:id" value="id : INTEGER  [PK]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#475569;fontStyle=1;" vertex="1" parent="table:qr_codes">
+          <mxGeometry x="0" y="44" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:qr_codes:slug" value="slug : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:qr_codes">
+          <mxGeometry x="0" y="70" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:qr_codes:name" value="name : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:qr_codes">
+          <mxGeometry x="0" y="96" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:qr_codes:destination_url" value="destination_url : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:qr_codes">
+          <mxGeometry x="0" y="122" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:qr_codes:active" value="active : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:qr_codes">
+          <mxGeometry x="0" y="148" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:qr_codes:image_mode" value="image_mode : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:qr_codes">
+          <mxGeometry x="0" y="174" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:qr_codes:image_path" value="image_path : TEXT" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:qr_codes">
+          <mxGeometry x="0" y="200" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:qr_codes:module_shape" value="module_shape : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:qr_codes">
+          <mxGeometry x="0" y="226" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:qr_codes:foreground_color" value="foreground_color : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:qr_codes">
+          <mxGeometry x="0" y="252" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:qr_codes:eye_shape" value="eye_shape : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:qr_codes">
+          <mxGeometry x="0" y="278" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:qr_codes:eye_color" value="eye_color : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:qr_codes">
+          <mxGeometry x="0" y="304" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:qr_codes:logo_size" value="logo_size : INTEGER  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#FFFFFF;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:qr_codes">
+          <mxGeometry x="0" y="330" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="field:qr_codes:logo_shape" value="logo_shape : TEXT  [NN]" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;spacingLeft=14;spacingRight=12;fillColor=#F8FAFC;fontColor=#334155;fontStyle=0;" vertex="1" parent="table:qr_codes">
+          <mxGeometry x="0" y="356" width="460" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="Local Catalog" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=44;fontColor=#163D42;fontStyle=1;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="60" y="45" width="1800" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="FREE SPIRIT DANCE   /   DATABASE RELATIONSHIPS" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=18;fontColor=#0F766E;fontStyle=1;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="62" y="110" width="1800" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="counts" value="33 TABLES    /    28 FOREIGN KEYS    /    1 SHEET" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=22;fontColor=#163D42;fontStyle=1;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2420" y="60" width="1120" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="date" value="Schema snapshot · 15 September 2026 · Local Catalog only" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=18;fontColor=#475569;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2420" y="105" width="1120" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" value="PK  Primary key     FK  Foreign key     NN  Explicit NOT NULL     •     Multiple PK fields form one composite key." style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=18;fontColor=#475569;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="60" y="164" width="3480" height="27" as="geometry" />
+        </mxCell>
+        <mxCell id="legend:relations" value="Follow each child FK field to its parent key. Circle + crow’s foot: zero or many children. Double bar: required parent. Bar + circle: optional parent." style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=18;fontColor=#475569;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="60" y="200" width="3480" height="27" as="geometry" />
+        </mxCell>
+        <mxCell id="legend:lines" value="Solid: application relationships     Dashed slate: administrator references     Dotted amber: import audit references     DELETE CASCADE: cascading deletes" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=18;fontColor=#475569;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="60" y="236" width="3480" height="27" as="geometry" />
+        </mxCell>
+        <mxCell id="heading:students" value="01   Students &amp; enrolment" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=22;fontColor=#0F766E;fontStyle=1;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="90" y="348" width="1060" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="caption:students" value="Student profiles and their course memberships" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;fontColor=#0F766E;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="90" y="382" width="1060" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="heading:courses" value="02   Courses &amp; schedules" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=22;fontColor=#1D4ED8;fontStyle=1;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="348" width="1060" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="caption:courses" value="Course definitions and recurring weekly times" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;fontColor=#1D4ED8;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="382" width="1060" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="heading:practice" value="03   Practice events" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=22;fontColor=#7C3AED;fontStyle=1;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2450" y="348" width="1060" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="caption:practice" value="Practice sessions, attendance and donations" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;fontColor=#7C3AED;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2450" y="382" width="1060" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="heading:payments" value="04   Payments &amp; coverage" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=22;fontColor=#B45309;fontStyle=1;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="90" y="968" width="1060" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="caption:payments" value="Payment presets, received payments and course allowances" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;fontColor=#B45309;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="90" y="1002" width="1060" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="heading:attendance" value="05   Classes &amp; attendance" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=22;fontColor=#047857;fontStyle=1;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="968" width="1060" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="caption:attendance" value="Dated classes, attendance records and connected import audit" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;fontColor=#047857;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="1002" width="1060" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="heading:admin" value="06   Administration" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=22;fontColor=#475569;fontStyle=1;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2450" y="968" width="1060" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="caption:admin" value="Admin profiles, payment methods, permissions and transfer filters" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;fontColor=#475569;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2450" y="1002" width="1060" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="heading:history" value="07   Historical source" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=22;fontColor=#9A6B25;fontStyle=1;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="90" y="2058" width="3420" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="caption:history" value="Source workbook evidence and review records · No declared foreign keys in these tables" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;fontColor=#9A6B25;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="90" y="2092" width="3420" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="heading:imports" value="08   Import audit &amp; runs" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=22;fontColor=#9A6B25;fontStyle=1;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="90" y="2608" width="1060" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="caption:imports" value="Import decisions and run summaries · No declared foreign keys" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;fontColor=#9A6B25;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="90" y="2642" width="1060" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="heading:system" value="09   Catalog &amp; database metadata" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=22;fontColor=#475569;fontStyle=1;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="2608" width="1060" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="caption:system" value="Local import marker and SQLite / D1 bookkeeping" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;fontColor=#475569;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="2642" width="1060" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="heading:tools" value="10   QR codes &amp; reading notes" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=22;fontColor=#475569;fontStyle=1;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2450" y="2608" width="1060" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="caption:tools" value="Standalone application utility and scope of this diagram" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=16;fontColor=#475569;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2450" y="2642" width="1060" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="note:enrolment" value="student_courses links a student to a course.&#10;Both fields form its primary key." style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=17;fontColor=#0F766E;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="690" y="690" width="460" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="note:schedule" value="course_schedule defines weekly times.&#10;classes below stores individual dated sessions." style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=17;fontColor=#1D4ED8;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1870" y="720" width="460" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="note:group-audit" value="group_sheet_audit keeps declared links to&#10;students, classes, attendance and payments.&#10;group_sheet_runs stores import summaries." style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=17;fontColor=#9A6B25;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="1750" width="460" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="note:permissions" value="administrator_permissions.email has no&#10;declared foreign key to admin_profiles." style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=17;fontColor=#475569;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2450" y="1770" width="460" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="note:history" value="History IDs and similarly named fields&#10;do not imply enforced relationships.&#10;Only declared foreign keys are drawn." style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=18;fontColor=#9A6B25;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="3050" y="2320" width="460" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="note:scope" value="READING THE SCHEMA&#10;&#10;All table names, fields, key markers&#10;and declared relationships are included.&#10;&#10;Defaults, checks, indexes and non-primary&#10;unique constraints are omitted.&#10;&#10;Student records are not included.&#10;&#10;Colors group tables by purpose;&#10;line patterns distinguish reference types." style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=18;fontColor=#475569;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="3050" y="2680" width="460" height="382" as="geometry" />
+        </mxCell>
+        <mxCell id="source" value="Source: .wrangler/state/v3/d1/miniflare-D1DatabaseObject/3dd27f64a8e6b7092b4dc42ea2a5f93d01d65d27a0f4927b2e4bc344a6a2f6f6.sqlite&#10;Identified by _fsd_catalog_import. All tables and columns included; defaults, checks and non-primary unique constraints omitted. Student records are not included." style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontFamily=Helvetica;fontSize=15;fontColor=#64748B;fontStyle=0;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="60" y="3130" width="3480" height="78" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -11,8 +11,9 @@ export function parseCourse(value: unknown): CourseInput | string {
   if (typeof input.name !== "string" || !input.name.trim() || input.name.trim().length > 120) return "Enter a course name of up to 120 characters.";
   if (!Array.isArray(input.schedules) || input.schedules.length < 1 || input.schedules.length > 5) return "Choose between one and five weekly classes.";
   const validDate = (date: unknown): date is string => typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date) && date >= "1900-01-01" && date <= "9999-12-31" && !Number.isNaN(new Date(date + "T12:00:00Z").getTime()) && new Date(date + "T12:00:00Z").toISOString().slice(0, 10) === date;
+  const startDate = input.startDate === "" || input.startDate == null ? null : input.startDate;
   const endDate = input.endDate === "" || input.endDate == null ? null : input.endDate;
-  if (!validDate(input.startDate) || (endDate !== null && (!validDate(endDate) || endDate < input.startDate))) return "Enter a valid start date. If provided, the end date must be on or after the start.";
+  if ((startDate !== null && !validDate(startDate)) || (endDate !== null && (!validDate(endDate) || (startDate !== null && endDate < startDate)))) return "Enter valid dates. If both are provided, the end date must be on or after the start date.";
   const schedules: Schedule[] = [];
   const time = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
   for (const item of input.schedules) {
@@ -23,7 +24,7 @@ export function parseCourse(value: unknown): CourseInput | string {
     if (schedules.some((s) => s.day === day && s.startTime === startTime)) return "Classes cannot have the same weekday and start time.";
     schedules.push({ day, startTime, endTime, rentCostMinor });
   }
-  return { name: input.name.trim(), startDate: input.startDate, endDate, schedules };
+  return { name: input.name.trim(), startDate, endDate, schedules };
 }
 export function parseCourseCreate(value: unknown): CourseCreateInput | string {
   const course = parseCourse(value);
@@ -32,7 +33,7 @@ export function parseCourseCreate(value: unknown): CourseCreateInput | string {
   if (preset === undefined || preset === null) return { ...course, paymentPreset: null };
   if (!preset || typeof preset !== "object") return "Enter a valid payment preset.";
   const { amountMinor, allowance } = preset as Record<string, unknown>;
-  if (typeof amountMinor !== "number" || !Number.isSafeInteger(amountMinor) || amountMinor < 1 || amountMinor > 99_999_999) return "Enter a positive payment preset amount from 0.01 to 999,999.99 RON.";
+  if (typeof amountMinor !== "number" || !Number.isSafeInteger(amountMinor) || amountMinor < 0 || amountMinor > 99_999_999) return "Enter a payment preset amount from 0 to 999,999.99 RON.";
   if (typeof allowance !== "number" || !Number.isSafeInteger(allowance) || allowance < 1 || allowance > 10_000) return "Enter between 1 and 10,000 classes for the payment preset.";
   return { ...course, paymentPreset: { amountMinor, allowance } };
 }

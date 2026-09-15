@@ -28,6 +28,7 @@
   },
   "type": "module",
   "scripts": {
+    "prebuild": "python3 scripts/build-backup-migrations.py",
     "dev": "concurrently --kill-others-on-fail \"vinext dev\" \"cloudflared tunnel run free-spirit-dance-local\"",
     "build": "vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",
@@ -39,7 +40,7 @@
     "test": "node scripts/test.mjs",
     "check": "npm run typecheck && npm test",
     "verify": "npm run check && npm run build",
-    "predev": "npm run db:catalog:prepare && npm run db:migrate",
+    "predev": "python3 scripts/build-backup-migrations.py && npm run db:catalog:prepare && npm run db:migrate",
     "db:catalog:prepare": "python3 scripts/prepare-catalog-db.py",
     "db:working:prepare": "python3 scripts/prepare-working-db.py",
     "db:migrate": "python3 scripts/migrate-databases.py local",

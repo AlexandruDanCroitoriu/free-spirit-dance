@@ -10,7 +10,9 @@ type StudentBalance = { id: number; active: boolean; firstName: string; lastName
 export default function StudentBalancesWidget() {
   const courseDropdown = useRef<HTMLDivElement>(null);
   const courseTrigger = useRef<HTMLButtonElement>(null);
+  const calendarMenu = useRef<HTMLDivElement>(null);
   const [coursesOpen, setCoursesOpen] = useState(false);
+  const [calendarMenuStudentId, setCalendarMenuStudentId] = useState<number | null>(null);
   const [students, setStudents] = useState<StudentBalance[]>([]);
   const [courses, setCourses] = useState<{ id: number; name: string }[]>([]);
   const [showUnpaid, setShowUnpaid] = useState(true);
@@ -89,6 +91,16 @@ export default function StudentBalancesWidget() {
     document.addEventListener("keydown", closeOnEscape);
     return () => { document.removeEventListener("pointerdown", closeOutside); document.removeEventListener("keydown", closeOnEscape); };
   }, [coursesOpen]);
+  useEffect(() => {
+    if (calendarMenuStudentId === null) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !calendarMenu.current?.contains(event.target)) setCalendarMenuStudentId(null);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setCalendarMenuStudentId(null); };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => { document.removeEventListener("pointerdown", closeOutside); document.removeEventListener("keydown", closeOnEscape); };
+  }, [calendarMenuStudentId]);
   const selectedCourseNames = courseIds.map((id) => courses.find((course) => String(course.id) === id)?.name ?? "Course no longer available").join(", ");
   const validRemaining = /^\d+$/.test(remaining) && Number.isSafeInteger(Number(remaining));
   const remainingSummary = [...new Set([...selectedRemaining, ...(validRemaining ? [Number(remaining)] : [])])].sort((a, b) => a - b);
@@ -103,6 +115,10 @@ export default function StudentBalancesWidget() {
     } catch {
       setCopyNotice("Could not copy the review.");
     }
+  }
+  function selectStudentCalendar(studentId: number, range: "month" | "year") {
+    window.dispatchEvent(new CustomEvent("student-calendar-selected", { detail: { studentId, range } }));
+    setCalendarMenuStudentId(null);
   }
   return <section aria-labelledby="student-balances-title" className="flex h-full w-full max-w-3xl self-start flex-col rounded-xl border border-stone-200 bg-white shadow-sm">
     <div className="border-b border-stone-200 px-3 py-2.5">
@@ -141,18 +157,26 @@ export default function StudentBalancesWidget() {
     {error ? <div role="alert" className="p-4 font-sans text-sm text-red-700">{error}<button type="button" onClick={refresh} className="ml-2 underline">Retry</button></div> : loading && !hasLoaded ? <p role="status" className="p-4 font-sans text-sm text-slate-500">Loading balances…</p> : <>
       <p role="status" className="m-0 px-3 py-2 font-sans text-xs text-slate-500">{matches.length} {matches.length === 1 ? "student" : "students"}</p>
       {!matches.length && <p className="m-0 px-3 pb-3 font-sans text-sm text-slate-500">{!showUnpaid && selectedRemaining.length === 0 && !validRemaining ? "Select a balance filter to show students." : "No students match the selected balances."}</p>}
-      <ul className="m-0 min-h-0 flex-1 list-none divide-y divide-stone-100 overflow-y-auto p-0">{matches.map((student) => <li key={student.id}>
-        <button type="button" aria-haspopup="dialog" onClick={() => setSelectedId(student.id)} className="block w-full border-0 bg-white px-3 py-2.5 text-left hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-lime-600">
-          <span className="flex items-center gap-2.5">
+      <ul className="m-0 min-h-0 flex-1 list-none divide-y divide-stone-100 overflow-y-auto p-0">{matches.map((student) => <li key={student.id} className="relative">
+        <div className="flex items-start">
+          <button type="button" aria-haspopup="dialog" onClick={() => setSelectedId(student.id)} className="block min-w-0 flex-1 border-0 bg-white px-3 py-2.5 text-left hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-lime-600">
+            <span className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-200 font-sans text-xs font-bold text-slate-800">
               {student.picture ? <img src={student.picture} alt="" loading="lazy" className="h-full w-full object-cover" /> : `${student.firstName[0] ?? ""}${student.lastName[0] ?? ""}`}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block break-words font-sans text-sm font-semibold text-slate-800">{student.firstName} {student.lastName}</span>
-              {student.balances.map((balance) => <span key={balance.courseId} className="mt-0.5 flex flex-wrap justify-between gap-1 font-sans text-xs"><span className="break-words text-slate-500">{balance.courseName}</span><span className={balance.excessAttendance > 0 ? "font-semibold text-red-700" : "font-semibold text-lime-700"}>{balance.excessAttendance > 0 ? `${balance.excessAttendance} unpaid` : `${balance.remainingAllowance} remaining`}</span></span>)}
+              {student.balances.map((balance) => <span key={balance.courseId} className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 font-sans text-xs"><span className="break-words text-slate-500">{balance.courseName}</span><span className={balance.excessAttendance > 0 ? "font-semibold text-red-700" : "font-semibold text-lime-700"}>{balance.excessAttendance > 0 ? `${balance.excessAttendance} unpaid` : `${balance.remainingAllowance} remaining`}</span></span>)}
             </span>
-          </span>
-        </button>
+            </span>
+          </button>
+          <div ref={calendarMenuStudentId === student.id ? calendarMenu : undefined} className="relative mr-2 mt-2 shrink-0">
+            <button type="button" aria-label={`Set calendar for ${student.firstName} ${student.lastName}`} aria-haspopup="menu" aria-expanded={calendarMenuStudentId === student.id} onClick={() => setCalendarMenuStudentId((current) => current === student.id ? null : student.id)} className="flex h-8 w-8 items-center justify-center rounded-md border border-stone-300 bg-white text-slate-600 hover:bg-lime-50 focus:outline-none focus:ring-2 focus:ring-lime-600">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4M17 3v4M3 10h18" /></svg>
+            </button>
+            {calendarMenuStudentId === student.id && <div role="menu" aria-label={`Calendar view for ${student.firstName} ${student.lastName}`} className="absolute right-0 z-30 mt-1 w-36 rounded-md border border-stone-300 bg-white p-1 shadow-lg"><button role="menuitem" type="button" onClick={() => selectStudentCalendar(student.id, "month")} className="block w-full rounded px-2 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-lime-50 focus:bg-lime-50 focus:outline-none">Month view</button><button role="menuitem" type="button" onClick={() => selectStudentCalendar(student.id, "year")} className="block w-full rounded px-2 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-lime-50 focus:bg-lime-50 focus:outline-none">Year view</button></div>}
+          </div>
+        </div>
       </li>)}</ul>
     </>}
     {selectedId !== null && <StudentPanel key={selectedId} id={selectedId} onClose={() => { setSelectedId(null); refresh(); }} onUpdate={refresh} onDelete={() => { setSelectedId(null); refresh(); }} />}

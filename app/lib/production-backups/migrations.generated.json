@@ -1,0 +1,560 @@
+[
+  {
+    "name": "0001_create_students.sql",
+    "statements": [
+      "CREATE TABLE IF NOT EXISTS students (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  first_name TEXT NOT NULL,\n  last_name TEXT NOT NULL,\n  email TEXT NOT NULL,\n  phone TEXT NOT NULL DEFAULT '',\n  picture TEXT,\n  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),\n  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP\n);",
+      "CREATE INDEX IF NOT EXISTS students_name_idx ON students (last_name, first_name);"
+    ]
+  },
+  {
+    "name": "0002_create_admin_profiles.sql",
+    "statements": [
+      "CREATE TABLE IF NOT EXISTS admin_profiles (\n  email TEXT PRIMARY KEY COLLATE NOCASE,\n  name TEXT NOT NULL,\n  picture TEXT,\n  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP\n);"
+    ]
+  },
+  {
+    "name": "0003_create_qr_codes.sql",
+    "statements": [
+      "CREATE TABLE IF NOT EXISTS qr_codes (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  slug TEXT NOT NULL UNIQUE,\n  name TEXT NOT NULL,\n  destination_url TEXT NOT NULL,\n  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),\n  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP\n);",
+      "CREATE INDEX IF NOT EXISTS qr_codes_updated_at_idx ON qr_codes (updated_at DESC);"
+    ]
+  },
+  {
+    "name": "0004_add_qr_code_images.sql",
+    "statements": [
+      "ALTER TABLE qr_codes ADD COLUMN image_mode TEXT NOT NULL DEFAULT 'none'\n  CHECK (image_mode IN ('none', 'logo', 'custom'));",
+      "ALTER TABLE qr_codes ADD COLUMN image_path TEXT;"
+    ]
+  },
+  {
+    "name": "0005_add_qr_code_style.sql",
+    "statements": [
+      "ALTER TABLE qr_codes ADD COLUMN module_shape TEXT NOT NULL DEFAULT 'square'\n  CHECK (module_shape IN ('square', 'circle'));",
+      "ALTER TABLE qr_codes ADD COLUMN foreground_color TEXT NOT NULL DEFAULT '#1e293b';"
+    ]
+  },
+  {
+    "name": "0006_add_qr_code_advanced_style.sql",
+    "statements": [
+      "ALTER TABLE qr_codes ADD COLUMN eye_shape TEXT NOT NULL DEFAULT 'square'\n  CHECK (eye_shape IN ('square', 'rounded', 'circle'));",
+      "ALTER TABLE qr_codes ADD COLUMN background_color TEXT NOT NULL DEFAULT '#ffffff';",
+      "ALTER TABLE qr_codes ADD COLUMN logo_size INTEGER NOT NULL DEFAULT 25\n  CHECK (logo_size BETWEEN 15 AND 30);"
+    ]
+  },
+  {
+    "name": "0007_add_qr_logo_shape.sql",
+    "statements": [
+      "ALTER TABLE qr_codes ADD COLUMN logo_shape TEXT NOT NULL DEFAULT 'square'\n  CHECK (logo_shape IN ('square', 'rounded', 'circle'));"
+    ]
+  },
+  {
+    "name": "0008_add_qr_recommended_customizations.sql",
+    "statements": [
+      "ALTER TABLE qr_codes ADD COLUMN advanced_style TEXT NOT NULL DEFAULT '{}';"
+    ]
+  },
+  {
+    "name": "0009_normalize_qr_code_styles.sql",
+    "statements": [
+      "CREATE TABLE qr_codes_clean (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  slug TEXT NOT NULL UNIQUE,\n  name TEXT NOT NULL,\n  destination_url TEXT NOT NULL,\n  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),\n  image_mode TEXT NOT NULL DEFAULT 'none' CHECK (image_mode IN ('none', 'logo', 'custom')),\n  image_path TEXT,\n  module_shape TEXT NOT NULL DEFAULT 'square' CHECK (module_shape IN ('square', 'circle')),\n  foreground_color TEXT NOT NULL DEFAULT '#1e293b',\n  eye_shape TEXT NOT NULL DEFAULT 'square' CHECK (eye_shape IN ('square', 'rounded', 'circle')),\n  eye_color TEXT NOT NULL DEFAULT '#1e293b',\n  logo_size INTEGER NOT NULL DEFAULT 25 CHECK (logo_size BETWEEN 15 AND 30),\n  logo_shape TEXT NOT NULL DEFAULT 'square' CHECK (logo_shape IN ('square', 'rounded', 'circle')),\n  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP\n);",
+      "INSERT INTO qr_codes_clean (\n  id, slug, name, destination_url, active, image_mode, image_path,\n  module_shape, foreground_color, eye_shape, eye_color, logo_size,\n  logo_shape, created_at, updated_at\n)\nSELECT\n  id, slug, name, destination_url, active, image_mode, image_path,\n  module_shape, foreground_color, eye_shape,\n  COALESCE(json_extract(advanced_style, '$.eyeColor'), foreground_color),\n  logo_size, logo_shape, created_at, updated_at\nFROM qr_codes;",
+      "DROP TABLE qr_codes;",
+      "ALTER TABLE qr_codes_clean RENAME TO qr_codes;",
+      "CREATE INDEX qr_codes_updated_at_idx ON qr_codes (updated_at DESC);"
+    ]
+  },
+  {
+    "name": "0010_create_courses.sql",
+    "statements": [
+      "CREATE TABLE IF NOT EXISTS courses (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  name TEXT NOT NULL,\n  day_one TEXT NOT NULL CHECK (day_one IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')),\n  time_one TEXT NOT NULL CHECK (time_one GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(time_one, 1, 2) AS INTEGER) <= 23),\n  day_two TEXT CHECK (day_two IS NULL OR day_two IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')),\n  time_two TEXT CHECK (time_two IS NULL OR (time_two GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(time_two, 1, 2) AS INTEGER) <= 23)),\n  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  CHECK ((day_two IS NULL AND time_two IS NULL) OR (day_two IS NOT NULL AND time_two IS NOT NULL))\n);",
+      "CREATE INDEX IF NOT EXISTS courses_name_idx ON courses (name COLLATE NOCASE);"
+    ]
+  },
+  {
+    "name": "0011_add_course_recurrence.sql",
+    "statements": [
+      "CREATE TABLE courses_with_recurrence (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  name TEXT NOT NULL,\n  recurrence_one TEXT NOT NULL CHECK (recurrence_one IN ('weekly', 'twice_weekly')),\n  day_one TEXT NOT NULL,\n  time_one TEXT NOT NULL CHECK (time_one GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(time_one, 1, 2) AS INTEGER) <= 23),\n  recurrence_two TEXT CHECK (recurrence_two IS NULL OR recurrence_two = 'twice_weekly'),\n  day_two TEXT,\n  time_two TEXT CHECK (time_two IS NULL OR (time_two GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(time_two, 1, 2) AS INTEGER) <= 23)),\n  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  CHECK (day_one IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')),\n  CHECK ((recurrence_one = 'weekly' AND recurrence_two IS NULL AND day_two IS NULL AND time_two IS NULL) OR (recurrence_one = 'twice_weekly' AND recurrence_two = 'twice_weekly' AND day_two IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') AND time_two IS NOT NULL))\n);",
+      "INSERT INTO courses_with_recurrence (id, name, recurrence_one, day_one, time_one, recurrence_two, day_two, time_two, created_at, updated_at)\nSELECT id, name, CASE WHEN day_two IS NULL THEN 'weekly' ELSE 'twice_weekly' END, day_one, time_one, CASE WHEN day_two IS NULL THEN NULL ELSE 'twice_weekly' END, day_two, time_two, created_at, updated_at FROM courses;",
+      "DROP TABLE courses;",
+      "ALTER TABLE courses_with_recurrence RENAME TO courses;",
+      "CREATE INDEX courses_name_idx ON courses (name COLLATE NOCASE);"
+    ]
+  },
+  {
+    "name": "0012_create_administrator_permissions.sql",
+    "statements": [
+      "CREATE TABLE IF NOT EXISTS administrator_permissions (\n  email TEXT PRIMARY KEY COLLATE NOCASE,\n  can_dashboard INTEGER NOT NULL DEFAULT 0 CHECK (can_dashboard IN (0, 1)),\n  can_students INTEGER NOT NULL DEFAULT 0 CHECK (can_students IN (0, 1)),\n  can_courses INTEGER NOT NULL DEFAULT 0 CHECK (can_courses IN (0, 1)),\n  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP\n);"
+    ]
+  },
+  {
+    "name": "0013_add_course_end_times.sql",
+    "statements": [
+      "CREATE TABLE courses_with_time_ranges (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  name TEXT NOT NULL CHECK (length(trim(name)) > 0),\n  recurrence_one TEXT NOT NULL CHECK (recurrence_one IN ('weekly', 'twice_weekly')),\n  day_one TEXT NOT NULL CHECK (day_one IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')),\n  start_time_one TEXT NOT NULL CHECK (start_time_one GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(start_time_one, 1, 2) AS INTEGER) <= 23),\n  end_time_one TEXT NOT NULL CHECK (end_time_one GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(end_time_one, 1, 2) AS INTEGER) <= 23),\n  recurrence_two TEXT CHECK (recurrence_two IS NULL OR recurrence_two = 'twice_weekly'),\n  day_two TEXT CHECK (day_two IS NULL OR day_two IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')),\n  start_time_two TEXT CHECK (start_time_two IS NULL OR (start_time_two GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(start_time_two, 1, 2) AS INTEGER) <= 23)),\n  end_time_two TEXT CHECK (end_time_two IS NULL OR (end_time_two GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(end_time_two, 1, 2) AS INTEGER) <= 23)),\n  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  CHECK (end_time_one > start_time_one),\n  CHECK ((recurrence_one = 'weekly' AND recurrence_two IS NULL AND day_two IS NULL AND start_time_two IS NULL AND end_time_two IS NULL) OR (recurrence_one = 'twice_weekly' AND recurrence_two = 'twice_weekly' AND day_two IS NOT NULL AND start_time_two IS NOT NULL AND end_time_two IS NOT NULL AND end_time_two > start_time_two))\n);",
+      "INSERT INTO courses_with_time_ranges (id, name, recurrence_one, day_one, start_time_one, end_time_one, recurrence_two, day_two, start_time_two, end_time_two, created_at, updated_at)\nSELECT id, name, recurrence_one, day_one, time_one, substr(time(time_one, '+1 hour'), 1, 5), recurrence_two, day_two, time_two, CASE WHEN time_two IS NULL THEN NULL ELSE substr(time(time_two, '+1 hour'), 1, 5) END, created_at, updated_at FROM courses;",
+      "DROP TABLE courses;",
+      "ALTER TABLE courses_with_time_ranges RENAME TO courses;",
+      "CREATE INDEX courses_name_idx ON courses (name COLLATE NOCASE);"
+    ]
+  },
+  {
+    "name": "0014_unique_student_phone.sql",
+    "statements": [
+      "CREATE UNIQUE INDEX students_phone_unique_idx\nON students (trim(phone))\nWHERE trim(phone) <> '';"
+    ]
+  },
+  {
+    "name": "0018_remove_experimental_subscription_schema.sql",
+    "statements": [
+      "-- Restore the five application tables represented in docs/database.drawio.\n-- Experimental subscription and attendance records are intentionally removed.\n-- IF EXISTS also supports fresh databases built from migrations 0001-0014.\nDROP TRIGGER IF EXISTS protect_course_schedule;",
+      "DROP TRIGGER IF EXISTS courses_subscription_delete;",
+      "DROP TRIGGER IF EXISTS courses_subscription_insert;",
+      "DROP TRIGGER IF EXISTS courses_subscription_update;",
+      "DROP TABLE IF EXISTS attendance;",
+      "DROP TABLE IF EXISTS subscription_coverage;",
+      "DROP TABLE IF EXISTS subscription_pauses;",
+      "DROP TABLE IF EXISTS subscription_courses;",
+      "DROP TABLE IF EXISTS subscriptions;",
+      "DROP TABLE IF EXISTS course_occurrences;",
+      "DROP TABLE IF EXISTS couple_purchases;",
+      "DROP TABLE IF EXISTS subscription_types;",
+      "DROP TABLE IF EXISTS subscription_revision;",
+      "-- Copy the retained columns so this works with or without can_subscriptions.\nCREATE TABLE administrator_permissions_clean (\n  email TEXT PRIMARY KEY COLLATE NOCASE,\n  can_dashboard INTEGER NOT NULL DEFAULT 0 CHECK (can_dashboard IN (0, 1)),\n  can_students INTEGER NOT NULL DEFAULT 0 CHECK (can_students IN (0, 1)),\n  can_courses INTEGER NOT NULL DEFAULT 0 CHECK (can_courses IN (0, 1)),\n  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP\n);",
+      "INSERT INTO administrator_permissions_clean\n  (email, can_dashboard, can_students, can_courses, created_at, updated_at)\nSELECT email, can_dashboard, can_students, can_courses, created_at, updated_at\nFROM administrator_permissions;",
+      "DROP TABLE administrator_permissions;",
+      "ALTER TABLE administrator_permissions_clean RENAME TO administrator_permissions;"
+    ]
+  },
+  {
+    "name": "0019_add_qr_code_permission.sql",
+    "statements": [
+      "ALTER TABLE administrator_permissions ADD COLUMN can_qr_codes INTEGER NOT NULL DEFAULT 0\n  CHECK (can_qr_codes IN (0, 1));",
+      "-- Existing administrators already had QR access; preserve it on upgrade.\nUPDATE administrator_permissions SET can_qr_codes = 1;"
+    ]
+  },
+  {
+    "name": "0020_match_database_diagram.sql",
+    "statements": [
+      "-- Match docs/database.drawio; preserve retained columns, IDs, and weekly schedules.\n\n-- A private production backup is required before applying this migration.\n\nCREATE TABLE _migration_course_schedule AS SELECT id AS course_id, day_one AS day_of_week, start_time_one AS start_time, end_time_one AS end_time FROM courses UNION ALL SELECT id, day_two, start_time_two, end_time_two FROM courses WHERE day_two IS NOT NULL;",
+      "CREATE TABLE _migration_sequences AS SELECT name, seq FROM sqlite_sequence;",
+      "CREATE TABLE _migration_students AS SELECT id, first_name, last_name, email, phone, picture, active FROM students;",
+      "DROP TABLE students;",
+      "CREATE TABLE students (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  first_name TEXT NOT NULL,\n  last_name TEXT NOT NULL,\n  email TEXT NOT NULL,\n  phone TEXT NOT NULL DEFAULT '',\n  picture TEXT,\n  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1))\n);",
+      "CREATE INDEX students_name_idx ON students (last_name, first_name);",
+      "CREATE UNIQUE INDEX students_phone_unique_idx\nON students (trim(phone))\nWHERE trim(phone) <> '';",
+      "INSERT INTO students (id, first_name, last_name, email, phone, picture, active) SELECT id, first_name, last_name, email, phone, picture, active FROM _migration_students;",
+      "DROP TABLE _migration_students;",
+      "CREATE TABLE _migration_admin_profiles AS SELECT email, name, picture FROM admin_profiles;",
+      "DROP TABLE admin_profiles;",
+      "CREATE TABLE admin_profiles (\n  email TEXT PRIMARY KEY COLLATE NOCASE,\n  name TEXT NOT NULL,\n  picture TEXT\n);",
+      "INSERT INTO admin_profiles (email, name, picture) SELECT email, name, picture FROM _migration_admin_profiles;",
+      "DROP TABLE _migration_admin_profiles;",
+      "CREATE TABLE _migration_administrator_permissions AS SELECT email, can_dashboard, can_students, can_courses, can_qr_codes FROM administrator_permissions;",
+      "DROP TABLE administrator_permissions;",
+      "CREATE TABLE administrator_permissions (\n  email TEXT PRIMARY KEY COLLATE NOCASE,\n  can_dashboard INTEGER NOT NULL DEFAULT 0 CHECK (can_dashboard IN (0, 1)),\n  can_students INTEGER NOT NULL DEFAULT 0 CHECK (can_students IN (0, 1)),\n  can_courses INTEGER NOT NULL DEFAULT 0 CHECK (can_courses IN (0, 1)),\n  can_qr_codes INTEGER NOT NULL DEFAULT 0 CHECK (can_qr_codes IN (0, 1))\n);",
+      "INSERT INTO administrator_permissions (email, can_dashboard, can_students, can_courses, can_qr_codes) SELECT email, can_dashboard, can_students, can_courses, can_qr_codes FROM _migration_administrator_permissions;",
+      "DROP TABLE _migration_administrator_permissions;",
+      "CREATE TABLE _migration_qr_codes AS SELECT id, slug, name, destination_url, active, image_mode, image_path, module_shape, foreground_color, eye_shape, eye_color, logo_size, logo_shape FROM qr_codes;",
+      "DROP TABLE qr_codes;",
+      "CREATE TABLE \"qr_codes\" (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  slug TEXT NOT NULL UNIQUE,\n  name TEXT NOT NULL,\n  destination_url TEXT NOT NULL,\n  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),\n  image_mode TEXT NOT NULL DEFAULT 'none' CHECK (image_mode IN ('none', 'logo', 'custom')),\n  image_path TEXT,\n  module_shape TEXT NOT NULL DEFAULT 'square' CHECK (module_shape IN ('square', 'circle')),\n  foreground_color TEXT NOT NULL DEFAULT '#1e293b',\n  eye_shape TEXT NOT NULL DEFAULT 'square' CHECK (eye_shape IN ('square', 'rounded', 'circle')),\n  eye_color TEXT NOT NULL DEFAULT '#1e293b',\n  logo_size INTEGER NOT NULL DEFAULT 25 CHECK (logo_size BETWEEN 15 AND 30),\n  logo_shape TEXT NOT NULL DEFAULT 'square' CHECK (logo_shape IN ('square', 'rounded', 'circle'))\n);",
+      "INSERT INTO qr_codes (id, slug, name, destination_url, active, image_mode, image_path, module_shape, foreground_color, eye_shape, eye_color, logo_size, logo_shape) SELECT id, slug, name, destination_url, active, image_mode, image_path, module_shape, foreground_color, eye_shape, eye_color, logo_size, logo_shape FROM _migration_qr_codes;",
+      "DROP TABLE _migration_qr_codes;",
+      "CREATE TABLE _migration_courses AS SELECT id, name FROM courses;",
+      "DROP TABLE courses;",
+      "CREATE TABLE \"courses\" (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  name TEXT NOT NULL CHECK (length(trim(name)) > 0)\n);",
+      "CREATE INDEX courses_name_idx ON courses (name COLLATE NOCASE);",
+      "INSERT INTO courses (id, name) SELECT id, name FROM _migration_courses;",
+      "DROP TABLE _migration_courses;",
+      "UPDATE sqlite_sequence SET seq = MAX(seq, COALESCE((SELECT seq FROM _migration_sequences WHERE name = sqlite_sequence.name), seq));",
+      "DROP TABLE _migration_sequences;",
+      "CREATE TABLE course_schedule (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  course_id INTEGER NOT NULL REFERENCES courses(id),\n  day_of_week TEXT NOT NULL CHECK (day_of_week IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')),\n  start_time TEXT NOT NULL CHECK (start_time GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(start_time, 1, 2) AS INTEGER) <= 23),\n  end_time TEXT NOT NULL CHECK (end_time GLOB '[0-2][0-9]:[0-5][0-9]' AND CAST(substr(end_time, 1, 2) AS INTEGER) <= 23),\n  CHECK (end_time > start_time),\n  UNIQUE (course_id, day_of_week, start_time)\n);",
+      "CREATE TABLE subscription (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  name TEXT NOT NULL CHECK (length(trim(name)) > 0)\n);",
+      "CREATE TABLE subscription_courses (\n  subscription_id INTEGER NOT NULL REFERENCES subscription(id),\n  course_id INTEGER NOT NULL REFERENCES courses(id),\n  entries INTEGER NOT NULL CHECK (typeof(entries) = 'integer' AND entries > 0),\n  PRIMARY KEY (subscription_id, course_id)\n);",
+      "CREATE INDEX subscription_courses_course_idx ON subscription_courses (course_id);",
+      "-- Require at least one course per subscription in application validation.\n\nCREATE TABLE student_subscriptions (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_id INTEGER NOT NULL REFERENCES students(id),\n  subscription_id INTEGER NOT NULL REFERENCES subscription(id),\n  starts_on TEXT NOT NULL,\n  paid_at TEXT,\n  UNIQUE (id, student_id)\n);",
+      "CREATE INDEX student_subscriptions_student_idx ON student_subscriptions (student_id);",
+      "CREATE INDEX student_subscriptions_subscription_idx ON student_subscriptions (subscription_id);",
+      "CREATE TABLE student_course_entries (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_id INTEGER NOT NULL REFERENCES students(id),\n  course_id INTEGER NOT NULL REFERENCES courses(id),\n  student_subscription_id INTEGER,\n  entries_granted INTEGER NOT NULL CHECK (typeof(entries_granted) = 'integer' AND entries_granted > 0),\n  granted_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),\n  granted_at TEXT NOT NULL,\n  reason TEXT,\n  FOREIGN KEY (student_subscription_id, student_id) REFERENCES student_subscriptions(id, student_id)\n);",
+      "CREATE INDEX student_course_entries_student_course_idx ON student_course_entries (student_id, course_id);",
+      "CREATE INDEX student_course_entries_purchase_idx ON student_course_entries (student_subscription_id, student_id);",
+      "CREATE INDEX student_course_entries_course_idx ON student_course_entries (course_id);",
+      "CREATE INDEX student_course_entries_admin_idx ON student_course_entries (granted_by);",
+      "CREATE TABLE attendance (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_course_entry_id INTEGER NOT NULL REFERENCES student_course_entries(id),\n  attended_at TEXT NOT NULL,\n  recorded_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email)\n);",
+      "CREATE INDEX attendance_entry_idx ON attendance (student_course_entry_id, attended_at);",
+      "CREATE INDEX attendance_admin_idx ON attendance (recorded_by);",
+      "-- Each row consumes one entry. Validate available balance and starts_on atomically.\n-- paid_at is informational and must not block attendance.\n\nINSERT INTO course_schedule (course_id, day_of_week, start_time, end_time) SELECT course_id, day_of_week, start_time, end_time FROM _migration_course_schedule;",
+      "DROP TABLE _migration_course_schedule;"
+    ]
+  },
+  {
+    "name": "0021_any_course_subscriptions.sql",
+    "statements": [
+      "-- Existing options remain per-course. Any-course options have one shared allowance.\nALTER TABLE subscription ADD COLUMN allowance_type TEXT NOT NULL DEFAULT 'per_course'\n  CHECK (allowance_type IN ('per_course', 'any_course'));",
+      "ALTER TABLE subscription ADD COLUMN shared_entries INTEGER\n  CHECK ((allowance_type = 'per_course' AND shared_entries IS NULL)\n    OR (allowance_type = 'any_course' AND shared_entries IS NOT NULL\n      AND typeof(shared_entries) = 'integer' AND shared_entries > 0));",
+      "-- Rebuild dependent tables without losing grants, attendance, or ID high-water marks.\nCREATE TABLE _any_course_sequences AS SELECT name, seq FROM sqlite_sequence;",
+      "CREATE TABLE _any_course_attendance AS\n  SELECT a.id, a.student_course_entry_id, e.course_id, a.attended_at, a.recorded_by\n  FROM attendance a JOIN student_course_entries e ON e.id = a.student_course_entry_id;",
+      "CREATE TABLE _any_course_entries AS SELECT * FROM student_course_entries;",
+      "DROP TABLE attendance;",
+      "DROP TABLE student_course_entries;",
+      "CREATE TABLE student_course_entries (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_id INTEGER NOT NULL REFERENCES students(id),\n  course_id INTEGER REFERENCES courses(id),\n  student_subscription_id INTEGER,\n  entries_granted INTEGER NOT NULL CHECK (typeof(entries_granted) = 'integer' AND entries_granted > 0),\n  granted_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),\n  granted_at TEXT NOT NULL,\n  reason TEXT,\n  FOREIGN KEY (student_subscription_id, student_id) REFERENCES student_subscriptions(id, student_id)\n);",
+      "CREATE INDEX student_course_entries_student_course_idx ON student_course_entries (student_id, course_id);",
+      "CREATE INDEX student_course_entries_purchase_idx ON student_course_entries (student_subscription_id, student_id);",
+      "CREATE INDEX student_course_entries_course_idx ON student_course_entries (course_id);",
+      "CREATE INDEX student_course_entries_admin_idx ON student_course_entries (granted_by);",
+      "INSERT INTO student_course_entries SELECT * FROM _any_course_entries;",
+      "CREATE TABLE attendance (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_course_entry_id INTEGER NOT NULL REFERENCES student_course_entries(id),\n  course_id INTEGER NOT NULL REFERENCES courses(id),\n  attended_at TEXT NOT NULL,\n  recorded_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email)\n);",
+      "CREATE INDEX attendance_entry_idx ON attendance (student_course_entry_id, attended_at);",
+      "CREATE INDEX attendance_admin_idx ON attendance (recorded_by);",
+      "-- Each row consumes one entry. Validate available balance and starts_on atomically.\n-- paid_at is informational and must not block attendance.\nCREATE INDEX attendance_course_idx ON attendance (course_id, attended_at);",
+      "-- Validate attendance.course_id against the allowance when its course_id is not NULL.\n\nINSERT INTO attendance (id, student_course_entry_id, course_id, attended_at, recorded_by) SELECT id, student_course_entry_id, course_id, attended_at, recorded_by FROM _any_course_attendance;",
+      "UPDATE sqlite_sequence SET seq = MAX(seq, COALESCE((SELECT seq FROM _any_course_sequences WHERE name = sqlite_sequence.name), seq));",
+      "DROP TABLE _any_course_attendance;",
+      "DROP TABLE _any_course_entries;",
+      "DROP TABLE _any_course_sequences;"
+    ]
+  },
+  {
+    "name": "0022_subscription_price.sql",
+    "statements": [
+      "-- Existing prices are unknown, not free. Require a price on new API saves.\n-- RON amounts are stored as integer bani (100 bani = 1 RON).\nALTER TABLE subscription ADD COLUMN price_minor INTEGER\n  CHECK (price_minor IS NULL OR (typeof(price_minor) = 'integer' AND price_minor BETWEEN 0 AND 99999999));"
+    ]
+  },
+  {
+    "name": "0023_subscription_payments.sql",
+    "statements": [
+      "-- Payment events belong to the student's purchase, not the subscription option.\nCREATE TABLE subscription_payments (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_subscription_id INTEGER NOT NULL REFERENCES student_subscriptions(id),\n  paid_at TEXT NOT NULL,\n  amount_minor INTEGER CHECK (amount_minor IS NULL OR (typeof(amount_minor) = 'integer' AND amount_minor > 0))\n);",
+      "CREATE INDEX subscription_payments_purchase_idx ON subscription_payments (student_subscription_id, paid_at);",
+      "-- Previous records contain a payment date but no historical amount.\n-- Preserve those dates without guessing the amount from today's option price.\nINSERT INTO subscription_payments (student_subscription_id, paid_at)\nSELECT id, paid_at FROM student_subscriptions WHERE paid_at IS NOT NULL;",
+      "ALTER TABLE student_subscriptions DROP COLUMN paid_at;"
+    ]
+  },
+  {
+    "name": "0024_student_subscription_end_date.sql",
+    "statements": [
+      "-- Existing purchases retain their original dates and grants. Their historical\n-- course schedules are unavailable, so do not invent an expiry for them.\nALTER TABLE student_subscriptions ADD COLUMN ends_on TEXT\n  CHECK (ends_on IS NULL OR (length(ends_on) = 10 AND ends_on >= starts_on));"
+    ]
+  },
+  {
+    "name": "0025_remove_subscriptions.sql",
+    "statements": [
+      "-- Remove purchases and payments while retaining entry balances and attendance.\nCREATE TABLE _remove_sequences AS SELECT name, seq FROM sqlite_sequence;",
+      "CREATE TABLE _remove_attendance AS SELECT * FROM attendance;",
+      "CREATE TABLE _remove_entries AS SELECT id, student_id, course_id, entries_granted, granted_by, granted_at, reason FROM student_course_entries;",
+      "DROP TABLE attendance;",
+      "DROP TABLE student_course_entries;",
+      "DROP TABLE subscription_payments;",
+      "DROP TABLE subscription_courses;",
+      "DROP TABLE student_subscriptions;",
+      "DROP TABLE subscription;",
+      "CREATE TABLE student_course_entries (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_id INTEGER NOT NULL REFERENCES students(id),\n  course_id INTEGER REFERENCES courses(id),\n  entries_granted INTEGER NOT NULL CHECK (typeof(entries_granted) = 'integer' AND entries_granted > 0),\n  granted_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),\n  granted_at TEXT NOT NULL,\n  reason TEXT\n);",
+      "CREATE INDEX student_course_entries_student_course_idx ON student_course_entries (student_id, course_id);",
+      "CREATE INDEX student_course_entries_course_idx ON student_course_entries (course_id);",
+      "CREATE INDEX student_course_entries_admin_idx ON student_course_entries (granted_by);",
+      "INSERT INTO student_course_entries (id, student_id, course_id, entries_granted, granted_by, granted_at, reason) SELECT id, student_id, course_id, entries_granted, granted_by, granted_at, reason FROM _remove_entries;",
+      "CREATE TABLE attendance (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_course_entry_id INTEGER NOT NULL REFERENCES student_course_entries(id),\n  course_id INTEGER NOT NULL REFERENCES courses(id),\n  attended_at TEXT NOT NULL,\n  recorded_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email)\n);",
+      "CREATE INDEX attendance_entry_idx ON attendance (student_course_entry_id, attended_at);",
+      "CREATE INDEX attendance_admin_idx ON attendance (recorded_by);",
+      "CREATE INDEX attendance_course_idx ON attendance (course_id, attended_at);",
+      "INSERT INTO attendance SELECT * FROM _remove_attendance;",
+      "UPDATE sqlite_sequence SET seq = MAX(seq, COALESCE((SELECT seq FROM _remove_sequences WHERE name = sqlite_sequence.name), seq));",
+      "DROP TABLE _remove_attendance;",
+      "DROP TABLE _remove_entries;",
+      "DROP TABLE _remove_sequences;"
+    ]
+  },
+  {
+    "name": "0026_student_courses.sql",
+    "statements": [
+      "-- Explicit course assignments are independent of entry balances and attendance.\nCREATE TABLE student_courses (\n  student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,\n  course_id INTEGER NOT NULL REFERENCES courses(id),\n  PRIMARY KEY (student_id, course_id)\n);",
+      "CREATE INDEX student_courses_course_idx ON student_courses (course_id);"
+    ]
+  },
+  {
+    "name": "0027_student_activity.sql",
+    "statements": [
+      "-- Attendance belongs directly to a student and course, regardless of payment balance.\n-- Retain previous grants in student_course_entries: they are not proof of payment.\nCREATE TABLE _activity_attendance AS\nSELECT a.id, e.student_id, a.course_id, c.name AS course_name, a.attended_at, a.recorded_by\nFROM attendance a JOIN student_course_entries e ON e.id = a.student_course_entry_id\nJOIN courses c ON c.id = a.course_id;",
+      "CREATE TABLE _activity_sequence AS SELECT seq FROM sqlite_sequence WHERE name = 'attendance';",
+      "DROP TABLE attendance;",
+      "CREATE TABLE attendance (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_id INTEGER NOT NULL REFERENCES students(id),\n  course_id INTEGER NOT NULL REFERENCES courses(id),\n  course_name TEXT NOT NULL,\n  attended_at TEXT NOT NULL,\n  recorded_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),\n  recorded_at TEXT,\n  notes TEXT NOT NULL DEFAULT '',\n  request_key TEXT UNIQUE,\n  request_payload TEXT\n);",
+      "CREATE INDEX attendance_student_idx ON attendance (student_id, attended_at, id);",
+      "CREATE INDEX attendance_course_idx ON attendance (course_id, attended_at);",
+      "CREATE INDEX attendance_admin_idx ON attendance (recorded_by);",
+      "-- Preserve legacy duplicates; enforce one new attendance per student/course/class time.\nCREATE UNIQUE INDEX attendance_class_unique_idx ON attendance (student_id, course_id, attended_at) WHERE request_key IS NOT NULL;",
+      "INSERT INTO attendance (id, student_id, course_id, course_name, attended_at, recorded_by)\nSELECT id, student_id, course_id, course_name, attended_at, recorded_by FROM _activity_attendance;",
+      "UPDATE sqlite_sequence SET seq = MAX(seq, COALESCE((SELECT seq FROM _activity_sequence), seq)) WHERE name = 'attendance';",
+      "DROP TABLE _activity_attendance;",
+      "DROP TABLE _activity_sequence;",
+      "CREATE TABLE student_payments (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_id INTEGER NOT NULL REFERENCES students(id),\n  paid_on TEXT NOT NULL,\n  amount_minor INTEGER NOT NULL CHECK (typeof(amount_minor) = 'integer' AND amount_minor BETWEEN 1 AND 99999999),\n  notes TEXT NOT NULL DEFAULT '',\n  recorded_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),\n  recorded_at TEXT NOT NULL,\n  request_key TEXT NOT NULL UNIQUE,\n  request_payload TEXT NOT NULL\n);",
+      "CREATE INDEX student_payments_student_idx ON student_payments (student_id, paid_on, id);",
+      "CREATE INDEX student_payments_admin_idx ON student_payments (recorded_by);",
+      "CREATE TABLE payment_course_allowances (\n  payment_id INTEGER NOT NULL REFERENCES student_payments(id),\n  course_id INTEGER NOT NULL REFERENCES courses(id),\n  course_name TEXT NOT NULL,\n  allowance INTEGER NOT NULL CHECK (typeof(allowance) = 'integer' AND allowance BETWEEN 1 AND 10000),\n  PRIMARY KEY (payment_id, course_id)\n);",
+      "CREATE INDEX payment_course_allowances_course_idx ON payment_course_allowances (course_id);",
+      "CREATE VIEW student_course_balances AS\nWITH pairs AS (\n  SELECT student_id, course_id FROM student_courses\n  UNION SELECT student_id, course_id FROM attendance\n  UNION SELECT p.student_id, a.course_id FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id\n), totals AS (\n  SELECT pairs.student_id, pairs.course_id,\n    (SELECT COUNT(*) FROM attendance a WHERE a.student_id = pairs.student_id AND a.course_id = pairs.course_id) AS attendance_count,\n    (SELECT COALESCE(SUM(a.allowance), 0) FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = pairs.student_id AND a.course_id = pairs.course_id) AS paid_allowance\n  FROM pairs\n)\nSELECT student_id, course_id, attendance_count, paid_allowance,\n  paid_allowance - attendance_count AS remaining_allowance,\n  MAX(attendance_count - paid_allowance, 0) AS excess_attendance FROM totals;"
+    ]
+  },
+  {
+    "name": "0028_remove_legacy_course_entries.sql",
+    "statements": [
+      "-- Retire legacy grants. Attendance and paid course allowances are independent.\nDROP TABLE student_course_entries;"
+    ]
+  },
+  {
+    "name": "0029_payment_presets.sql",
+    "statements": [
+      "-- Reusable defaults only; recorded student payments retain their own values.\nCREATE TABLE payment_presets (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  name TEXT NOT NULL CHECK (length(trim(name)) BETWEEN 1 AND 120),\n  amount_minor INTEGER NOT NULL CHECK (typeof(amount_minor) = 'integer' AND amount_minor BETWEEN 1 AND 99999999)\n);",
+      "CREATE UNIQUE INDEX payment_presets_name_idx ON payment_presets (name COLLATE NOCASE);",
+      "CREATE TABLE payment_preset_courses (\n  preset_id INTEGER NOT NULL REFERENCES payment_presets(id) ON DELETE CASCADE,\n  course_id INTEGER NOT NULL REFERENCES courses(id),\n  allowance INTEGER NOT NULL CHECK (typeof(allowance) = 'integer' AND allowance BETWEEN 1 AND 10000),\n  PRIMARY KEY (preset_id, course_id)\n);",
+      "CREATE INDEX payment_preset_courses_course_idx ON payment_preset_courses (course_id);"
+    ]
+  },
+  {
+    "name": "0030_course_dates.sql",
+    "statements": [
+      "-- Existing courses retain unbounded schedules until administrators set dates.\nALTER TABLE courses ADD COLUMN start_date TEXT;",
+      "ALTER TABLE courses ADD COLUMN end_date TEXT CHECK (end_date IS NULL OR start_date IS NULL OR end_date >= start_date);"
+    ]
+  },
+  {
+    "name": "0031_class_cancellations.sql",
+    "statements": [
+      "CREATE TABLE class_cancellations (\n  course_id INTEGER NOT NULL REFERENCES courses(id),\n  class_date TEXT NOT NULL,\n  start_time TEXT NOT NULL,\n  cancelled_by TEXT NOT NULL REFERENCES admin_profiles(email),\n  cancelled_at TEXT NOT NULL,\n  PRIMARY KEY (course_id, class_date, start_time)\n);",
+      "CREATE TRIGGER cancellation_requires_no_attendance BEFORE INSERT ON class_cancellations\nWHEN EXISTS (SELECT 1 FROM attendance WHERE course_id = NEW.course_id AND attended_at = NEW.class_date || 'T' || NEW.start_time || ':00')\nBEGIN SELECT RAISE(ABORT, 'Class already has attendance'); END;",
+      "CREATE TRIGGER attendance_requires_active_class BEFORE INSERT ON attendance\nWHEN EXISTS (SELECT 1 FROM class_cancellations WHERE course_id = NEW.course_id AND class_date || 'T' || start_time || ':00' = NEW.attended_at)\nBEGIN SELECT RAISE(ABORT, 'Class is cancelled'); END;"
+    ]
+  },
+  {
+    "name": "0032_class_occurrences.sql",
+    "statements": [
+      "CREATE TABLE classes (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  course_id INTEGER NOT NULL REFERENCES courses(id),\n  class_date TEXT NOT NULL,\n  start_time TEXT NOT NULL,\n  end_time TEXT,\n  cancelled INTEGER NOT NULL DEFAULT 0 CHECK (cancelled IN (0, 1)),\n  cancelled_by TEXT REFERENCES admin_profiles(email),\n  cancelled_at TEXT,\n  UNIQUE (course_id, class_date, start_time)\n);",
+      "INSERT INTO classes (course_id, class_date, start_time)\nSELECT DISTINCT course_id, substr(attended_at, 1, 10), substr(attended_at, 12, 5) FROM attendance;",
+      "INSERT INTO classes (course_id, class_date, start_time, cancelled, cancelled_by, cancelled_at)\nSELECT course_id, class_date, start_time, 1, cancelled_by, cancelled_at FROM class_cancellations\nWHERE true ON CONFLICT (course_id, class_date, start_time) DO UPDATE SET\ncancelled = 1, cancelled_by = excluded.cancelled_by, cancelled_at = excluded.cancelled_at;",
+      "UPDATE classes SET end_time = (\n  SELECT end_time FROM course_schedule WHERE course_id = classes.course_id AND start_time = classes.start_time\n  AND day_of_week = CASE strftime('%w', classes.class_date)\n  WHEN '0' THEN 'Sunday' WHEN '1' THEN 'Monday' WHEN '2' THEN 'Tuesday' WHEN '3' THEN 'Wednesday'\n  WHEN '4' THEN 'Thursday' WHEN '5' THEN 'Friday' WHEN '6' THEN 'Saturday' END LIMIT 1\n);",
+      "ALTER TABLE attendance ADD COLUMN class_id INTEGER REFERENCES classes(id);",
+      "UPDATE attendance SET class_id = (SELECT id FROM classes WHERE course_id = attendance.course_id\nAND class_date = substr(attendance.attended_at, 1, 10) AND start_time = substr(attendance.attended_at, 12, 5));",
+      "CREATE INDEX attendance_class_idx ON attendance (class_id);",
+      "DROP TRIGGER cancellation_requires_no_attendance;",
+      "DROP TRIGGER attendance_requires_active_class;",
+      "DROP TABLE class_cancellations;",
+      "CREATE TRIGGER attendance_requires_active_class BEFORE INSERT ON attendance\nWHEN NOT EXISTS (SELECT 1 FROM classes WHERE id = NEW.class_id AND cancelled = 0\nAND course_id = NEW.course_id AND class_date = substr(NEW.attended_at, 1, 10) AND start_time = substr(NEW.attended_at, 12, 5))\nBEGIN SELECT RAISE(ABORT, 'Class is cancelled or invalid'); END;",
+      "CREATE TRIGGER cancellation_requires_no_attendance BEFORE UPDATE OF cancelled ON classes\nWHEN NEW.cancelled = 1 AND EXISTS (SELECT 1 FROM attendance WHERE class_id = NEW.id)\nBEGIN SELECT RAISE(ABORT, 'Class already has attendance'); END;"
+    ]
+  },
+  {
+    "name": "0033_add_payments_permission.sql",
+    "statements": [
+      "ALTER TABLE administrator_permissions ADD COLUMN can_payments INTEGER NOT NULL DEFAULT 0\n  CHECK (can_payments IN (0, 1));",
+      "-- Preserve access previously granted through the Students permission.\nUPDATE administrator_permissions SET can_payments = can_students;"
+    ]
+  },
+  {
+    "name": "0034_complimentary_attendance.sql",
+    "statements": [
+      "ALTER TABLE attendance ADD COLUMN complimentary INTEGER NOT NULL DEFAULT 0 CHECK (complimentary IN (0, 1));"
+    ]
+  },
+  {
+    "name": "0035_free_attendance_attribution.sql",
+    "statements": [
+      "ALTER TABLE attendance ADD COLUMN complimentary_by TEXT;",
+      "ALTER TABLE attendance ADD COLUMN complimentary_at TEXT;",
+      "-- Split old generated audit lines from administrator notes and retain the latest grant.\nCREATE TABLE _free_attendance_lines AS\nWITH RECURSIVE lines(id, position, line, rest) AS (\n  SELECT id, 0, '', notes || char(10) FROM attendance\n  UNION ALL\n  SELECT id, position + 1, substr(rest, 1, instr(rest, char(10)) - 1),\n    substr(rest, instr(rest, char(10)) + 1) FROM lines WHERE rest != ''\n)\nSELECT id, position, line,\n  CASE WHEN line GLOB 'Complimentary granted by * at ????-??-??T*'\n    OR line GLOB 'Complimentary removed by * at ????-??-??T*' THEN 1 ELSE 0 END AS generated\nFROM lines WHERE position > 0;",
+      "UPDATE attendance SET\n  complimentary_by = CASE WHEN complimentary = 1 THEN COALESCE((\n    SELECT substr(line, 26, instr(line, ' at ') - 26) FROM _free_attendance_lines\n    WHERE id = attendance.id AND generated = 1 AND line LIKE 'Complimentary granted by %'\n    ORDER BY position DESC LIMIT 1), recorded_by) END,\n  complimentary_at = CASE WHEN complimentary = 1 THEN COALESCE((\n    SELECT substr(line, instr(line, ' at ') + 4, 24) FROM _free_attendance_lines\n    WHERE id = attendance.id AND generated = 1 AND line LIKE 'Complimentary granted by %'\n    ORDER BY position DESC LIMIT 1), recorded_at) END,\n  notes = COALESCE((SELECT group_concat(line, char(10)) FROM (\n    SELECT line FROM _free_attendance_lines WHERE id = attendance.id AND generated = 0 ORDER BY position\n  )), '');",
+      "DROP TABLE _free_attendance_lines;"
+    ]
+  },
+  {
+    "name": "0036_payment_school_transfer.sql",
+    "statements": [
+      "-- Unchecked means no handover has been confirmed, including historical payments.\nALTER TABLE student_payments ADD COLUMN given_to_school INTEGER NOT NULL DEFAULT 0 CHECK (given_to_school IN (0, 1));",
+      "CREATE INDEX student_payments_date_idx ON student_payments (paid_on DESC, id DESC);"
+    ]
+  },
+  {
+    "name": "0037_practice_parties.sql",
+    "statements": [
+      "ALTER TABLE administrator_permissions ADD COLUMN can_practice_parties INTEGER NOT NULL DEFAULT 0 CHECK (can_practice_parties IN (0, 1));",
+      "CREATE TABLE practice_parties (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  starts_at TEXT NOT NULL,\n  starts_utc TEXT NOT NULL,\n  duration_minutes INTEGER NOT NULL CHECK (duration_minutes BETWEEN 1 AND 1440),\n  cancelled INTEGER NOT NULL DEFAULT 0 CHECK (cancelled IN (0, 1)),\n  revision INTEGER NOT NULL DEFAULT 0,\n  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),\n  recorded_at TEXT NOT NULL,\n  request_key TEXT NOT NULL UNIQUE\n);",
+      "CREATE INDEX practice_parties_date_idx ON practice_parties (starts_at, id);",
+      "CREATE TABLE practice_requests (\n  request_key TEXT PRIMARY KEY,\n  practice_id INTEGER NOT NULL REFERENCES practice_parties(id),\n  payload TEXT NOT NULL,\n  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),\n  recorded_at TEXT NOT NULL,\n  verified INTEGER NOT NULL DEFAULT 1 CHECK (verified = 1)\n);",
+      "CREATE TABLE practice_attendance (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_id INTEGER NOT NULL REFERENCES students(id),\n  practice_id INTEGER NOT NULL REFERENCES practice_parties(id),\n  original_starts_at TEXT NOT NULL,\n  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),\n  recorded_at TEXT NOT NULL,\n  notes TEXT NOT NULL DEFAULT '',\n  voided_at TEXT,\n  voided_by TEXT REFERENCES admin_profiles(email),\n  void_reason TEXT\n);",
+      "CREATE UNIQUE INDEX practice_attendance_active_idx ON practice_attendance (student_id, practice_id) WHERE voided_at IS NULL;",
+      "CREATE INDEX practice_attendance_student_idx ON practice_attendance (student_id, practice_id);",
+      "CREATE TABLE practice_changes (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  practice_id INTEGER NOT NULL REFERENCES practice_parties(id),\n  before_json TEXT NOT NULL,\n  after_json TEXT NOT NULL,\n  reason TEXT NOT NULL,\n  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),\n  recorded_at TEXT NOT NULL\n);",
+      "CREATE TABLE practice_donations (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_id INTEGER NOT NULL REFERENCES students(id),\n  practice_id INTEGER NOT NULL REFERENCES practice_parties(id),\n  paid_on TEXT NOT NULL,\n  amount_minor INTEGER NOT NULL CHECK (typeof(amount_minor) = 'integer' AND amount_minor BETWEEN 1 AND 99999999),\n  notes TEXT NOT NULL DEFAULT '',\n  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),\n  recorded_at TEXT NOT NULL,\n  request_key TEXT NOT NULL UNIQUE REFERENCES practice_requests(request_key),\n  given_to_school INTEGER NOT NULL DEFAULT 0 CHECK (given_to_school IN (0, 1))\n);",
+      "CREATE INDEX practice_donations_student_idx ON practice_donations (student_id, paid_on, id);",
+      "CREATE INDEX practice_donations_party_idx ON practice_donations (practice_id, id);",
+      "CREATE VIEW school_payment_records AS\nSELECT p.id, 'course' AS purpose, NULL AS practice_id, NULL AS practice_description,\n  p.student_id, p.paid_on, p.amount_minor, p.recorded_by, p.given_to_school\nFROM student_payments p\nUNION ALL\nSELECT p.id, 'practice_donation', p.practice_id, 'Practice party \u00b7 ' || s.starts_at,\n  p.student_id, p.paid_on, p.amount_minor, p.recorded_by, p.given_to_school\nFROM practice_donations p JOIN practice_parties s ON s.id = p.practice_id;"
+    ]
+  },
+  {
+    "name": "0038_remove_payments_permission.sql",
+    "statements": [
+      "ALTER TABLE administrator_permissions DROP COLUMN can_payments;"
+    ]
+  },
+  {
+    "name": "0039_simplify_practice_attendance.sql",
+    "statements": [
+      "-- A single attendance can contain one optional donation. Stop before changing\n-- records if legacy donations cannot be moved without losing their identity.\nCREATE TABLE practice_migration_guard (safe INTEGER NOT NULL CHECK (safe = 1));",
+      "INSERT INTO practice_migration_guard (safe)\nSELECT CASE WHEN\n  EXISTS (SELECT 1 FROM practice_donations GROUP BY student_id, practice_id HAVING COUNT(*) > 1)\n  OR EXISTS (SELECT 1 FROM practice_donations d WHERE NOT EXISTS (\n    SELECT 1 FROM practice_attendance a WHERE a.student_id = d.student_id\n      AND a.practice_id = d.practice_id AND a.voided_at IS NULL\n  )) THEN 0 ELSE 1 END;",
+      "DROP TABLE practice_migration_guard;",
+      "ALTER TABLE practice_parties ADD COLUMN request_hash TEXT;",
+      "ALTER TABLE practice_parties ADD COLUMN last_request_key TEXT;",
+      "ALTER TABLE practice_parties ADD COLUMN last_request_hash TEXT;",
+      "-- Each mutation supplies the next expected revision. A stale write aborts the\n-- whole D1 batch, including attendance and donation changes, without a log table.\nCREATE TRIGGER practice_revision_matches BEFORE UPDATE OF revision ON practice_parties\nWHEN NEW.revision != OLD.revision + 1\nBEGIN SELECT RAISE(ABORT, 'Practice party changed. Reload before saving.'); END;",
+      "CREATE TABLE practice_attendance_new (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_id INTEGER NOT NULL REFERENCES students(id),\n  practice_id INTEGER NOT NULL REFERENCES practice_parties(id),\n  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),\n  recorded_at TEXT NOT NULL,\n  notes TEXT NOT NULL DEFAULT '',\n  donation_amount_minor INTEGER CHECK (donation_amount_minor IS NULL OR (typeof(donation_amount_minor) = 'integer' AND donation_amount_minor BETWEEN 1 AND 99999999)),\n  donation_paid_on TEXT,\n  donation_notes TEXT NOT NULL DEFAULT '',\n  donation_recorded_by TEXT REFERENCES admin_profiles(email),\n  donation_recorded_at TEXT,\n  donation_given_to_school INTEGER NOT NULL DEFAULT 0 CHECK (donation_given_to_school IN (0, 1)),\n  UNIQUE (student_id, practice_id),\n  CHECK (\n    (donation_amount_minor IS NULL AND donation_paid_on IS NULL AND donation_recorded_by IS NULL AND donation_recorded_at IS NULL AND donation_notes = '' AND donation_given_to_school = 0)\n    OR (donation_amount_minor IS NOT NULL AND donation_paid_on IS NOT NULL AND donation_recorded_by IS NOT NULL AND donation_recorded_at IS NOT NULL)\n  )\n);",
+      "INSERT INTO practice_attendance_new (\n  id, student_id, practice_id, recorded_by, recorded_at, notes,\n  donation_amount_minor, donation_paid_on, donation_notes, donation_recorded_by, donation_recorded_at, donation_given_to_school\n)\nSELECT a.id, a.student_id, a.practice_id, a.recorded_by, a.recorded_at, a.notes,\n  d.amount_minor, d.paid_on, COALESCE(d.notes, ''), d.recorded_by, d.recorded_at, COALESCE(d.given_to_school, 0)\nFROM practice_attendance a LEFT JOIN practice_donations d ON d.student_id = a.student_id AND d.practice_id = a.practice_id\nWHERE a.voided_at IS NULL;",
+      "-- Preserve the high-water mark even when the last attendance was removed.\nINSERT INTO sqlite_sequence (name, seq)\nSELECT 'practice_attendance_new', seq FROM sqlite_sequence WHERE name = 'practice_attendance'\n  AND NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = 'practice_attendance_new');",
+      "UPDATE sqlite_sequence SET seq = MAX(seq, COALESCE((SELECT seq FROM sqlite_sequence WHERE name = 'practice_attendance'), 0))\nWHERE name = 'practice_attendance_new';",
+      "DROP VIEW school_payment_records;",
+      "DROP TABLE practice_donations;",
+      "DROP TABLE practice_requests;",
+      "DROP TABLE practice_changes;",
+      "DROP TABLE practice_attendance;",
+      "ALTER TABLE practice_attendance_new RENAME TO practice_attendance;",
+      "CREATE INDEX practice_attendance_party_idx ON practice_attendance (practice_id, id);",
+      "CREATE INDEX practice_attendance_donation_date_idx ON practice_attendance (donation_paid_on, id) WHERE donation_amount_minor IS NOT NULL;",
+      "CREATE TRIGGER practice_attendance_keeps_donation BEFORE DELETE ON practice_attendance\nWHEN OLD.donation_amount_minor IS NOT NULL\nBEGIN SELECT RAISE(ABORT, 'Remove the donation before removing attendance.'); END;",
+      "CREATE VIEW school_payment_records AS\nSELECT p.id, 'course' AS purpose, NULL AS practice_id, NULL AS practice_description,\n  p.student_id, p.paid_on, p.amount_minor, p.recorded_by, p.given_to_school\nFROM student_payments p\nUNION ALL\nSELECT a.id, 'practice_donation', a.practice_id, 'Practice party \u00b7 ' || s.starts_at,\n  a.student_id, a.donation_paid_on, a.donation_amount_minor, a.donation_recorded_by, a.donation_given_to_school\nFROM practice_attendance a JOIN practice_parties s ON s.id = a.practice_id\nWHERE a.donation_amount_minor IS NOT NULL;"
+    ]
+  },
+  {
+    "name": "0040_payment_methods.sql",
+    "statements": [
+      "CREATE TABLE administrator_payment_methods (\n  email TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),\n  method TEXT NOT NULL COLLATE NOCASE CHECK (length(method) BETWEEN 1 AND 50),\n  PRIMARY KEY (email, method)\n);",
+      "ALTER TABLE student_payments ADD COLUMN received_method TEXT NOT NULL DEFAULT '';",
+      "DROP VIEW school_payment_records;",
+      "CREATE VIEW school_payment_records AS\nSELECT p.id, 'course' AS purpose, NULL AS practice_id, NULL AS practice_description,\n  p.student_id, p.paid_on, p.amount_minor, p.recorded_by, p.received_method, p.given_to_school\nFROM student_payments p\nUNION ALL\nSELECT a.id, 'practice_donation', a.practice_id, 'Practice party \u00b7 ' || s.starts_at,\n  a.student_id, a.donation_paid_on, a.donation_amount_minor, a.donation_recorded_by, '', a.donation_given_to_school\nFROM practice_attendance a JOIN practice_parties s ON s.id = a.practice_id\nWHERE a.donation_amount_minor IS NOT NULL;"
+    ]
+  },
+  {
+    "name": "0041_practice_donation_payment_methods.sql",
+    "statements": [
+      "ALTER TABLE practice_attendance ADD COLUMN donation_received_method TEXT NOT NULL DEFAULT '';",
+      "DROP VIEW school_payment_records;",
+      "CREATE VIEW school_payment_records AS\nSELECT p.id, 'course' AS purpose, NULL AS practice_id, NULL AS practice_description,\n  p.student_id, p.paid_on, p.amount_minor, p.recorded_by, p.received_method, p.given_to_school\nFROM student_payments p\nUNION ALL\nSELECT a.id, 'practice_donation', a.practice_id, 'Practice party \u00b7 ' || s.starts_at,\n  a.student_id, a.donation_paid_on, a.donation_amount_minor, a.donation_recorded_by, a.donation_received_method, a.donation_given_to_school\nFROM practice_attendance a JOIN practice_parties s ON s.id = a.practice_id\nWHERE a.donation_amount_minor IS NOT NULL;"
+    ]
+  },
+  {
+    "name": "0042_add_student_birth_date.sql",
+    "statements": [
+      "ALTER TABLE students ADD COLUMN birth_date TEXT;"
+    ]
+  },
+  {
+    "name": "0043_class_rent_tracking.sql",
+    "statements": [
+      "-- A course supplies the default rent for future occurrences. Each recorded\n-- class keeps its own snapshot so historical rent amounts remain accurate.\nALTER TABLE courses ADD COLUMN class_cost_minor INTEGER NOT NULL DEFAULT 0 CHECK (class_cost_minor >= 0);",
+      "ALTER TABLE classes ADD COLUMN rent_cost_minor INTEGER NOT NULL DEFAULT 0 CHECK (rent_cost_minor >= 0);",
+      "ALTER TABLE classes ADD COLUMN rent_paid INTEGER NOT NULL DEFAULT 0 CHECK (rent_paid IN (0, 1));"
+    ]
+  },
+  {
+    "name": "0044_course_payment_presets.sql",
+    "statements": [
+      "-- Course-owned presets are edited with their course, not in the shared preset editor.\nALTER TABLE payment_presets ADD COLUMN course_id INTEGER REFERENCES courses(id);",
+      "CREATE UNIQUE INDEX payment_presets_course_idx ON payment_presets (course_id) WHERE course_id IS NOT NULL;"
+    ]
+  },
+  {
+    "name": "0045_schedule_rent_cost.sql",
+    "statements": [
+      "-- Rent is set per weekly class slot. Keep the old course-level value only as\n-- legacy data, and copy it into existing schedule rows during the transition.\nALTER TABLE course_schedule ADD COLUMN rent_cost_minor INTEGER NOT NULL DEFAULT 0 CHECK (rent_cost_minor >= 0);",
+      "UPDATE course_schedule SET rent_cost_minor = (SELECT class_cost_minor FROM courses WHERE courses.id = course_schedule.course_id);"
+    ]
+  },
+  {
+    "name": "0046_zero_value_student_payments.sql",
+    "statements": [
+      "-- Historical class-credit records can have no monetary amount while still\n-- granting valid course allowances. Preserve all payment IDs and audit data.\nPRAGMA foreign_keys = OFF;",
+      "CREATE TABLE _student_payment_sequence AS\nSELECT seq FROM sqlite_sequence WHERE name = 'student_payments';",
+      "CREATE TABLE student_payments_rebuilt (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_id INTEGER NOT NULL REFERENCES students(id),\n  paid_on TEXT NOT NULL,\n  amount_minor INTEGER NOT NULL CHECK (typeof(amount_minor) = 'integer' AND amount_minor BETWEEN 0 AND 99999999),\n  notes TEXT NOT NULL DEFAULT '',\n  recorded_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),\n  recorded_at TEXT NOT NULL,\n  request_key TEXT NOT NULL UNIQUE,\n  request_payload TEXT NOT NULL,\n  given_to_school INTEGER NOT NULL DEFAULT 0 CHECK (given_to_school IN (0, 1)),\n  received_method TEXT NOT NULL DEFAULT ''\n);",
+      "INSERT INTO student_payments_rebuilt (id, student_id, paid_on, amount_minor, notes, recorded_by, recorded_at, request_key, request_payload, given_to_school, received_method)\nSELECT id, student_id, paid_on, amount_minor, notes, recorded_by, recorded_at, request_key, request_payload, given_to_school, received_method\nFROM student_payments;",
+      "DROP VIEW student_course_balances;",
+      "DROP VIEW school_payment_records;",
+      "-- Older Production data can include this legacy event view, which also reads\n-- student_payments. It is removed because the Catalog replacement clears the\n-- production-only event records and does not carry that retired subsystem.\nDROP VIEW IF EXISTS event_payment_totals;",
+      "DROP TABLE student_payments;",
+      "ALTER TABLE student_payments_rebuilt RENAME TO student_payments;",
+      "CREATE INDEX student_payments_student_idx ON student_payments (student_id, paid_on, id);",
+      "CREATE INDEX student_payments_admin_idx ON student_payments (recorded_by);",
+      "CREATE INDEX student_payments_date_idx ON student_payments (paid_on DESC, id DESC);",
+      "CREATE VIEW student_course_balances AS\nWITH pairs AS (\n  SELECT student_id, course_id FROM student_courses\n  UNION SELECT student_id, course_id FROM attendance\n  UNION SELECT p.student_id, a.course_id FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id\n), totals AS (\n  SELECT pairs.student_id, pairs.course_id,\n    (SELECT COUNT(*) FROM attendance a WHERE a.student_id = pairs.student_id AND a.course_id = pairs.course_id) AS attendance_count,\n    (SELECT COALESCE(SUM(a.allowance), 0) FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = pairs.student_id AND a.course_id = pairs.course_id) AS paid_allowance\n  FROM pairs\n)\nSELECT student_id, course_id, attendance_count, paid_allowance,\n  paid_allowance - attendance_count AS remaining_allowance,\n  MAX(attendance_count - paid_allowance, 0) AS excess_attendance FROM totals;",
+      "CREATE VIEW school_payment_records AS\nSELECT p.id, 'course' AS purpose, NULL AS practice_id, NULL AS practice_description,\n  p.student_id, p.paid_on, p.amount_minor, p.recorded_by, p.received_method, p.given_to_school\nFROM student_payments p\nUNION ALL\nSELECT a.id, 'practice_donation', a.practice_id, 'Practice party \u00b7 ' || s.starts_at,\n  a.student_id, a.donation_paid_on, a.donation_amount_minor, a.donation_recorded_by, a.donation_received_method, a.donation_given_to_school\nFROM practice_attendance a JOIN practice_parties s ON s.id = a.practice_id\nWHERE a.donation_amount_minor IS NOT NULL;",
+      "UPDATE sqlite_sequence\nSET seq = MAX(seq, COALESCE((SELECT seq FROM _student_payment_sequence), seq))\nWHERE name = 'student_payments';",
+      "DROP TABLE _student_payment_sequence;",
+      "PRAGMA foreign_keys = ON;"
+    ]
+  },
+  {
+    "name": "0047_cash_payment_method.sql",
+    "statements": [
+      "-- Every administrator can always record a cash payment.\nINSERT OR IGNORE INTO administrator_payment_methods (email, method)\nSELECT email, 'CASH' FROM admin_profiles;",
+      "-- Preserve an explicitly recorded method; fill only historical blanks.\nUPDATE student_payments SET received_method = 'CASH'\nWHERE trim(received_method) = '';",
+      "UPDATE practice_attendance\nSET donation_received_method = 'CASH'\nWHERE donation_amount_minor IS NOT NULL\n  AND trim(donation_received_method) = '';",
+      "CREATE TRIGGER ensure_administrator_cash_payment_method\nAFTER INSERT ON admin_profiles\nBEGIN\n  INSERT OR IGNORE INTO administrator_payment_methods (email, method)\n  VALUES (NEW.email, 'CASH');\nEND;"
+    ]
+  },
+  {
+    "name": "0048_class_and_practice_locations.sql",
+    "statements": [
+      "-- Keep the venue and rental cost with the individual session it belongs to.\nALTER TABLE classes ADD COLUMN location TEXT NOT NULL DEFAULT '';",
+      "ALTER TABLE practice_parties ADD COLUMN location TEXT NOT NULL DEFAULT '';",
+      "ALTER TABLE practice_parties ADD COLUMN rent_cost_minor INTEGER NOT NULL DEFAULT 0 CHECK (rent_cost_minor >= 0);",
+      "ALTER TABLE practice_parties ADD COLUMN rent_paid INTEGER NOT NULL DEFAULT 0 CHECK (rent_paid IN (0, 1));"
+    ]
+  },
+  {
+    "name": "0049_payment_transfer_filters.sql",
+    "statements": [
+      "-- Each administrator owns their own saved payment-transfer report rows.\nCREATE TABLE payment_transfer_filters (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  administrator_email TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),\n  collector_email TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),\n  from_date TEXT,\n  to_date TEXT,\n  payment_kind TEXT NOT NULL CHECK (payment_kind IN ('course', 'multiple_courses', 'practice_party')),\n  created_at TEXT NOT NULL,\n  CHECK (from_date IS NULL OR from_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),\n  CHECK (to_date IS NULL OR to_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),\n  CHECK (from_date IS NULL OR to_date IS NULL OR from_date <= to_date)\n);",
+      "CREATE INDEX payment_transfer_filters_administrator_idx ON payment_transfer_filters (administrator_email, id);"
+    ]
+  },
+  {
+    "name": "0050_payment_transfer_filter_types.sql",
+    "statements": [
+      "-- A saved report can include course payments, practice-party donations, or both.\nALTER TABLE payment_transfer_filters ADD COLUMN payment_types TEXT NOT NULL DEFAULT 'course';",
+      "UPDATE payment_transfer_filters\nSET payment_types = CASE payment_kind\n  WHEN 'practice_party' THEN 'practice_party'\n  ELSE 'course'\nEND;"
+    ]
+  },
+  {
+    "name": "0051_payment_transfer_filter_order.sql",
+    "statements": [
+      "ALTER TABLE payment_transfer_filters ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;",
+      "UPDATE payment_transfer_filters SET sort_order = id WHERE sort_order = 0;",
+      "CREATE INDEX payment_transfer_filters_order_idx ON payment_transfer_filters (administrator_email, sort_order, id);"
+    ]
+  },
+  {
+    "name": "0052_payment_transfer_filter_collectors.sql",
+    "statements": [
+      "-- Preserve existing saved selections; draft rows intentionally match nobody.\nALTER TABLE payment_transfer_filters ADD COLUMN collector_emails TEXT NOT NULL DEFAULT '[]'\n  CHECK (json_valid(collector_emails) AND json_type(collector_emails) = 'array');",
+      "UPDATE payment_transfer_filters SET collector_emails = json_array(collector_email)\nWHERE payment_kind != 'multiple_courses';"
+    ]
+  },
+  {
+    "name": "0053_student_social_profiles.sql",
+    "statements": [
+      "ALTER TABLE students ADD COLUMN facebook_url TEXT NOT NULL DEFAULT '';",
+      "ALTER TABLE students ADD COLUMN instagram_url TEXT NOT NULL DEFAULT '';"
+    ]
+  },
+  {
+    "name": "0054_zero_value_payment_presets.sql",
+    "statements": [
+      "-- A course can grant class credit before its price is decided, so its preset\n-- must be able to carry a zero amount.\nPRAGMA defer_foreign_keys = ON;",
+      "-- DROP TABLE invokes cascading deletes even with deferred foreign keys in D1.\nCREATE TABLE _preset_allowances AS SELECT * FROM payment_preset_courses;",
+      "CREATE TABLE _preset_sequence AS SELECT seq FROM sqlite_sequence WHERE name = 'payment_presets';",
+      "CREATE TABLE payment_presets_rebuilt (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  name TEXT NOT NULL CHECK (length(trim(name)) BETWEEN 1 AND 120),\n  amount_minor INTEGER NOT NULL CHECK (typeof(amount_minor) = 'integer' AND amount_minor BETWEEN 0 AND 99999999),\n  course_id INTEGER REFERENCES courses(id)\n);",
+      "INSERT INTO payment_presets_rebuilt (id, name, amount_minor, course_id)\nSELECT id, name, amount_minor, course_id FROM payment_presets;",
+      "DROP TABLE payment_presets;",
+      "ALTER TABLE payment_presets_rebuilt RENAME TO payment_presets;",
+      "CREATE UNIQUE INDEX payment_presets_name_idx ON payment_presets (name COLLATE NOCASE);",
+      "CREATE UNIQUE INDEX payment_presets_course_idx ON payment_presets (course_id) WHERE course_id IS NOT NULL;",
+      "INSERT OR IGNORE INTO payment_preset_courses SELECT * FROM _preset_allowances;",
+      "DROP TABLE _preset_allowances;",
+      "UPDATE sqlite_sequence SET seq = MAX(seq, COALESCE((SELECT seq FROM _preset_sequence), seq)) WHERE name = 'payment_presets';",
+      "DROP TABLE _preset_sequence;",
+      "PRAGMA defer_foreign_keys = OFF;"
+    ]
+  }
+]
