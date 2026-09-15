@@ -13,6 +13,7 @@ export async function saveBackupLocally(env: LocalEnv, backupId: string, fetchBa
   if (!/^[a-f0-9-]{36}$/.test(backupId)) throw new Error('Choose a saved backup.');
   const metadata = await fetchBackup({ download: 'metadata', id: backupId });
   const backup = await metadata.json() as { name: string; schema: string; photos: number };
+  if (typeof backup.name !== 'string' || !/^[a-f0-9]{64}$/.test(backup.schema) || !Number.isSafeInteger(backup.photos) || backup.photos < 0) throw new Error('Deploy the backup download update to production first.');
   const registry = await copyRegistry(env.WORKING_DB);
   let slot: string | undefined;
   try {

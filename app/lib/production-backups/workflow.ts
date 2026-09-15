@@ -11,38 +11,42 @@ type Transfer = { status?: string; success?: boolean; at_bookmark?: string; uplo
 // all tables, then all rows, then indexes/triggers/views.
 export function splitBackupStatements(source: string) {
   const statements: string[] = [];
-  let start = 0;
-  let quote = "";
-  let lineComment = false;
-  let blockComment = false;
-  for (let index = 0; index < source.length; index += 1) {
-    const character = source[index];
-    const next = source[index + 1];
-    if (lineComment) { if (character === "\n") lineComment = false; continue; }
-    if (blockComment) { if (character === "*" && next === "/") { blockComment = false; index += 1; } continue; }
+  let start = 0, quote = '', comment = '', tokens: string[] = [], depth = 0;
+  for (let index = 0; index < source.length; index++) {
+    const char = source[index], next = source[index + 1];
+    if (comment === 'line') { if (char === '\n') comment = ''; continue; }
+    if (comment === 'block') { if (char === '*' && next === '/') { comment = ''; index++; } continue; }
     if (quote) {
-      if (character === quote) {
-        if (next === quote && quote !== "]") { index += 1; continue; }
-        quote = "";
+      if (char === quote) {
+        if (next === quote && quote !== ']') index++;
+        else quote = '';
       }
       continue;
     }
-    if (character === "-" && next === "-") { lineComment = true; index += 1; continue; }
-    if (character === "/" && next === "*") { blockComment = true; index += 1; continue; }
-    if (character === "'" || character === '"' || character === "`") { quote = character; continue; }
-    if (character === "[") { quote = "]"; continue; }
-    if (character === ";") {
-      const beforeSemicolon = source.slice(start, index);
-      // Trigger bodies contain ordinary statement semicolons. Their outer
-      // statement finishes only at END;.
-      if (/^\s*CREATE\s+TRIGGER\b/i.test(beforeSemicolon) && !/\bEND\s*$/i.test(beforeSemicolon)) continue;
-      const statement = `${beforeSemicolon};`.trim();
-      if (statement) statements.push(statement);
-      start = index + 1;
+    if (char === '-' && next === '-') { comment = 'line'; index++; continue; }
+    if (char === '/' && next === '*') { comment = 'block'; index++; continue; }
+    if (char === "'" || char === '"' || char === '`' || char === '[') {
+      quote = char === '[' ? ']' : char;
+      tokens.push('quoted');
+      continue;
     }
+    if (/[A-Za-z_]/.test(char)) {
+      const word = /^[A-Za-z_0-9]+/.exec(source.slice(index))![0];
+      index += word.length - 1;
+      const token = word.toUpperCase();
+      tokens.push(token);
+      const trigger = tokens[0] === 'CREATE' && (tokens[1] === 'TRIGGER' || (['TEMP', 'TEMPORARY'].includes(tokens[1]) && tokens[2] === 'TRIGGER'));
+      if (trigger && (token === 'BEGIN' || token === 'CASE')) depth++;
+      if (trigger && token === 'END') depth--;
+      continue;
+    }
+    if (char === ';' && depth === 0) {
+      if (tokens.length) statements.push(source.slice(start, index + 1).trim());
+      start = index + 1;
+      tokens = [];
+    } else if (!/\s/.test(char) && char !== ';') tokens.push(char);
   }
-  const last = source.slice(start).trim();
-  if (last) statements.push(last.endsWith(";") ? last : `${last};`);
+  if (quote || comment === 'block' || tokens.length || depth) throw new Error('Incomplete SQL statement');
   return statements;
 }
 

@@ -238,6 +238,16 @@ try {
     assert.equal(automatic.category, 'automatic');
     assert.throws(() => coordinator.rename(automatic.id, 'Changed'), /read-only/);
     const automaticBytes = Buffer.from(bucket.objects.get(`snapshots/${automatic.id}/database.sql`).bytes);
+    const download = (mode, extra = {}, email = 'croitoriu.alexandru.code@gmail.com') => backupManagement(new Request('https://school.test/api/administrators/production-backups?' + new URLSearchParams({download:mode,id:automatic.id,...extra}), {headers:{'cf-access-authenticated-user-email':email}}),env,false);
+    assert.equal((await download('metadata', {}, 'other@test')).status, 403);
+    assert.equal((await (await download('metadata')).json()).name, automatic.name);
+    assert.equal(await (await download('sql')).text(), automaticBytes.toString());
+    const imagesPage = await (await download('images')).json();
+    assert.equal(imagesPage.keys.length, 100);
+    assert.ok(imagesPage.cursor);
+    assert.equal((await download('image', {key:'../database.sql'})).status, 400);
+    assert.equal(await (await download('image', {key:'photo.jpg'})).text(), 'synthetic-photo');
+    assert.equal(coordinator.status().job, null, 'Snapshot downloads do not switch or reserve production');
     const manualJob = coordinator.reserve('backup', '', 'Manual from automatic', 'owner', undefined, automatic.id);
     await run(manualJob);
     assert.equal(coordinator.backup(manualJob.backupId).category, 'manual');

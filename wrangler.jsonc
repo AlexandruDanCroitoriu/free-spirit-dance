@@ -34,7 +34,7 @@
 			"remote": true
 		}
 	],
-	"durable_objects": { "bindings": [{ "name": "PRODUCTION_BACKUPS", "class_name": "ProductionBackupCoordinator" }, { "name": "LOCAL_BACKUPS", "class_name": "LocalBackupCoordinator" }] },
+	"durable_objects": { "bindings": [{ "name": "PRODUCTION_BACKUPS", "class_name": "ProductionBackupCoordinator" }] },
 	"migrations": [{ "tag": "production-backups-v1", "new_sqlite_classes": ["ProductionBackupCoordinator"] }, { "tag": "local-backups-v1", "new_sqlite_classes": ["LocalBackupCoordinator"] }],
 	"workflows": [{ "binding": "BACKUP_WORKFLOW", "name": "fsd-production-backups", "class_name": "ProductionBackupWorkflow" }],
 	"triggers": { "crons": ["* * * * *"] },

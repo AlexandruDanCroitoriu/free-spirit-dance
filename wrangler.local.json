@@ -114,11 +114,6 @@
       "binding": "COPY8_IMAGES",
       "bucket_name": "free-spirit-dance-copy-8-images",
       "remote": false
-    },
-    {
-      "binding": "LOCAL_BACKUP_BUCKET",
-      "bucket_name": "free-spirit-dance-local-backups",
-      "remote": false
     }
   ]
 }

@@ -73,7 +73,7 @@ function BackupCard({ local = false, endpoint = defaultEndpoint, connected = tru
   }, [load, connected]);
   async function command(input: Record<string, unknown>) {
     if (!connected) return;
-    setBusy(true); setError(""); setNotice("");
+    setBusy(true); setError(""); setNotice(input.action === 'save-local' ? 'Saving the backup and photos locally… Keep this page open until it finishes.' : '');
     try {
       const payload = { ...input, generation: status?.generation };
       const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -91,7 +91,7 @@ function BackupCard({ local = false, endpoint = defaultEndpoint, connected = tru
       }
       setSchedule(null); setRenaming(null);
       if (input.action === "backup") setName("");
-    } catch (e) { setError(e instanceof Error ? e.message : "Backup operation failed."); }
+    } catch (e) { setNotice(''); setError(e instanceof Error ? e.message : "Backup operation failed."); }
     finally { setBusy(false); }
   }
   const disabled = busy || Boolean(status?.job);

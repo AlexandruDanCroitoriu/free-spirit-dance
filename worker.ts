@@ -1,7 +1,7 @@
 import { withStorage } from "./app/lib/storage";
 import { backupManagement, backupsConfigured, launchJob, localBackupBridgeAuthorized, productionRequest } from "./app/lib/production-backups/http";
 export { ProductionBackupCoordinator } from "./app/lib/production-backups/coordinator";
-import { localBackupManagement, localBackupRequest, localProductionBackupManagement } from "./app/lib/production-backups/development";
+import { localProductionBackupManagement } from "./app/lib/production-backups/development";
 export { LocalBackupCoordinator } from "./app/lib/production-backups/local";
 export { ProductionBackupWorkflow } from "./app/lib/production-backups/workflow";
 import vinextHandler from "vinext/server/fetch-handler";
@@ -85,7 +85,7 @@ export default {
     // Only the owner can opt into the separate local development store.
     const tunnelAdministrator = development && url.hostname === "dev-free-spirit-dance.alexandru-croitoriu.dev" &&
       Boolean(email) && email !== restrictedAdministrator;
-    const preference = /(?:^|;\s*)fsd-storage=(catalog|working|copy[2-8]|production|backup-test)(?:;|$)/.exec(request.headers.get("Cookie") ?? "")?.[1];
+    const preference = /(?:^|;\s*)fsd-storage=(catalog|working|copy[2-8]|production)(?:;|$)/.exec(request.headers.get("Cookie") ?? "")?.[1];
     const selected = tunnelAdministrator ? "production" : canSwitch ? preference ?? "catalog" : "catalog";
     if (url.pathname === "/api/development-storage") {
       const headers = new Headers({ "Cache-Control": "no-store" });
@@ -95,7 +95,7 @@ export default {
       if (request.headers.get("Origin") !== url.origin) return new Response(null, { status: 403, headers });
       const input = await request.json().catch(() => null) as { selected?: unknown } | null;
       const copies = env.WORKING_DB ? await listCopies(env.WORKING_DB) : [];
-      if (!input || (input.selected !== "catalog" && input.selected !== "production" && input.selected !== "backup-test" && !copies.some((copy) => copy.id === input.selected))) return Response.json({ error: "Choose an available database." }, { status: 400, headers });
+      if (!input || (input.selected !== "catalog" && input.selected !== "production" && !copies.some((copy) => copy.id === input.selected))) return Response.json({ error: "Choose an available database." }, { status: 400, headers });
       headers.set("Set-Cookie", `fsd-storage=${input.selected}; Path=/; HttpOnly; SameSite=Strict${url.protocol === "https:" ? "; Secure" : ""}`);
       return Response.json({ available: true, selected: input.selected }, { headers });
     }
@@ -103,8 +103,7 @@ export default {
     if (url.hostname === publicHostname && !/^\/s\/[^/]+\/?$/.test(url.pathname)) return new Response("Not found", { status: 404 });
     const localProductionManagement = await localProductionBackupManagement(request, env);
     if (localProductionManagement) return localProductionManagement;
-    const localManagement = await localBackupManagement(request, env, ctx);
-    if (localManagement) return localManagement;
+    if (url.pathname === '/api/administrators/local-backups') return new Response(null, { status: 404 });
     const management = await backupManagement(request, env, development);
     if (management) return management;
     if (!development) {
@@ -112,9 +111,6 @@ export default {
       return productionRequest(request, env, (scopedRequest, scopedEnv) => application.fetch(scopedRequest, scopedEnv, ctx), ctx);
     }
     if (!env.CATALOG_DB || !env.CATALOG_IMAGES) return new Response("Catalog storage is not configured.", { status: 503 });
-    if (canSwitch && selected !== "production" && env.LOCAL_BACKUPS) {
-      return localBackupRequest(request, env, selected, scoped => application.fetch(request, scoped, ctx));
-    }
     const copy = copyBindings(env, selected);
     if (selected !== "catalog" && selected !== "production" && (!copy || !env.WORKING_DB || !(await listCopies(env.WORKING_DB)).some((item) => item.id === selected)) && url.pathname !== "/api/development-copy-production") return new Response("Local database is not available. Select Catalog.", { status: 503 });
     const scoped = selected === "production" ? env : copy ? { ...env, DB: copy.db, STUDENT_IMAGES: copy.images } : { ...env, DB: env.CATALOG_DB, STUDENT_IMAGES: env.CATALOG_IMAGES, PRODUCTION_IMAGES: env.PRODUCTION_IMAGES ?? env.STUDENT_IMAGES };
