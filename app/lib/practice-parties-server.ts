@@ -1,5 +1,5 @@
 import { env } from './storage';
-import { parseSession } from './practice-parties';
+import { parseSession, practiceNoteForDisplay } from './practice-parties';
 import { parseAmount, validPaymentDate } from './student-activity';
 
 export const eventJson = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -37,6 +37,7 @@ export async function readEvent(id: number) {
 export async function eventDetail(id: number) {
   const party = await readEvent(id);
   const payments = await env.DB.prepare(`SELECT a.id, a.student_id AS studentId, trim(s.first_name || ' ' || s.last_name) AS studentName, a.practice_id AS practiceId, a.donation_amount_minor AS amountMinor, a.donation_paid_on AS paidOn, a.donation_notes AS notes, a.donation_recorded_by AS recordedBy, a.donation_given_to_school AS givenToSchool FROM practice_attendance a JOIN students s ON s.id = a.student_id WHERE a.practice_id = ? AND a.donation_amount_minor IS NOT NULL ORDER BY a.donation_paid_on DESC, a.id DESC`).bind(id).all<import('./practice-parties').EventPayment>();
+  payments.results.forEach((payment) => { payment.notes = practiceNoteForDisplay(payment.notes); });
   const totals = payments.results.reduce((total, payment) => ({ receivedMinor: total.receivedMinor + payment.amountMinor, givenMinor: total.givenMinor + (payment.givenToSchool ? payment.amountMinor : 0), pendingMinor: total.pendingMinor + (payment.givenToSchool ? 0 : payment.amountMinor) }), { receivedMinor: 0, givenMinor: 0, pendingMinor: 0 });
   return { party, payments: payments.results, totals };
 }

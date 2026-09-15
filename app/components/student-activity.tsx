@@ -8,6 +8,22 @@ import { presetDraft, type PaymentPreset } from "../lib/payment-presets";
 const button = "rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold disabled:opacity-50";
 const primary = "rounded-md border-0 bg-slate-800 px-4 py-2.5 font-sans text-xs font-bold text-white disabled:opacity-50";
 const inputClass = "mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-lime-600 focus:outline-none focus:ring-1 focus:ring-lime-600";
+const activityLogColumnsStorageKey = "free-spirit-dance.activity-log-columns";
+type ActivityLogColumns = { recordedBy: boolean; schoolTransfer: boolean };
+
+function readActivityLogColumns(): ActivityLogColumns {
+  try {
+    const saved: unknown = JSON.parse(window.localStorage.getItem(activityLogColumnsStorageKey) ?? "null");
+    if (saved && typeof saved === "object") {
+      const values = saved as Partial<ActivityLogColumns>;
+      return { recordedBy: values.recordedBy === true, schoolTransfer: values.schoolTransfer === true };
+    }
+  } catch {
+    // Use the default hidden columns when browser storage is unavailable or invalid.
+  }
+  return { recordedBy: false, schoolTransfer: false };
+}
+
 async function readResponse(response: Response): Promise<unknown> {
   const body = await response.json().catch(() => null);
   if (!response.ok || !body) throw new Error(body && typeof body === "object" && "error" in body && typeof body.error === "string" ? body.error : "Could not complete the request. Please try again.");
@@ -32,6 +48,7 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
   const [presetId, setPresetId] = useState("");
   const [presetsLoading, setPresetsLoading] = useState(false);
   const [presetsError, setPresetsError] = useState("");
+  const [activityLogColumns, setActivityLogColumns] = useState<ActivityLogColumns>({ recordedBy: false, schoolTransfer: false });
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
   const [receivedMethod, setReceivedMethod] = useState("");
   const [presetRetry, setPresetRetry] = useState(0);
@@ -47,6 +64,24 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
   const scrolledAttendanceTarget = useRef("");
   const scrolledPaymentTarget = useRef<number | null>(null);
   const url = `/api/students/${studentId}/activity`;
+
+  useEffect(() => {
+    const loadColumns = () => setActivityLogColumns(readActivityLogColumns());
+    loadColumns();
+    const syncColumns = (event: StorageEvent) => { if (event.key === activityLogColumnsStorageKey) loadColumns(); };
+    window.addEventListener("storage", syncColumns);
+    return () => window.removeEventListener("storage", syncColumns);
+  }, []);
+
+  function setActivityLogColumn(column: keyof ActivityLogColumns, visible: boolean) {
+    setActivityLogColumns((current) => {
+      const next = { ...current, [column]: visible };
+      try { window.localStorage.setItem(activityLogColumnsStorageKey, JSON.stringify(next)); } catch {
+        // Keep the current page preference even if the browser cannot persist it.
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -241,12 +276,19 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
       <p className="font-sans text-sm text-slate-600">Practice sessions attended: {data.summary.eventAttendanceCount ?? 0} · Donations: {formatMoney(data.summary.donationsMinor ?? 0)}</p>
       {!data.courses.length && <p className="font-sans text-sm text-slate-500">Create a course from the Courses page before recording course payments or course attendance.</p>}
       <div className="border-t border-stone-200 pt-5">
-        <h3 className="m-0 text-lg font-normal">Activity log</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="m-0 text-lg font-normal">Activity log</h3>
+          <fieldset className="m-0 flex flex-wrap gap-3 border-0 p-0 font-sans text-xs text-slate-600">
+            <legend className="sr-only">Visible activity log columns</legend>
+            <label className="flex cursor-pointer items-center gap-2"><input type="checkbox" checked={activityLogColumns.recordedBy} onChange={(event) => setActivityLogColumn("recordedBy", event.target.checked)} className="h-4 w-4 accent-lime-700" />Show recorded by</label>
+            <label className="flex cursor-pointer items-center gap-2"><input type="checkbox" checked={activityLogColumns.schoolTransfer} onChange={(event) => setActivityLogColumn("schoolTransfer", event.target.checked)} className="h-4 w-4 accent-lime-700" />Show school transfer</label>
+          </fieldset>
+        </div>
         <div className="overflow-x-auto rounded-lg border border-stone-200">
           <table className="w-full text-left font-sans text-sm">
             <caption className="sr-only">Student activity log, newest events first. Green lines connect payments to covered attendance on this page.</caption>
             <thead className="bg-stone-50 text-xs text-slate-500">
-              <tr>{["Type", "Date", "Class / event", "Attendance / amount", "Recorded by", "School transfer", "Actions"].map((label) => <th key={label} scope="col" className="px-3 py-3 font-semibold">{label}</th>)}</tr>
+              <tr>{["Type", "Date", "Class / event", "Attendance / amount", ...(activityLogColumns.recordedBy ? ["Recorded by"] : []), ...(activityLogColumns.schoolTransfer ? ["School transfer"] : []), "Actions"].map((label) => <th key={label} scope="col" className="px-3 py-3 font-semibold">{label}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
               {data.logs.map((row, rowIndex) => { const paymentTargeted = row.kind === targetPaymentKind && row.id === targetPaymentId; const attendanceTargeted = rowIndex === firstTargetAttendance; return <tr key={`${row.kind}-${row.id}-${row.eventDate}`} ref={paymentTargeted ? paymentTarget : attendanceTargeted ? attendanceTarget : undefined} className={`align-top ${paymentTargeted ? "bg-cyan-50/70" : attendanceTargeted ? "bg-lime-50/70" : ""}`}>
@@ -260,11 +302,11 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
                 <td className="whitespace-nowrap px-3 py-4 text-xs text-slate-500"><time dateTime={row.eventDate.slice(0, 10)}>{formatLogDate(row.eventDate.slice(0, 10))}</time></td>
                 <td className="px-3 py-4">{row.kind === "payment" ? row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1">{allocation.courseName}</p>) : row.practiceId ? <><a className="underline" href={`/practice-parties/${row.practiceId}`}>{row.courseName}</a>{row.voidedAt && <p className="text-red-700">Voided</p>}{row.notes && <p className="text-xs text-slate-500">{row.notes}</p>}</> : row.courseName}</td>
                 <td className="px-3 py-4">{row.kind === "practice_attendance" ? <span className="whitespace-nowrap text-lime-700">Attended{row.amountMinor !== null && <span className="mt-1 block">Donation {formatMoney(row.amountMinor)}</span>}</span> : row.kind === "payment" ? <>{row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1 whitespace-nowrap">Next {allocation.allowance} classes</p>)}<span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-slate-700">{row.receivedMethod || "CASH"}</span></> : row.kind === "missed" ? <span className="whitespace-nowrap text-amber-800">1 missed</span> : row.kind === "cancelled" ? <span className="whitespace-nowrap text-slate-500">Cancelled · no credit used</span> : row.complimentary ? <span className="whitespace-nowrap text-lime-700">Free attendance{row.complimentaryBy && <span className="mt-1 block max-w-40 truncate text-xs text-slate-500" title={`Granted by ${row.complimentaryBy}`}>Granted by {row.complimentaryBy}</span>}{row.complimentaryAt && <time className="mt-1 block whitespace-nowrap text-xs text-slate-500" dateTime={row.complimentaryAt}>{formatLogDate(row.complimentaryAt)}</time>}</span> : "1 attended"}</td>
-                <td className="px-3 py-4 text-xs text-slate-500"><span className="block max-w-40 truncate" title={row.recordedBy}>{row.recordedBy}</span>{row.recordedAt && <time className="mt-1 block whitespace-nowrap" dateTime={row.recordedAt}>{formatLogDate(row.recordedAt)}</time>}</td>
-                <td className="px-3 py-4">{row.kind === "payment" ? <PaymentTransferCheckbox paymentId={row.id} studentId={studentId} checked={row.givenToSchool === 1} disabled={loading || busy} /> : "—"}</td>
+                {activityLogColumns.recordedBy && <td className="px-3 py-4 text-xs text-slate-500"><span className="block max-w-40 truncate" title={row.recordedBy}>{row.recordedBy}</span>{row.recordedAt && <time className="mt-1 block whitespace-nowrap" dateTime={row.recordedAt}>{formatLogDate(row.recordedAt)}</time>}</td>}
+                {activityLogColumns.schoolTransfer && <td className="px-3 py-4">{row.kind === "payment" ? <PaymentTransferCheckbox paymentId={row.id} studentId={studentId} checked={row.givenToSchool === 1} disabled={loading || busy} /> : "—"}</td>}
                 <td className="px-3 py-4">{row.practiceId ? <a className={button} href={`/practice-parties/${row.practiceId}`}>View practice</a> : row.kind === "payment" ? <button type="button" className={button + " whitespace-nowrap"} disabled={loading || busy} onClick={() => editPayment(row)}>Edit payment</button> : row.kind === "missed" || row.kind === "cancelled" ? <span className="text-slate-400">—</span> : <button type="button" aria-label={`Free attendance for ${row.courseName} on ${formatLogDate(row.eventDate.slice(0, 10))}`} aria-pressed={row.complimentary === 1} disabled={loading || busy || !row.courseId} onClick={() => void toggleFreeAttendance(row)} className={`${button.replace("bg-white", "").replace("border-stone-300", "")} whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-green-600 ${row.complimentary === 1 ? "border-green-600 bg-green-600 text-white hover:bg-green-700" : "border-stone-300 bg-white text-slate-600 hover:border-green-500"}`}>{row.complimentary === 1 ? "✓ Free attendance" : "Free attendance"}</button>}</td>
               </tr>; })}
-              {!data.logs.length && <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-500">No attendance or payment logs yet.</td></tr>}
+              {!data.logs.length && <tr><td colSpan={5 + Number(activityLogColumns.recordedBy) + Number(activityLogColumns.schoolTransfer)} className="px-3 py-6 text-center text-slate-500">No attendance or payment logs yet.</td></tr>}
             </tbody>
           </table>
         </div>

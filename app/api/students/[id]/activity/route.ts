@@ -1,5 +1,6 @@
 import { env } from "../../../../lib/storage";
 import { courseCreditBalance, readHistoricalAbsences, activityPageSize, activityLogPageSize, activityLogPageSizes, parseAmount, validPaymentDate, canRecordFuturePayments, type StudentActivity, type PaymentCoverage } from "../../../../lib/student-activity";
+import { practiceNoteForDisplay } from "../../../../lib/practice-parties";
 
 type Context = { params: Promise<{ id: string }> };
 const headers = { "Cache-Control": "no-store" };
@@ -53,7 +54,7 @@ export async function GET(request: Request, context: Context) {
       a.recorded_by AS recordedBy, a.recorded_at AS recordedAt, NULL AS voidedAt
       FROM practice_attendance a JOIN practice_parties s ON s.id = a.practice_id WHERE a.student_id = ?
       ORDER BY s.starts_at DESC, a.recorded_at DESC, a.id DESC`).bind(id).all<Omit<StudentActivity["logs"][number], "allocations">>();
-    const eventLogs: StudentActivity["logs"] = eventRows.results.map(row => ({ ...row, complimentary: 1, allocations: [] }));
+    const eventLogs: StudentActivity["logs"] = eventRows.results.map(row => ({ ...row, notes: practiceNoteForDisplay(row.notes), complimentary: 1, allocations: [] }));
     const creditData = await db.batch([
       db.prepare("SELECT course_id AS courseId, day_of_week AS day, start_time AS startTime FROM course_schedule"),
       db.prepare("SELECT course_id AS courseId, class_date AS classDate, start_time AS startTime, cancelled FROM classes"),

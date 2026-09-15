@@ -3,6 +3,19 @@ import { validPaymentDate } from './student-activity';
 export type PracticeSession = { id: number; startsAt: string; startsUtc: string; durationMinutes: number; cancelled: number; revision: number; attendanceCount: number };
 export type EventStudent = { id: number; firstName: string; lastName: string; email: string | null; picture: string | null; active: number; attendanceId: number | null; donationAmountMinor: number | null; donationReceivedMethod: string };
 export type EventPayment = { id: number; studentId: number; studentName: string; practiceId: number; amountMinor: number; paidOn: string; notes: string; recordedBy: string; givenToSchool: number };
+
+// Historical imports retain their source location in notes for reconciliation.
+// That provenance is useful in the database, but not in the day-to-day UI.
+export function practiceNoteForDisplay(notes: string | null | undefined) {
+  const value = notes?.trim() ?? "";
+  if (/^Catalog v2 \(I\) Incasari row \d+;/i.test(value)) return "";
+  return value
+    .replace(/(?:^|;\s*)Catalog v2 \(I\) Prezente row \d+(?=\s*(?:· Donation:|$))/i, "")
+    .replace(/^Catalog FSD\.xlsx;\s*Practica 2026!A\d+:D\d+(?=\s*(?:· Donation:|$))/i, "")
+    .replace(/\s*· Donation:\s*Catalog v2 \(I\) Incasari row \d+;.*$/i, "")
+    .replace(/\s*· Donation:\s*Practica 2026!D\d+;\s*date from practice attendance$/i, "")
+    .trim();
+}
 export type EventDetail = { party: PracticeSession; payments: EventPayment[]; totals: { receivedMinor: number; givenMinor: number; pendingMinor: number } };
 export const eventButton = 'rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-sans disabled:opacity-50 hover:border-lime-600';
 export const eventPrimary = eventButton + ' bg-lime-100 text-lime-900';
