@@ -248,6 +248,20 @@ try {
     assert.notEqual(coordinator.status().active, automatic.id);
     assert.equal(coordinator.backup(coordinator.status().active).category, 'manual');
     assert.deepEqual(bucket.objects.get(`snapshots/${automatic.id}/database.sql`).bytes, automaticBytes);
+    const productionBeforePreview = coordinator.status().active;
+    const snapshotsBeforePreview = coordinator.status().backups.length;
+    await run(coordinator.reserve('activate', manualJob.backupId, '', 'owner', coordinator.status().generation, undefined, true));
+    assert.equal(coordinator.status().readOnly, true);
+    assert.equal(coordinator.status().previewPrevious, productionBeforePreview);
+    assert.equal(coordinator.status().backups.length, snapshotsBeforePreview);
+    assert.equal(coordinator.enter(String(coordinator.status().generation), true).status, 403);
+    const denied = await productionRequest(new Request('https://school.test/api/students', { method: 'POST', headers: { Origin: 'https://school.test', 'X-FSD-Generation': String(coordinator.status().generation) } }), env, async () => { throw new Error('Read-only write reached application'); });
+    assert.equal(denied.status, 403);
+    assert.throws(() => coordinator.reserve('delete', productionBeforePreview, '', 'owner'), /still production/);
+    await run(coordinator.reserve('return', '', '', 'owner', coordinator.status().generation));
+    assert.equal(coordinator.status().active, productionBeforePreview);
+    assert.equal(coordinator.status().readOnly, false);
+    assert.equal(coordinator.status().backups.length, snapshotsBeforePreview);
 
     // Fetch wrapping pins a tab to its original generation, not a shared cookie.
     const calls=[];const context={window:{fetch:async(input,init)=>{calls.push({input,init});return new Response();}},location:{href:'https://school.test/',origin:'https://school.test'},URL,Request,Headers};

@@ -35,6 +35,7 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
     return this.ctx.storage.transactionSync(() => {
       const control = this.control();
       if (control.maintenance) return { error: "Database maintenance is in progress. Please try again shortly.", status: 503 };
+      if (mutation && control.readOnly) return { error: "This backup is being viewed read-only. Return to production or replace production before saving changes.", status: 403 };
       if (mutation && generation !== String(control.generation)) return { error: "The active database changed, or this page is out of date. Reload before saving.", status: 409 };
       const backup = control.active === "production" ? null : this.read<Backup>(`backup:${control.active}`);
       if (control.active !== "production" && (!backup?.databaseId || !backup.workingReady)) return { error: "The selected working database is unavailable.", status: 503 };
@@ -59,7 +60,7 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
       return count;
     });
   }
-  reserve(kind: Job["kind"], id: string, name: string, actor: string, generation?: number, sourceBackupId?: string) {
+  reserve(kind: Job["kind"], id: string, name: string, actor: string, generation?: number, sourceBackupId?: string, readOnly = false) {
     return this.ctx.storage.transactionSync(() => {
       const control = this.control();
       if (control.job) throw new Error("Another backup operation is still running.");
@@ -75,7 +76,8 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
       } else if (kind !== "return") {
         const backup = this.read<Backup>(`backup:${id}`);
         if (!backup) throw new Error("Backup not found.");
-        if (control.active === id) throw new Error("Return to original production before changing or deleting this copy.");
+        if (control.active === id && !(kind === 'activate' && Boolean(control.readOnly) !== readOnly)) throw new Error("Return to production before changing or deleting this copy.");
+        if (kind === 'delete' && control.previewPrevious === id) throw new Error('This backup is still production while another backup is being previewed.');
         if (kind === "activate" && (backup.status !== "ready" || Date.parse(backup.expiresAt) <= Date.now())) throw new Error("Choose a ready, unexpired backup.");
         if (kind === "activate" && backup.category === "automatic") {
           sourceBackupId = backup.id;
@@ -85,7 +87,7 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
         }
         if (kind === "delete") this.write(`backup:${id}`, { ...backup, status: "deleting" });
       }
-      const job: Job = { id: crypto.randomUUID(), kind, backupId: id, actor, startedAt: new Date().toISOString(), sourceBackupId };
+      const job: Job = { id: crypto.randomUUID(), kind, backupId: id, actor, startedAt: new Date().toISOString(), sourceBackupId, readOnly: kind === 'activate' && readOnly };
       this.write("control", { ...control, job });
       return job;
     });
@@ -112,7 +114,7 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
       this.write("control", { ...this.control(), schedule: { ...schedule, next: nextWeekly(now, schedule.weekday, schedule.time), once: schedule.once && Date.parse(schedule.once) <= now ? null : schedule.once } });
       return job;
     }
-    const expired = this.backups().find(b => b.id !== control.active && Date.parse(b.expiresAt) <= now);
+    const expired = this.backups().find(b => b.id !== control.active && b.id !== control.previewPrevious && Date.parse(b.expiresAt) <= now);
     return expired ? this.reserve("delete", expired.id, "", "retention") : null;
   }
   lock(jobId: string) {
@@ -147,7 +149,9 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
     const control = this.control();
     if (control.job?.id !== jobId || control.maintenance !== jobId || this.pending()) throw new Error("Database requests have not drained.");
     if (active !== "production" && !this.backup(active).workingReady) throw new Error("Working copy is not ready.");
-    if (control.active !== active) this.write("control", { ...control, active, generation: control.generation + 1 });
+    const readOnly = Boolean(control.job.readOnly);
+    const previewPrevious = readOnly ? (control.previewPrevious ?? control.active) : undefined;
+    if (control.active !== active || Boolean(control.readOnly) !== readOnly) this.write("control", { ...control, active, readOnly, previewPrevious, generation: control.generation + 1 });
   }
   finish(jobId: string, failed = false, failureMessage?: string) {
     const control = this.control();

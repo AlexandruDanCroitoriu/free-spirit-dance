@@ -142,7 +142,7 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
     const snapshot = async (destination: string, safetyId?: string) => {
       const status = await step.do<{ active: string; backups: Backup[] }>(`${destination}capture active source`, async () => {
         const value = await coordinator.status();
-        return { active: value.active, backups: value.backups };
+        return { active: value.readOnly ? value.previewPrevious ?? 'production' : value.active, backups: value.backups };
       });
       const active = status.active === "production" ? null : status.backups.find(b => b.id === status.active);
       const sourceId = active?.databaseId ?? this.env.BACKUP_PRODUCTION_DATABASE_ID;
@@ -191,8 +191,10 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
         else await snapshot(prefix);
       } else if (job.kind === "activate") {
         await drain();
-        const safety = await step.do<Backup>('reserve safety backup', () => coordinator.safetyBackup(job.id));
-        await snapshot(`snapshots/${safety.id}/`, safety.id);
+        if (!job.readOnly) {
+          const safety = await step.do<Backup>('reserve safety backup', () => coordinator.safetyBackup(job.id));
+          await snapshot(`snapshots/${safety.id}/`, safety.id);
+        }
         if (job.sourceBackupId) await cloneSnapshot();
         const backup = await step.do<Backup>("load backup", () => coordinator.backup(job.backupId));
         if (backup.databaseId && !backup.workingReady) await step.do("discard incomplete previous restore", config, async () => {
@@ -264,9 +266,15 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
         await step.do("activate working copy", () => coordinator.switchDatabase(job.id, job.backupId));
       } else if (job.kind === "return") {
         await drain();
-        const safety = await step.do<Backup>('reserve safety backup', () => coordinator.safetyBackup(job.id));
-        await snapshot(`snapshots/${safety.id}/`, safety.id);
-        await step.do("activate original production", () => coordinator.switchDatabase(job.id, "production"));
+        const previous = await step.do<{ readOnly: boolean; target: string }>('read return target', async () => {
+          const value = await coordinator.status();
+          return { readOnly: Boolean(value.readOnly), target: value.readOnly ? value.previewPrevious ?? 'production' : 'production' };
+        });
+        if (!previous.readOnly) {
+          const safety = await step.do<Backup>('reserve safety backup', () => coordinator.safetyBackup(job.id));
+          await snapshot(`snapshots/${safety.id}/`, safety.id);
+        }
+        await step.do("activate original production", () => coordinator.switchDatabase(job.id, previous.target));
       } else {
         const backup = await step.do<Backup>("load expired backup", () => coordinator.backup(job.backupId));
         if (backup.databaseId) await step.do("delete inactive working database", config, async () => {

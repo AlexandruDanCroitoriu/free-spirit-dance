@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import ConfirmationDialog from "./confirmation-dialog";
 import { romanianParts, type Backup, type Control } from "../lib/production-backups/model";
 
@@ -7,6 +7,37 @@ type Status = Control & { available: boolean; reason?: string; backups: Backup[]
 const defaultEndpoint = "/api/administrators/production-backups";
 const button = "rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold disabled:opacity-50";
 const date = (value: string) => new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Bucharest", dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+
+function BackupActions({ name, children }: { name: string; children: ReactNode }) {
+  const id = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const popup = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const position = useCallback(() => {
+    const anchor = trigger.current?.getBoundingClientRect(), menu = popup.current;
+    if (!anchor || !menu) return;
+    menu.style.maxHeight = `${window.innerHeight - 16}px`;
+    menu.style.left = `${Math.max(8, Math.min(anchor.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8))}px`;
+    const below = anchor.bottom + 6;
+    menu.style.top = `${Math.max(8, below + menu.offsetHeight <= window.innerHeight - 8 ? below : anchor.top - menu.offsetHeight - 6)}px`;
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener('resize', position);
+    window.addEventListener('scroll', position, true);
+    const observer = new ResizeObserver(position);
+    if (popup.current) observer.observe(popup.current);
+    return () => { window.removeEventListener('resize', position); window.removeEventListener('scroll', position, true); observer.disconnect(); };
+  }, [open, position]);
+  return <>
+    <button ref={trigger} type="button" popoverTarget={id} aria-label={`Backup actions for ${name}`} title="Backup actions" aria-expanded={open} aria-controls={id} aria-haspopup="dialog" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-stone-300 bg-white text-slate-600 hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-600">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m9 3-.6 2.4-1.8 1.1-2.4-.7-3 5.2L3 12.8v2.1l-1.8 1.8 3 5.2 2.4-.7 1.8 1.1L9 24h6l.6-2.4 1.8-1.1 2.4.7 3-5.2-1.8-1.8v-2.1l1.8-1.8-3-5.2-2.4.7-1.8-1.1L15 3Z" transform="translate(2 0) scale(.83)"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+    <div ref={popup} id={id} popover="auto" role="dialog" aria-label={`Actions for ${name}`} onToggle={event => { const shown = event.newState === 'open'; setOpen(shown); if (shown) position(); }} onClick={event => { const target = event.target instanceof Element ? event.target.closest('button') : null; if (target && !target.disabled) popup.current?.hidePopover(); }} className="fixed m-0 w-56 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-stone-200 bg-white p-1.5 shadow-xl [&>button]:mb-0.5 [&>button]:block [&>button]:w-full [&>button]:rounded-md [&>button]:border-0 [&>button]:px-3 [&>button]:py-2.5 [&>button]:text-left [&>button:hover]:bg-stone-100">
+      {children}
+    </div>
+  </>;
+}
 
 export default function ProductionBackups() {
   const [development, setDevelopment] = useState<boolean | null>(null);
@@ -23,7 +54,7 @@ function BackupCard({ local = false, endpoint = defaultEndpoint, connected = tru
   const [name, setName] = useState("");
   const [notice, setNotice] = useState("");
   const [schedule, setSchedule] = useState<{ enabled: boolean; weekday: number; time: string; once: string } | null>(null);
-  const [confirmation, setConfirmation] = useState<{ action: "activate" | "return" | "delete"; backup?: Backup } | null>(null);
+  const [confirmation, setConfirmation] = useState<{ action: "activate" | "return" | "delete"; readOnly?: boolean; backup?: Backup } | null>(null);
   const [renaming, setRenaming] = useState<Backup | null>(null);
   const [recovering, setRecovering] = useState(false);
   const load = useCallback(async () => {
@@ -60,14 +91,14 @@ function BackupCard({ local = false, endpoint = defaultEndpoint, connected = tru
   const disabled = busy || Boolean(status?.job);
   return <section className="mb-6 rounded-xl border border-sky-200 bg-sky-50 p-5 font-sans text-sm">
     <h2 className="m-0 font-serif text-lg">{local ? "Local test backups" : "Production backups"}</h2>
-    <p className="mt-2 text-slate-600">{local ? "Back up the local Catalog and its local photos on this computer." : "Manage production snapshots and editable manual backups. Switching production affects everyone and first saves an automatic safety backup."}</p>
+    <p className="mt-2 text-slate-600">{local ? "Back up the local Catalog and its local photos on this computer." : "Manage production snapshots and editable manual backups. Preview backups read-only, or replace production after saving an automatic safety backup."}</p>
     {connectionControl}
     {connected && loadError && <p role="alert" className="mt-3 text-red-800">{loadError}</p>}
     {error && <p role="alert" className="mt-3 text-red-800">{error}</p>}
     {notice && <p role="status" className="mt-3 text-sky-900">{notice}</p>}
     {!connected ? <p className="mt-3">Connect to load your production backups. Backup files and photos stay in Cloudflare, and scheduled backups run even when this computer is off.</p> : !status ? <p className="mt-3">Loading backups…</p> : !status.available ? <p className="mt-3 rounded-lg bg-white p-3">{status.reason}</p> : <>
-      <div className="my-4 rounded-lg border border-sky-200 bg-white p-3"><strong>Currently in use: </strong>{status.active === "production" ? (local ? "Local Catalog" : "Original production") : status.backups.find(b => b.id === status.active)?.name ?? "Backup working copy"}
-        {status.active !== "production" && <button className={`${button} ml-3`} disabled={disabled} onClick={() => setConfirmation({ action: "return" })}>{local ? "Return to local Catalog" : "Return to original production"}</button>}
+      <div className="my-4 rounded-lg border border-sky-200 bg-white p-3"><strong>Currently in use: </strong>{status.active === "production" ? (local ? "Local Catalog" : "Original production") : status.backups.find(b => b.id === status.active)?.name ?? "Backup working copy"}{status.readOnly && <span className="ml-2 font-semibold text-amber-800">Read-only preview · saves are blocked</span>}
+        {status.active !== "production" && <button className={`${button} ml-3`} disabled={disabled} onClick={() => setConfirmation({ action: "return" })}>{status.readOnly ? "Exit read-only preview" : local ? "Return to local Catalog" : "Return to original production"}</button>}
       </div>
       {status.job && <p role="status" className="mb-3">{status.job.kind === "backup" ? "Creating backup" : status.job.kind === "activate" ? "Preparing and activating working copy" : status.job.kind === "delete" ? "Deleting backup" : "Returning to original production"}… {status.maintenance && "Application data is temporarily paused."}</p>}
       {!local && !status.job && status.requests > 0 && status.backups.some(backup => backup.status === "failed") && <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3"><p>{status.requests} request(s) are still marked as running. If all administrators have stopped using the app and no save, upload or import is running, close other tabs and wait 10 minutes before recovery.</p><button type="button" className={button} disabled={disabled} onClick={() => setRecovering(true)}>Recover stuck requests</button></div>}
@@ -96,17 +127,17 @@ function BackupCard({ local = false, endpoint = defaultEndpoint, connected = tru
           <div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead className="text-slate-500"><tr><th className="pb-3">Backup</th><th className="pb-3">Status</th><th className="pb-3">Actions</th></tr></thead><tbody>
             {status.backups.filter(backup => (backup.category ?? "manual") === category).map(backup => <tr key={backup.id} className="border-t border-stone-100">
               <td className="py-4 pr-3"><strong className="block">{backup.name}</strong><span className="mt-1 block text-slate-500">{date(backup.createdAt)} · {(backup.bytes / 1024 / 1024).toFixed(2)} MB · {backup.photos} photos</span><span className="block text-slate-500">Expires {date(backup.expiresAt)}</span>{backup.error && <p role="alert" className="mt-2 max-w-64 text-red-800">{backup.error}</p>}</td>
-              <td className="pr-3"><span className={backup.status === "failed" ? "text-red-700" : status.active === backup.id ? "font-semibold text-green-700" : "text-slate-600"}>{status.active === backup.id ? "In production" : backup.status}</span></td>
-              <td><div className="flex flex-wrap gap-2">{category === "automatic" ? <><button className={button} disabled={disabled || backup.status !== "ready" || Date.parse(backup.expiresAt) <= Date.now()} onClick={() => void command({ action: "backup", sourceBackupId: backup.id, name: `Copy of ${backup.name}`.slice(0,80) })}>Create manual copy</button><button className={button} disabled={disabled || backup.status !== "ready" || Date.parse(backup.expiresAt) <= Date.now()} onClick={() => setConfirmation({ action: "activate", backup })}>Set as production</button></> : <><button className={button} disabled={disabled || backup.status !== "ready" || status.active === backup.id || Date.parse(backup.expiresAt) <= Date.now()} onClick={() => setConfirmation({ action: "activate", backup })}>Set as production</button><button className={button} disabled={disabled} onClick={() => setRenaming(backup)}>Rename</button></>}<button className={button + " text-red-700"} disabled={disabled || status.active === backup.id} onClick={() => setConfirmation({ action: "delete", backup })}>Delete</button></div></td>
+              <td className="pr-3"><span className={backup.status === "failed" ? "text-red-700" : status.active === backup.id ? "font-semibold text-green-700" : "text-slate-600"}>{status.active === backup.id ? (status.readOnly ? "Read-only preview" : "In production") : backup.status}</span></td>
+              <td><BackupActions name={backup.name}>{category === "automatic" ? <><button className={button} disabled={disabled || backup.status !== "ready" || Date.parse(backup.expiresAt) <= Date.now()} onClick={() => void command({ action: "backup", sourceBackupId: backup.id, name: `Copy of ${backup.name}`.slice(0,80) })}>Create manual copy</button><button className={button} disabled={disabled || backup.status !== "ready" || Date.parse(backup.expiresAt) <= Date.now()} onClick={() => setConfirmation({ action: "activate", backup })}>Replace production</button></> : <><button className={button} disabled={disabled || backup.status !== "ready" || (status.active === backup.id && status.readOnly) || Date.parse(backup.expiresAt) <= Date.now()} onClick={() => setConfirmation({ action: "activate", backup, readOnly: true })}>View read-only</button><button className={button} disabled={disabled || backup.status !== "ready" || (status.active === backup.id && !status.readOnly) || Date.parse(backup.expiresAt) <= Date.now()} onClick={() => setConfirmation({ action: "activate", backup })}>Replace production</button><button className={button} disabled={disabled} onClick={() => setRenaming(backup)}>Rename</button></>}<button className={button + " text-red-700"} disabled={disabled || status.active === backup.id} onClick={() => setConfirmation({ action: "delete", backup })}>Delete</button></BackupActions></td>
             </tr>)}
           </tbody></table></div>
           {!status.backups.some(backup => (backup.category ?? "manual") === category) && <p className="py-6 text-center text-slate-500">No {category} backups yet.</p>}
         </section>)}
       </div>
-      <p className="mt-3 text-xs text-slate-600">Before each production switch, the currently active data and photos are saved in Automatic backups. Create a manual copy of an automatic snapshot to work on it or use it as production.</p>
+      <p className="mt-3 text-xs text-slate-600">Before replacing production, the currently active data and photos are saved in Automatic backups. Read-only previews block saves and do not create automatic backups.</p>
       {renaming && <form className="mt-3 flex gap-2" onSubmit={e => { e.preventDefault(); void command({ action: "rename", id: renaming.id, name: renaming.name }); }}><input aria-label="Backup name" className={button} required maxLength={80} value={renaming.name} onChange={e => setRenaming({ ...renaming, name: e.target.value })} /><button disabled={busy} className={button}>Save name</button><button type="button" className={button} onClick={() => setRenaming(null)}>Cancel</button></form>}
     </>}
     <ConfirmationDialog open={recovering} title="Recover stuck request tracking?" description="Confirm that every administrator has stopped using the app, all other tabs are closed, and no save, upload or import is running. Recovery clears tracking records; it cannot cancel a running write. Wait at least 10 minutes after stopping activity. Existing backups and student records are preserved." confirmLabel="Confirm idle and recover" destructive onCancel={() => setRecovering(false)} onConfirm={() => { setRecovering(false); void command({ action: "recover-requests", confirmedIdle: true }); }} />
-    <ConfirmationDialog open={Boolean(confirmation)} title={local ? "Confirm local backup operation" : confirmation?.action === "delete" ? "Delete backup and working copy?" : confirmation?.action === "return" ? "Return everyone to original production?" : "Switch everyone to this backup?"} description={local ? (confirmation?.action === "delete" ? "Permanently delete this local snapshot and its saved working-copy edits? Production is unaffected." : "Switch the backup test workspace on this computer? Reload local pages before editing. Production is unaffected.") : confirmation?.action === "delete" ? "The saved snapshot, photos, and any edits in its working copy will be permanently deleted." : confirmation?.action === "return" ? "An automatic safety backup will be saved first. Everyone will use original production again. Edits in the current working copy are preserved separately and will not be merged." : `An automatic safety backup will be saved first. The live app will then use ${confirmation?.backup?.name ?? "this backup"}. ${confirmation?.backup?.workingReady ? "Its previously saved edits will be retained." : "An editable copy will be created first."} Open pages must be reloaded before saving.`} confirmLabel={confirmation?.action === "delete" ? "Delete permanently" : "Switch database"} destructive={confirmation?.action === "delete"} onCancel={() => setConfirmation(null)} onConfirm={() => { const value = confirmation; setConfirmation(null); if (value) void command({ action: value.action, ...(value.backup ? { id: value.backup.id } : {}) }); }} />
+    <ConfirmationDialog open={Boolean(confirmation)} title={confirmation?.readOnly ? "View this backup read-only?" : local ? "Confirm local backup operation" : confirmation?.action === "delete" ? "Delete backup and working copy?" : confirmation?.action === "return" ? (status?.readOnly ? "Exit read-only preview?" : "Return everyone to original production?") : "Switch everyone to this backup?"} description={confirmation?.readOnly ? "Everyone will view this backup in read-only mode. Saves are blocked. Production remains unchanged and no automatic safety backup is created. Return to production to resume normal use." : confirmation?.action === "return" && status?.readOnly ? "End the read-only preview and resume the production database you were using before it. No automatic safety backup is needed." : local ? (confirmation?.action === "delete" ? "Permanently delete this local snapshot and its saved working-copy edits? Production is unaffected." : "Switch the backup test workspace on this computer? Reload local pages before editing. Production is unaffected.") : confirmation?.action === "delete" ? "The saved snapshot, photos, and any edits in its working copy will be permanently deleted." : confirmation?.action === "return" ? "An automatic safety backup will be saved first. Everyone will use original production again. Edits in the current working copy are preserved separately and will not be merged." : `An automatic safety backup will be saved first. The live app will then use ${confirmation?.backup?.name ?? "this backup"}. ${confirmation?.backup?.workingReady ? "Its previously saved edits will be retained." : "An editable copy will be created first."} Open pages must be reloaded before saving.`} confirmLabel={confirmation?.readOnly ? "View read-only" : confirmation?.action === "delete" ? "Delete permanently" : confirmation?.action === "return" && status?.readOnly ? "Exit preview" : "Switch database"} destructive={confirmation?.action === "delete"} onCancel={() => setConfirmation(null)} onConfirm={() => { const value = confirmation; setConfirmation(null); if (value) void command({ action: value.action, readOnly: value.readOnly ?? false, ...(value.backup ? { id: value.backup.id } : {}) }); }} />
   </section>;
 }

@@ -33,6 +33,9 @@ export default defineConfig(({ command }) => ({
     }),
     cloudflare({
       config: (config) => command === "serve" ? {
+        // A secrets.required list filters .env bindings. Include the local
+        // backup bridge credentials only when running the development Worker.
+        secrets: { required: [...(config.secrets?.required ?? []), "CLOUDFLARE_ACCESS_CLIENT_ID", "CLOUDFLARE_ACCESS_CLIENT_SECRET", "LOCAL_PRODUCTION_BACKUP_BRIDGE_SECRET"] },
         vars: { ...config.vars, LOCAL_STORAGE_ENABLED: "true" },
         d1_databases: [...(config.d1_databases ?? []), ...localStorage.d1_databases],
         r2_buckets: [...(config.r2_buckets ?? []), ...localStorage.r2_buckets],

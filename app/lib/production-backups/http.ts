@@ -44,7 +44,7 @@ export async function backupManagement(request: Request, env: CloudflareEnv, dev
   const coordinator = env.PRODUCTION_BACKUPS.getByName("production");
   if (request.method === "GET") {
     const status = await coordinator.status();
-    if (!management) return Response.json({ available: true, active: status.active, generation: status.generation, maintenance: Boolean(status.maintenance), name: status.active === "production" ? "Original production" : status.backups.find(b => b.id === status.active)?.name ?? "Backup working copy" }, { headers });
+    if (!management) return Response.json({ available: true, readOnly: Boolean(status.readOnly), active: status.active, generation: status.generation, maintenance: Boolean(status.maintenance), name: status.active === "production" ? "Original production" : status.backups.find(b => b.id === status.active)?.name ?? "Backup working copy" }, { headers });
     // Database IDs and actor identities stay in the control store.
     return Response.json({ available: true, ...status, backups: status.backups.map(({ databaseId: _databaseId, ...backup }) => backup) }, { headers });
   }
@@ -68,7 +68,8 @@ export async function backupManagement(request: Request, env: CloudflareEnv, dev
       if (input.name !== undefined && (typeof input.name !== "string" || input.name.length > 80)) throw new Error("Backup names can have at most 80 characters.");
       if (input.id !== undefined && (typeof input.id !== "string" || !/^[a-f0-9-]{36}$/.test(input.id))) throw new Error("Invalid backup.");
       if (input.sourceBackupId !== undefined && (typeof input.sourceBackupId !== 'string' || !/^[a-f0-9-]{36}$/.test(input.sourceBackupId))) throw new Error('Invalid source backup.');
-      const job = await coordinator.reserve(input.action as Job["kind"], String(input.id ?? ""), String(input.name ?? ""), email ?? "local development service token", typeof input.generation === "number" ? input.generation : undefined, input.sourceBackupId as string | undefined);
+      if (input.readOnly !== undefined && typeof input.readOnly !== 'boolean') throw new Error('Invalid backup mode.');
+      const job = await coordinator.reserve(input.action as Job["kind"], String(input.id ?? ""), String(input.name ?? ""), email ?? "local development service token", typeof input.generation === "number" ? input.generation : undefined, input.sourceBackupId as string | undefined, input.readOnly === true);
       // The reservation persists even if Workflow creation temporarily fails.
       await launchJob(env, job).catch(() => console.error("Backup job launch will be retried by the scheduler."));
     } else throw new Error("Unknown backup action.");
@@ -99,6 +100,7 @@ async function trackedProductionRequest(request: Request, env: CloudflareEnv, ru
   const shellAsset = url.pathname.startsWith("/_next/") || ["/logo.svg", "/favicon.ico"].includes(url.pathname);
   const dataRequest = url.pathname !== "/administrators" && !shellAsset;
   const entry = dataRequest ? await coordinator.enter(request.headers.get("X-FSD-Generation"), mutation) : await coordinator.status();
+  if (!dataRequest && mutation && 'readOnly' in entry && entry.readOnly) return Response.json({ error: 'This backup is read-only. Changes cannot be saved.' }, { status: 403, headers });
   if ("error" in entry) return Response.json({ error: entry.error }, { status: entry.status, headers: { ...headers, "Retry-After": "5" } });
   try {
     const backup = "backups" in entry ? entry.backups.find(b => b.id === entry.active) : null;
