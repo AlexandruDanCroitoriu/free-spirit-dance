@@ -26,11 +26,10 @@ export function backupsConfigured(env: CloudflareEnv) {
 export async function launchJob(env: CloudflareEnv, job: Job) {
   // Creation is retried by the minute trigger when the API response is lost.
   try { await env.BACKUP_WORKFLOW.create({ id: job.id, params: job }); }
-  catch {
-    const instance = await env.BACKUP_WORKFLOW.get(job.id);
-    const status = await instance.status();
-    if (["errored", "terminated", "complete"].includes(status.status)) await env.PRODUCTION_BACKUPS.getByName("production").finish(job.id, status.status !== "complete");
-  }
+  catch { /* An existing instance or a lost create response is checked below. */ }
+  const instance = await env.BACKUP_WORKFLOW.get(job.id);
+  const status = await instance.status();
+  if (["errored", "terminated", "complete"].includes(status.status)) await env.PRODUCTION_BACKUPS.getByName("production").finish(job.id, status.status !== "complete");
 }
 export async function backupManagement(request: Request, env: CloudflareEnv, development: boolean): Promise<Response | null> {
   const url = new URL(request.url);
@@ -55,7 +54,21 @@ export async function backupManagement(request: Request, env: CloudflareEnv, dev
     if (raw.length > 4096) return new Response(null, { status: 413, headers });
     const input = JSON.parse(raw) as Record<string, unknown>;
     if (!input || typeof input !== "object") throw new Error("Invalid request.");
-    if (input.action === "recover-requests") {
+    if (input.action === "recover-deletion") {
+      const current = await coordinator.status();
+      const job = current.job;
+      if (!job || job.kind !== "delete" || input.jobId !== job.id) throw new Error("The deletion job changed. Refresh the list first.");
+      if (Date.now() - Date.parse(job.startedAt) < 5 * 60_000) throw new Error("Allow five minutes for deletion before recovering it.");
+      const instance = await env.BACKUP_WORKFLOW.get(job.id);
+      let state = await instance.status();
+      if (!["complete", "errored", "terminated"].includes(state.status)) {
+        await instance.terminate();
+        state = await instance.status();
+      }
+      if (!["complete", "errored", "terminated"].includes(state.status)) throw new Error("Deletion is still stopping. Try recovery again shortly.");
+      // Never release the reservation until the old execution has stopped.
+      await coordinator.finish(job.id, state.status !== "complete", "Deletion was interrupted. Choose Delete again to finish removing any remaining files.");
+    } else if (input.action === "recover-requests") {
       if (input.confirmedIdle !== true) throw new Error("Confirm that every administrator has stopped using the application.");
       await coordinator.recoverRequests();
     } else if (input.action === "schedule") {

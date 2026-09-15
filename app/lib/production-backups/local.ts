@@ -95,7 +95,7 @@ export class LocalBackupCoordinator extends ProductionBackupCoordinator {
       } else if (job.kind === "return") this.switchDatabase(job.id, "production");
       else {
         const backup = this.backup(job.backupId);
-        if (backup.databaseId) {
+        if (backup.databaseId && !this.preserveProductionOnDelete(job.id)) {
           const target = copyBindings(env, backup.databaseId);
           if (!target) throw new Error("Local working-copy slot is unavailable.");
           await replaceDatabase(target.db, [], null);

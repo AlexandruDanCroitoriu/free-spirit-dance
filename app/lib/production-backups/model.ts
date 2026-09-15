@@ -1,6 +1,6 @@
 export const TIMEZONE = "Europe/Bucharest";
 export type Schedule = { enabled: boolean; weekday: number; time: string; next: string; once: string | null };
-export type Backup = { id: string; name: string; createdAt: string; expiresAt: string; status: "creating" | "ready" | "failed" | "deleting"; bytes: number; photos: number; schema: string; category?: "manual" | "automatic"; sourceBackupId?: string; databaseId?: string; workingReady?: boolean; error?: string };
+export type Backup = { id: string; name: string; createdAt: string; expiresAt: string; status: "creating" | "ready" | "failed" | "deleting"; bytes: number; photos: number; schema: string; category?: "manual" | "automatic"; sourceBackupId?: string; databaseId?: string; workingReady?: boolean; error?: string; snapshotDeleted?: boolean };
 export type Job = { id: string; kind: "backup" | "activate" | "return" | "delete"; backupId: string; actor: string; startedAt: string; sourceBackupId?: string; safetyBackupId?: string; readOnly?: boolean };
 export type Control = { active: string; generation: number; maintenance: string | null; job: Job | null; schedule: Schedule; readOnly?: boolean; previewPrevious?: string };
 export function romanianParts(date: Date) {

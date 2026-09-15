@@ -67,7 +67,7 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
       if ((kind === "activate" || kind === "return") && generation !== control.generation) throw new Error("The database selection changed. Refresh the list first.");
       if (sourceBackupId) {
         const source = this.backup(sourceBackupId);
-        if (kind !== "backup" || source.status !== "ready" || Date.parse(source.expiresAt) <= Date.now()) throw new Error("Choose a ready, unexpired source backup.");
+        if (kind !== "backup" || source.snapshotDeleted || source.status !== "ready" || Date.parse(source.expiresAt) <= Date.now()) throw new Error("Choose a ready, unexpired source backup.");
       }
       if (kind === "backup") {
         id = crypto.randomUUID();
@@ -76,8 +76,9 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
       } else if (kind !== "return") {
         const backup = this.read<Backup>(`backup:${id}`);
         if (!backup) throw new Error("Backup not found.");
-        if (control.active === id && !(kind === 'activate' && Boolean(control.readOnly) !== readOnly)) throw new Error("Return to production before changing or deleting this copy.");
-        if (kind === 'delete' && control.previewPrevious === id) throw new Error('This backup is still production while another backup is being previewed.');
+        if (kind === 'delete' && control.readOnly && control.active === id) throw new Error('Exit the read-only preview before deleting this backup.');
+        if (kind !== 'delete' && control.active === id && !(kind === 'activate' && Boolean(control.readOnly) !== readOnly)) throw new Error("This database is already in use.");
+        if (kind !== 'delete' && backup.snapshotDeleted) throw new Error('This saved backup has been deleted.');
         if (kind === "activate" && (backup.status !== "ready" || Date.parse(backup.expiresAt) <= Date.now())) throw new Error("Choose a ready, unexpired backup.");
         if (kind === "activate" && backup.category === "automatic" && control.previewPrevious === id) throw new Error("Exit the read-only preview before replacing the current production snapshot.");
         if (kind === "delete") this.write(`backup:${id}`, { ...backup, status: "deleting" });
@@ -89,7 +90,7 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
   }
   rename(id: string, name: string) {
     const backup = this.read<Backup>(`backup:${id}`);
-    if (!backup || !name.trim() || name.length > 80) throw new Error("Enter a backup name of 1–80 characters.");
+    if (!backup || backup.snapshotDeleted || !name.trim() || name.length > 80) throw new Error("Enter a backup name of 1–80 characters.");
     if (backup.category === "automatic") throw new Error("Automatic backups are read-only.");
     this.write(`backup:${id}`, { ...backup, name: name.trim() });
   }
@@ -109,7 +110,7 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
       this.write("control", { ...this.control(), schedule: { ...schedule, next: nextWeekly(now, schedule.weekday, schedule.time), once: schedule.once && Date.parse(schedule.once) <= now ? null : schedule.once } });
       return job;
     }
-    const expired = this.backups().find(b => b.id !== control.active && b.id !== control.previewPrevious && Date.parse(b.expiresAt) <= now);
+    const expired = this.backups().find(b => b.id !== control.active && b.id !== control.previewPrevious && (b.snapshotDeleted || Date.parse(b.expiresAt) <= now));
     return expired ? this.reserve("delete", expired.id, "", "retention") : null;
   }
   lock(jobId: string) {
@@ -148,6 +149,13 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
     const previewPrevious = readOnly ? (control.previewPrevious ?? control.active) : undefined;
     if (control.active !== active || Boolean(control.readOnly) !== readOnly) this.write("control", { ...control, active, readOnly, previewPrevious, generation: control.generation + 1 });
   }
+  preserveProductionOnDelete(jobId: string) {
+    const control = this.control();
+    if (control.job?.id !== jobId || control.job.kind !== 'delete') throw new Error('Deletion job is no longer current.');
+    const id = control.job.backupId;
+    if (control.readOnly && control.active === id) throw new Error('Cannot delete the current preview.');
+    return id === (control.readOnly ? control.previewPrevious : control.active);
+  }
   finish(jobId: string, failed = false, failureMessage?: string) {
     const control = this.control();
     if (control.job?.id !== jobId) return;
@@ -160,7 +168,13 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
       const backup = this.backup(job.backupId);
       this.write(`backup:${backup.id}`, { ...backup, status: job.kind === "backup" ? "failed" : job.kind === "delete" ? "failed" : backup.status, error: failureMessage ?? "Operation failed. Check the Cloudflare Workflow before retrying." });
     }
-    if (!failed && job.kind === "delete") this.ctx.storage.sql.exec("DELETE FROM records WHERE key = ?", `backup:${job.backupId}`);
+    if (!failed && job.kind === "delete") {
+      if (this.preserveProductionOnDelete(job.id)) {
+        // Keep routing metadata until production switches away; the saved
+        // snapshot is gone, but its live database and photos are still in use.
+        this.write(`backup:${job.backupId}`, { ...this.backup(job.backupId), snapshotDeleted: true, status: 'ready', error: undefined });
+      } else this.ctx.storage.sql.exec("DELETE FROM records WHERE key = ?", `backup:${job.backupId}`);
+    }
     this.write(`audit:${job.id}`, { ...job, finishedAt: new Date().toISOString(), failed });
     // Tickets are never expired speculatively: an interrupted request may still
     // have an in-flight write. A leaked ticket blocks future maintenance safely.

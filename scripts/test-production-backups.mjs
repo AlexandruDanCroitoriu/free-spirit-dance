@@ -152,7 +152,6 @@ try {
     assert.equal(coordinator.status().active,backup.id);assert.equal(coordinator.status().generation,2);
     assert.equal(importCount,1);
     assert.equal(coordinator.enter('1',true).status,409);
-    assert.throws(()=>coordinator.reserve('delete',backup.id,'','owner'));
     const active=coordinator.backup(backup.id);
     const working=workingDatabase(env,active.databaseId);
     await working.prepare('UPDATE students SET name=? WHERE id=?').bind('Edited working copy',1).run();
@@ -261,7 +260,7 @@ try {
     assert.equal(coordinator.enter(String(coordinator.status().generation), true).status, 403);
     const denied = await productionRequest(new Request('https://school.test/api/students', { method: 'POST', headers: { Origin: 'https://school.test', 'X-FSD-Generation': String(coordinator.status().generation) } }), env, async () => { throw new Error('Read-only write reached application'); });
     assert.equal(denied.status, 403);
-    assert.throws(() => coordinator.reserve('delete', productionBeforePreview, '', 'owner'), /still production/);
+    assert.throws(() => coordinator.reserve('delete', manualJob.backupId, '', 'owner'), /preview/);
     await run(coordinator.reserve('return', '', '', 'owner', coordinator.status().generation));
     assert.equal(coordinator.status().active, productionBeforePreview);
     assert.equal(coordinator.status().readOnly, false);
@@ -278,6 +277,69 @@ try {
     assert.equal(bucket.objects.has(`working/${automatic.id}/extra.jpg`), false);
     assert.deepEqual(bucket.objects.get(`snapshots/${automatic.id}/database.sql`).bytes, automaticBytes);
     assert.equal(coordinator.status().backups.filter(b => b.category === 'manual').length, manualCount);
+
+    // Removing the production snapshot must not remove its live DB or photos.
+    const liveId = coordinator.status().active;
+    const liveDatabaseId = coordinator.backup(liveId).databaseId;
+    const livePhoto = Buffer.from(bucket.objects.get(`working/${liveId}/photo.jpg`).bytes);
+    await run(coordinator.reserve('delete', liveId, '', 'owner'));
+    assert.equal(coordinator.status().active, liveId);
+    assert.equal(coordinator.backup(liveId).snapshotDeleted, true);
+    assert.equal(bucket.objects.has(`snapshots/${liveId}/database.sql`), false);
+    assert.ok(databases.has(liveDatabaseId));
+    assert.deepEqual(bucket.objects.get(`working/${liveId}/photo.jpg`).bytes, livePhoto);
+    const liveTicket = coordinator.enter(String(coordinator.status().generation), true);
+    assert.ok(liveTicket.ticket, 'Production remains writable after deleting its backup');
+    coordinator.leave(liveTicket.ticket);
+    assert.throws(() => coordinator.reserve('backup', '', '', 'owner', undefined, liveId), /source backup/);
+    await run(coordinator.reserve('activate', manualJob.backupId, '', 'owner', coordinator.status().generation, undefined, true));
+    assert.throws(() => coordinator.reserve('delete', manualJob.backupId, '', 'owner'), /preview/);
+    await run(coordinator.reserve('delete', liveId, '', 'owner'));
+    assert.ok(databases.has(liveDatabaseId), 'Underlying production is preserved during preview too');
+    await run(coordinator.reserve('return', '', '', 'owner', coordinator.status().generation));
+    assert.equal(coordinator.status().active, liveId);
+    const safetyBefore = coordinator.status().backups.filter(b => b.category === 'automatic').length;
+    await run(coordinator.reserve('activate', manualJob.backupId, '', 'owner', coordinator.status().generation));
+    assert.equal(coordinator.status().backups.filter(b => b.category === 'automatic').length, safetyBefore + 1, 'Production without a saved backup is still safety-backed-up on switch');
+    const cleanupDeleted = coordinator.tick(Date.now());
+    assert.equal(cleanupDeleted.backupId, liveId);
+    await run(cleanupDeleted);
+    assert.equal(databases.has(liveDatabaseId), false);
+    assert.equal(bucket.objects.has(`working/${liveId}/photo.jpg`), false);
+    assert.throws(() => coordinator.backup(liveId), /not found/);
+
+    // Recovery is restricted to the exact old deletion and confirmed shutdown.
+    const recoveryCtx = state();
+    const recoveryCoordinator = new ProductionBackupCoordinator(recoveryCtx, env);
+    const recoveryBackup = recoveryCoordinator.reserve('backup', '', 'Recovery fixture', 'owner');
+    recoveryCoordinator.updateBackup(recoveryBackup.id, { status: 'ready' });
+    recoveryCoordinator.finish(recoveryBackup.id);
+    const deletion = recoveryCoordinator.reserve('delete', recoveryBackup.backupId, '', 'owner');
+    let workflowState = 'running', terminated = 0;
+    let stopImmediately = false;
+    const recoveryEnv = { ...env, PRODUCTION_BACKUPS: { getByName: () => recoveryCoordinator }, BACKUP_WORKFLOW: {
+      create: async () => {}, get: async () => ({ status: async () => ({ status: workflowState }), terminate: async () => { terminated++; if (stopImmediately) workflowState = 'terminated'; } }),
+    } };
+    const recover = (jobId = deletion.id) => backupManagement(request({ action: 'recover-deletion', jobId }), recoveryEnv, false);
+    assert.equal((await recover()).status, 400, 'Recent deletions cannot be recovered');
+    assert.equal(terminated, 0);
+    const oldControl = recoveryCoordinator.status();
+    oldControl.job.startedAt = new Date(Date.now() - 6 * 60_000).toISOString();
+    recoveryCtx.storage.sql.exec('UPDATE records SET value = ? WHERE key = ?', JSON.stringify(oldControl), 'control');
+    assert.equal((await recover(crypto.randomUUID())).status, 400);
+    assert.equal((await recover()).status, 400, 'A still-running workflow must retain its lock');
+    assert.equal(recoveryCoordinator.status().job.id, deletion.id);
+    stopImmediately = true;
+    assert.equal((await recover()).status, 202);
+    assert.equal(recoveryCoordinator.status().job, null);
+    assert.equal(recoveryCoordinator.backup(recoveryBackup.backupId).status, 'failed');
+    assert.equal(recoveryCoordinator.status().active, 'production');
+    const retryDelete = recoveryCoordinator.reserve('delete', recoveryBackup.backupId, '', 'owner');
+    workflowState = 'complete';
+    const { launchJob } = await import(pathToFileURL(output));
+    await launchJob(recoveryEnv, retryDelete);
+    assert.equal(recoveryCoordinator.status().job, null, 'Successful create responses also reconcile completed jobs');
+    assert.throws(() => recoveryCoordinator.backup(recoveryBackup.backupId), /not found/);
 
     // Fetch wrapping pins a tab to its original generation, not a shared cookie.
     const calls=[];const context={window:{fetch:async(input,init)=>{calls.push({input,init});return new Response();}},location:{href:'https://school.test/',origin:'https://school.test'},URL,Request,Headers};

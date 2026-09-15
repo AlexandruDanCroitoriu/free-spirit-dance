@@ -291,13 +291,14 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
         await step.do("activate original production", () => coordinator.switchDatabase(job.id, previous.target));
       } else {
         const backup = await step.do<Backup>("load expired backup", () => coordinator.backup(job.backupId));
-        if (backup.databaseId) await step.do("delete inactive working database", config, async () => {
+        const preserveProduction = await step.do('check deletion storage ownership', async () => await coordinator.preserveProductionOnDelete(job.id));
+        if (backup.databaseId && !preserveProduction) await step.do("delete inactive working database", config, async () => {
           if (backup.databaseId === this.env.BACKUP_PRODUCTION_DATABASE_ID) throw new Error("Cannot delete original production.");
           // A retried delete may encounter an already-deleted database.
           const databases = await cloudApi<Array<{ uuid: string }>>(this.env, `?name=${encodeURIComponent(`fsd-backup-${backup.id}`)}`, undefined, "GET");
           if (databases.some(d => d.uuid === backup.databaseId)) await cloudApi(this.env, `/${backup.databaseId}`, undefined, "DELETE");
         });
-        for (const target of [prefix, workingPrefix, `temporary/${job.backupId}/`]) {
+        for (const target of [prefix, ...(preserveProduction ? [] : [workingPrefix]), `temporary/${job.backupId}/`]) {
           for (let page = 0; ; page++) {
             const removed = await step.do(`delete ${target} page ${page}`, config, async () => {
               const objects = await bucket.list({ prefix: target, limit: 100 });
@@ -308,13 +309,19 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
           }
         }
       }
-      await step.do("finish job", () => coordinator.finish(job.id));
+      await step.do("finish job", config, async () => {
+        await coordinator.finish(job.id);
+        return { finished: true };
+      });
     } catch (error) {
       // cloudApi deliberately redacts provider responses. Keep its concise status
       // message so administrators can distinguish a missing permission from an
       // interrupted export or import without exposing credentials or signed URLs.
       const reason = error instanceof Error && error.message ? error.message.replace(/[\r\n]+/g, " ").slice(0, 240) : "Backup workflow failed.";
-      await step.do("record failure and resume application", () => coordinator.finish(job.id, true, reason));
+      await step.do("record failure and resume application", config, async () => {
+        await coordinator.finish(job.id, true, reason);
+        return { finished: true };
+      });
       throw new Error(`Production backup operation failed (${job.kind}).`);
     }
   }

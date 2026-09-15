@@ -63,7 +63,11 @@ try {
   assert.equal((await localBackupManagement(request(null,undefined,'someone@example.test'),env,{waitUntil(){}})).status,403);
   assert.equal((await localBackupManagement(request(null),{LOCAL_STORAGE_ENABLED:'false'},{waitUntil(){}})).status,404);
   assert.equal((await localBackupManagement(request(null),env,{waitUntil(){}})).status,200);
-  assert.throws(()=>c.reserve('delete',backup.backupId,'','owner'));
+  await c.runLocalJob(c.reserve('delete',backup.backupId,'','owner'));
+  assert.equal(c.backup(backup.backupId).snapshotDeleted,true);
+  assert.equal(c.status().active,backup.backupId);
+  assert.equal(working.sqlite.prepare('SELECT first_name FROM students').get().first_name,'Edited');
+  assert.equal(bucket.items.size,0,'Only the saved snapshot is removed while its database is active');
   await c.runLocalJob(c.reserve('return','','','owner',generation));
   await c.runLocalJob(c.reserve('delete',backup.backupId,'','owner'));
   assert.equal(c.status().backups.length,0);assert.equal(bucket.items.size,0);
