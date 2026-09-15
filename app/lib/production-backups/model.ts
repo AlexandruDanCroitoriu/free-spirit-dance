@@ -3,6 +3,12 @@ export type Schedule = { enabled: boolean; weekday: number; time: string; next: 
 export type Backup = { id: string; name: string; createdAt: string; expiresAt: string; status: "creating" | "ready" | "failed" | "deleting"; bytes: number; photos: number; schema: string; category?: "manual" | "automatic"; sourceBackupId?: string; databaseId?: string; workingReady?: boolean; error?: string; snapshotDeleted?: boolean };
 export type Job = { id: string; kind: "backup" | "activate" | "return" | "delete"; backupId: string; actor: string; startedAt: string; sourceBackupId?: string; safetyBackupId?: string; readOnly?: boolean };
 export type Control = { active: string; generation: number; maintenance: string | null; job: Job | null; schedule: Schedule; readOnly?: boolean; previewPrevious?: string };
+// Safety snapshots have a system-generated name and cannot be renamed.
+// Group existing snapshots without changing their storage or restore behavior.
+export function backupTable(backup: Pick<Backup, 'category' | 'name'>): 'manual' | 'automatic' | 'production-change' {
+  if (backup.category !== 'automatic') return 'manual';
+  return backup.name.startsWith('Before production switch · ') ? 'production-change' : 'automatic';
+}
 export function romanianParts(date: Date) {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date).map(p => [p.type, p.value]));
   return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;

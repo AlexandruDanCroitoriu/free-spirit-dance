@@ -9,7 +9,7 @@ type Transfer = { status?: string; success?: boolean; at_bookmark?: string; uplo
 // foreign key while it is still reading rows for a table whose referenced table
 // appears later in the dump. Recreate the normal SQLite dump order instead:
 // all tables, then all rows, then indexes/triggers/views.
-export function prepareSqlForD1Import(source: string) {
+export function splitBackupStatements(source: string) {
   const statements: string[] = [];
   let start = 0;
   let quote = "";
@@ -43,6 +43,11 @@ export function prepareSqlForD1Import(source: string) {
   }
   const last = source.slice(start).trim();
   if (last) statements.push(last.endsWith(";") ? last : `${last};`);
+  return statements;
+}
+
+export function prepareSqlForD1Import(source: string) {
+  const statements = splitBackupStatements(source);
   const schema: string[] = [], data: string[] = [], finalization: string[] = [], leading: string[] = [];
   for (const statement of statements) {
     const sql = statement.replace(/^(?:\s|--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)+/, "").toUpperCase();
@@ -86,8 +91,8 @@ export function prepareSqlForD1Import(source: string) {
   return [...leading, ...schema, ...orderedData, ...finalization].join("\n");
 }
 
-export async function schemaFingerprint(db: D1Database) {
-  const result = await db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE sql IS NOT NULL AND substr(name, 1, 4) != '_cf_' AND substr(name, 1, 7) != 'sqlite_' ORDER BY type, name").all();
+export async function schemaFingerprint(db: D1Database, local = false) {
+  const result = await db.prepare(`SELECT type, name, tbl_name, sql FROM sqlite_master WHERE sql IS NOT NULL AND substr(name, 1, 4) != '_cf_' AND substr(name, 1, 7) != 'sqlite_' ${local ? "AND name != 'local_database_copies'" : ''} ORDER BY type, name`).all();
   // SQLite exports may add identifier quotes and whitespace. Compare SQL
   // tokens rather than the spelling of the original CREATE statement.
   const normalized = result.results.map(row => {

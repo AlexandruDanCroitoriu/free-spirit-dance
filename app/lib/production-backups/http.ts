@@ -43,6 +43,24 @@ export async function backupManagement(request: Request, env: CloudflareEnv, dev
   const coordinator = env.PRODUCTION_BACKUPS.getByName("production");
   if (request.method === "GET") {
     const status = await coordinator.status();
+    if (management && url.searchParams.has('download')) {
+      const id = url.searchParams.get('id');
+      const backup = status.backups.find(item => item.id === id);
+      if (!backup || backup.snapshotDeleted || backup.status !== 'ready' || Date.parse(backup.expiresAt) <= Date.now()) return Response.json({ error: 'Choose a ready, unexpired saved backup.' }, { status: 404, headers });
+      const prefix = `snapshots/${backup.id}/`;
+      const mode = url.searchParams.get('download');
+      if (mode === 'metadata') return Response.json({ name: backup.name, schema: backup.schema, photos: backup.photos }, { headers });
+      if (mode === 'images') {
+        const page = await env.BACKUP_BUCKET.list({ prefix: `${prefix}images/`, cursor: url.searchParams.get('cursor') || undefined, limit: 100 });
+        return Response.json({ keys: page.objects.map(object => object.key.slice(`${prefix}images/`.length)), cursor: page.truncated ? page.cursor : '' }, { headers });
+      }
+      const key = url.searchParams.get('key');
+      if (mode !== 'sql' && (mode !== 'image' || !key || key.includes('..') || key.startsWith('/'))) return Response.json({ error: 'Invalid backup download.' }, { status: 400, headers });
+      const object = await env.BACKUP_BUCKET.get(mode === 'sql' ? `${prefix}database.sql` : `${prefix}images/${key}`);
+      if (!object) return Response.json({ error: 'Backup file is missing. The backup may have been deleted.' }, { status: 404, headers });
+      if (mode === 'sql' && object.size > 24 * 1024 * 1024) return Response.json({ error: 'This backup is too large for local import.' }, { status: 413, headers });
+      return new Response(object.body, { headers: { ...headers, 'Content-Type': mode === 'sql' ? 'application/sql' : object.httpMetadata?.contentType ?? 'application/octet-stream' } });
+    }
     if (!management) return Response.json({ available: true, readOnly: Boolean(status.readOnly), active: status.active, generation: status.generation, maintenance: Boolean(status.maintenance), name: status.active === "production" ? "Original production" : status.backups.find(b => b.id === status.active)?.name ?? "Backup working copy" }, { headers });
     // Database IDs and actor identities stay in the control store.
     return Response.json({ available: true, ...status, backups: status.backups.map(({ databaseId: _databaseId, ...backup }) => backup) }, { headers });

@@ -19,6 +19,11 @@ try {
   } }] });
   const { nextWeekly, localToUtc, sixMonthsAfter, ProductionBackupCoordinator, ProductionBackupWorkflow, prepareSqlForD1Import, workingDatabase, backupManagement, productionRequest, generationScript } = await import(pathToFileURL(output));
   assert.equal(nextWeekly(Date.parse('2026-03-27T10:00Z')), '2026-03-28T02:00:00.000Z');
+  const { backupTable } = await import(pathToFileURL(output));
+  assert.equal(backupTable({ category: 'automatic', name: 'Before production switch · 2026-09-15 11:50 UTC' }), 'production-change');
+  assert.equal(backupTable({ category: 'automatic', name: 'Production 2026-09-15 11:50 UTC' }), 'automatic');
+  assert.equal(backupTable({ category: 'manual', name: 'Before production switch · My manual backup' }), 'manual');
+  assert.equal(backupTable({ name: 'Legacy manual backup' }), 'manual');
   assert.equal(nextWeekly(Date.parse('2026-03-28T02:00Z')), '2026-04-04T01:00:00.000Z');
   assert.equal(nextWeekly(Date.parse('2026-10-24T01:00Z')), '2026-10-31T02:00:00.000Z');
   assert.equal(localToUtc('2026-10-25T03:30'), '2026-10-25T00:30:00.000Z');
