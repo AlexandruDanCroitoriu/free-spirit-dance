@@ -11,6 +11,13 @@ const primary = "rounded-md border-0 bg-slate-800 px-4 py-2.5 font-sans text-xs 
 const inputClass = "mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-lime-600 focus:outline-none focus:ring-1 focus:ring-lime-600";
 const activityLogColumnsStorageKey = "free-spirit-dance.activity-log-columns";
 type ActivityLogColumns = { recordedBy: boolean; schoolTransfer: boolean };
+const romanianMonthLabels = ["ian", "feb", "mar", "apr", "mai", "iun", "iul", "aug", "sept", "oct", "nov", "dec"];
+
+function formatActivityDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!match) return formatLogDate(value);
+  return `${Number(match[3])} ${romanianMonthLabels[Number(match[2]) - 1]} ${match[1]}`;
+}
 
 function readActivityLogColumns(): ActivityLogColumns {
   try {
@@ -301,7 +308,7 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
                   </span>)}
                   {row.kind !== "payment" && connections.filter((connection) => connection.rows.includes(rowIndex)).map((connection) => <span key={connection.paymentId} className="sr-only">Covered by payment #{connection.paymentId}. </span>)}
                   <span className={`relative inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${row.kind === "payment" ? "bg-lime-50 text-lime-800" : row.kind === "missed" ? "bg-amber-50 text-amber-800" : row.kind === "cancelled" ? "bg-stone-100 text-stone-600" : "bg-blue-50 text-blue-800"}`}>{row.kind === "practice_attendance" ? "Practice attendance" : row.kind === "payment" ? "Payment" : row.kind === "missed" ? "Missed" : row.kind === "cancelled" ? "Cancelled" : "Attendance"}</span></td>
-                <td className="whitespace-nowrap px-3 py-4 text-xs text-slate-500"><time dateTime={row.eventDate.slice(0, 10)}>{formatLogDate(row.eventDate.slice(0, 10))}</time></td>
+                <td className="whitespace-nowrap px-3 py-4 text-xs text-slate-500"><time dateTime={row.eventDate.slice(0, 10)}>{formatActivityDate(row.eventDate)}</time></td>
                 <td className="px-3 py-4">{row.kind === "payment" ? row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1">{allocation.courseName}</p>) : row.practiceId ? <><a className="underline" href={`/practice-parties/${row.practiceId}`}>{row.courseName}</a>{row.voidedAt && <p className="text-red-700">Voided</p>}{row.notes && <p className="text-xs text-slate-500">{row.notes}</p>}</> : row.courseName}</td>
                 <td className="px-3 py-4">{row.kind === "practice_attendance" ? <span className="whitespace-nowrap text-lime-700">Attended{row.amountMinor !== null && <span className="mt-1 block">Donation {formatMoney(row.amountMinor)}</span>}</span> : row.kind === "payment" ? <>{row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1 whitespace-nowrap">Next {allocation.allowance} classes</p>)}<span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-slate-700">{row.receivedMethod || "CASH"}</span></> : row.kind === "missed" ? <span className="whitespace-nowrap text-amber-800">1 missed</span> : row.kind === "cancelled" ? <span className="whitespace-nowrap text-slate-500">Cancelled · no credit used</span> : row.complimentary ? <span className="whitespace-nowrap text-lime-700">Free attendance{row.complimentaryBy && <span className="mt-1 block max-w-40 truncate text-xs text-slate-500" title={`Granted by ${row.complimentaryBy}`}>Granted by {row.complimentaryBy}</span>}{row.complimentaryAt && <time className="mt-1 block whitespace-nowrap text-xs text-slate-500" dateTime={row.complimentaryAt}>{formatLogDate(row.complimentaryAt)}</time>}</span> : "1 attended"}</td>
                 {activityLogColumns.recordedBy && <td className="px-3 py-4 text-xs text-slate-500"><span className="block max-w-40 truncate" title={row.recordedBy}>{row.recordedBy}</span>{row.recordedAt && <time className="mt-1 block whitespace-nowrap" dateTime={row.recordedAt}>{formatLogDate(row.recordedAt)}</time>}</td>}

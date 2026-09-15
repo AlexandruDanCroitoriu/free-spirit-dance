@@ -71,8 +71,9 @@ export async function readHistoricalAbsences(db: D1Database, studentId?: number)
   return (await statement.all<{ studentId: number; courseId: number; startsAt: string }>()).results;
 }
 
-// Each payment starts at the first attendance on or after its payment date. It
-// covers consecutive non-cancelled classes for four weeks from that attendance.
+// A subscription payment can settle the first unpaid attendance in the four
+// weeks before it was paid. It covers consecutive non-cancelled classes for
+// four weeks from that attendance.
 // A payment-date class counts only when the student attended it; an unattended
 // same-day class must not create a missed record or consume the new credit.
 export function courseCreditBalance(
@@ -132,9 +133,10 @@ export function courseCreditBalance(
   const coveredCancellations = new Set<string>();
   for (const payment of ordered) {
     const paymentStart = paymentDate(payment);
-    const firstAttendance = held.find((slot) => attended.has(slot) && !covered.has(slot) && slot.slice(0, 10) >= paymentStart);
-    // A package begins when the student next attends. Until then, it has not
-    // started its one-month validity period and cannot consume missed classes.
+    const earliestEligibleAttendance = dateAfterDays(paymentStart, -28);
+    const firstAttendance = held.find((slot) => attended.has(slot) && !covered.has(slot) && slot.slice(0, 10) >= earliestEligibleAttendance && slot.slice(0, 10) <= paymentStart);
+    // A package starts with the first unpaid attendance in its allowed
+    // retroactive period. It cannot consume missed classes before that point.
     if (!firstAttendance) {
       if (payment.paymentId !== undefined) onCoverage?.(payment.paymentId, { classes: [], remaining: payment.allowance });
       continue;
