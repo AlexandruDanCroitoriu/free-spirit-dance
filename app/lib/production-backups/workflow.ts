@@ -121,7 +121,7 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
       let cursor: string | undefined;
       let photos = 0, bytes = 0;
       for (let page = 0; ; page++) {
-        const copied = await step.do(`copy images page ${page}`, config, async () => {
+          const copied = await step.do(`copy ${targetPrefix}images page ${page}`, config, async () => {
           const list = await source.list({ prefix: sourcePrefix, cursor, limit: 100 });
           let size = 0;
           for (const object of list.objects) {
@@ -139,30 +139,61 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
       }
       return { photos, bytes };
     };
-    try {
-      if (job.kind === "backup") {
-        await drain();
-        const schema = await step.do("record database schema", () => schemaFingerprint(this.env.DB));
-        let transfer = await step.do("start SQL export", config, () => cloudApi<Transfer>(this.env, `/${this.env.BACKUP_PRODUCTION_DATABASE_ID}/export`, { output_format: "polling" }));
+    const snapshot = async (destination: string, safetyId?: string) => {
+      const status = await step.do<{ active: string; backups: Backup[] }>(`${destination}capture active source`, async () => {
+        const value = await coordinator.status();
+        return { active: value.active, backups: value.backups };
+      });
+      const active = status.active === "production" ? null : status.backups.find(b => b.id === status.active);
+      const sourceId = active?.databaseId ?? this.env.BACKUP_PRODUCTION_DATABASE_ID;
+      if (active && !active.databaseId) throw new Error("Active database is unavailable.");
+      const sourceDb = active ? workingDatabase(this.env, sourceId) : this.env.DB;
+      const sourceImages = active ? bucket : this.env.STUDENT_IMAGES;
+      const imagePrefix = active ? `working/${active.id}/` : "";
+        const schema = await step.do(`${destination}record database schema`, () => schemaFingerprint(sourceDb));
+        let transfer = await step.do(`${destination}start SQL export`, config, () => cloudApi<Transfer>(this.env, `/${sourceId}/export`, { output_format: "polling" }));
         for (let poll = 0; !transfer.result?.signed_url; poll++) {
           if (transfer.status === "error" || transfer.success === false || !transfer.at_bookmark || poll >= 300) throw new Error("SQL export did not complete.");
           const bookmark = transfer.at_bookmark;
-          await step.sleep(`wait for export ${poll}`, "1 second");
-          transfer = await step.do(`poll export ${poll}`, config, () => cloudApi<Transfer>(this.env, `/${this.env.BACKUP_PRODUCTION_DATABASE_ID}/export`, { output_format: "polling", current_bookmark: bookmark }));
+          await step.sleep(`${destination}wait for export ${poll}`, "1 second");
+          transfer = await step.do(`${destination}poll export ${poll}`, config, () => cloudApi<Transfer>(this.env, `/${sourceId}/export`, { output_format: "polling", current_bookmark: bookmark }));
         }
-        const sql = await step.do("save SQL snapshot", config, async () => {
+        const sql = await step.do(`${destination}save SQL snapshot`, config, async () => {
           const response = await fetch(transfer.result!.signed_url!);
           if (!response.ok || !response.body) throw new Error("Could not download SQL export.");
-          const object = await bucket.put(`${prefix}database.sql`, response.body, { httpMetadata: { contentType: "application/sql" } });
+          const object = await bucket.put(`${destination}database.sql`, response.body, { httpMetadata: { contentType: "application/sql" } });
           if (!object.size) throw new Error("SQL export was empty.");
           return { bytes: object.size, etag: object.etag };
         });
-        const images = await copyImages(this.env.STUDENT_IMAGES, "", `${prefix}images/`);
-        await step.do("complete snapshot", config, async () => {
-          await bucket.put(`${prefix}manifest.json`, JSON.stringify({ version: 1, sourceDatabaseId: this.env.BACKUP_PRODUCTION_DATABASE_ID, createdAt: job.startedAt, schema, sql, ...images }));
-          await coordinator.updateBackup(job.id, { schema, bytes: sql.bytes + images.bytes, photos: images.photos, status: "ready" });
+        const images = await copyImages(sourceImages, imagePrefix, `${destination}images/`);
+        await step.do(`${destination}complete snapshot`, config, async () => {
+          await bucket.put(`${destination}manifest.json`, JSON.stringify({ version: 1, sourceDatabaseId: sourceId, createdAt: job.startedAt, schema, sql, ...images }));
+          await coordinator.updateBackup(job.id, { schema, bytes: sql.bytes + images.bytes, photos: images.photos, status: "ready" }, safetyId);
         });
+    };
+    const cloneSnapshot = async () => {
+          const original = await step.do<Backup>('load source snapshot', () => coordinator.backup(job.sourceBackupId!));
+          await step.do('copy snapshot SQL', config, async () => {
+            const sql = await bucket.get(`snapshots/${original.id}/database.sql`);
+            if (!sql) throw new Error('Source snapshot is missing.');
+            const saved = await bucket.put(`${prefix}database.sql`, sql.body);
+            if (!saved || saved.etag !== sql.etag) throw new Error('Snapshot checksum mismatch.');
+          });
+          await copyImages(bucket, `snapshots/${original.id}/images/`, `${prefix}images/`);
+          await step.do('finish manual copy', async () => {
+            await coordinator.updateBackup(job.id, { schema: original.schema, bytes: original.bytes, photos: original.photos, status: 'ready' });
+          });
+    };
+    try {
+      if (job.kind === "backup") {
+        await drain();
+        if (job.sourceBackupId) await cloneSnapshot();
+        else await snapshot(prefix);
       } else if (job.kind === "activate") {
+        await drain();
+        const safety = await step.do<Backup>('reserve safety backup', () => coordinator.safetyBackup(job.id));
+        await snapshot(`snapshots/${safety.id}/`, safety.id);
+        if (job.sourceBackupId) await cloneSnapshot();
         const backup = await step.do<Backup>("load backup", () => coordinator.backup(job.backupId));
         if (backup.databaseId && !backup.workingReady) await step.do("discard incomplete previous restore", config, async () => {
           if (backup.databaseId === this.env.BACKUP_PRODUCTION_DATABASE_ID) throw new Error("Cannot modify original production.");
@@ -233,6 +264,8 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
         await step.do("activate working copy", () => coordinator.switchDatabase(job.id, job.backupId));
       } else if (job.kind === "return") {
         await drain();
+        const safety = await step.do<Backup>('reserve safety backup', () => coordinator.safetyBackup(job.id));
+        await snapshot(`snapshots/${safety.id}/`, safety.id);
         await step.do("activate original production", () => coordinator.switchDatabase(job.id, "production"));
       } else {
         const backup = await step.do<Backup>("load expired backup", () => coordinator.backup(job.backupId));

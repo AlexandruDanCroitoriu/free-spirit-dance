@@ -51,23 +51,33 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
       return count;
     });
   }
-  reserve(kind: Job["kind"], id: string, name: string, actor: string, generation?: number) {
+  reserve(kind: Job["kind"], id: string, name: string, actor: string, generation?: number, sourceBackupId?: string) {
     return this.ctx.storage.transactionSync(() => {
       const control = this.control();
       if (control.job) throw new Error("Another backup operation is still running.");
       if ((kind === "activate" || kind === "return") && generation !== control.generation) throw new Error("The database selection changed. Refresh the list first.");
+      if (sourceBackupId) {
+        const source = this.backup(sourceBackupId);
+        if (kind !== "backup" || source.status !== "ready" || Date.parse(source.expiresAt) <= Date.now()) throw new Error("Choose a ready, unexpired source backup.");
+      }
       if (kind === "backup") {
         id = crypto.randomUUID();
         const createdAt = new Date().toISOString();
-        this.write(`backup:${id}`, { id, name: name.trim() || `Production ${createdAt.slice(0,16).replace("T", " ")} UTC`, createdAt, expiresAt: sixMonthsAfter(createdAt), status: "creating", bytes: 0, photos: 0, schema: "" } satisfies Backup);
+        this.write(`backup:${id}`, { id, name: name.trim() || `Production ${createdAt.slice(0,16).replace("T", " ")} UTC`, createdAt, expiresAt: sixMonthsAfter(createdAt), status: "creating", bytes: 0, photos: 0, schema: "", category: actor === "schedule" ? "automatic" : "manual", sourceBackupId } satisfies Backup);
       } else if (kind !== "return") {
         const backup = this.read<Backup>(`backup:${id}`);
         if (!backup) throw new Error("Backup not found.");
         if (control.active === id) throw new Error("Return to original production before changing or deleting this copy.");
         if (kind === "activate" && (backup.status !== "ready" || Date.parse(backup.expiresAt) <= Date.now())) throw new Error("Choose a ready, unexpired backup.");
+        if (kind === "activate" && backup.category === "automatic") {
+          sourceBackupId = backup.id;
+          id = crypto.randomUUID();
+          const createdAt = new Date().toISOString();
+          this.write(`backup:${id}`, { id, name: `Copy of ${backup.name}`.slice(0,80), createdAt, expiresAt: sixMonthsAfter(createdAt), category: 'manual', sourceBackupId, status: 'creating', schema: '', bytes: 0, photos: 0 } satisfies Backup);
+        }
         if (kind === "delete") this.write(`backup:${id}`, { ...backup, status: "deleting" });
       }
-      const job: Job = { id: crypto.randomUUID(), kind, backupId: id, actor, startedAt: new Date().toISOString() };
+      const job: Job = { id: crypto.randomUUID(), kind, backupId: id, actor, startedAt: new Date().toISOString(), sourceBackupId };
       this.write("control", { ...control, job });
       return job;
     });
@@ -75,6 +85,7 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
   rename(id: string, name: string) {
     const backup = this.read<Backup>(`backup:${id}`);
     if (!backup || !name.trim() || name.length > 80) throw new Error("Enter a backup name of 1–80 characters.");
+    if (backup.category === "automatic") throw new Error("Automatic backups are read-only.");
     this.write(`backup:${id}`, { ...backup, name: name.trim() });
   }
   schedule(input: { enabled: boolean; weekday: number; time: string; once: string | null }) {
@@ -107,10 +118,21 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
     if (!backup) throw new Error("Backup not found.");
     return backup;
   }
-  updateBackup(jobId: string, fields: Partial<Backup>) {
+  safetyBackup(jobId: string) {
     const control = this.control();
     if (control.job?.id !== jobId) throw new Error("Backup job is no longer current.");
-    const backup = this.backup(control.job.backupId);
+    if (control.job.safetyBackupId) return this.backup(control.job.safetyBackupId);
+    const createdAt = new Date().toISOString(), id = crypto.randomUUID();
+    const backup: Backup = { id, name: `Before production switch · ${createdAt.slice(0,16).replace('T', ' ')} UTC`, createdAt, expiresAt: sixMonthsAfter(createdAt), category: 'automatic', status: 'creating', bytes: 0, photos: 0, schema: '' };
+    this.write(`backup:${id}`, backup);
+    this.write('control', { ...control, job: { ...control.job, safetyBackupId: id } });
+    return backup;
+  }
+  updateBackup(jobId: string, fields: Partial<Backup>, targetId?: string) {
+    const control = this.control();
+    if (control.job?.id !== jobId) throw new Error("Backup job is no longer current.");
+    if (targetId && targetId !== control.job.safetyBackupId) throw new Error("Invalid backup target.");
+    const backup = this.backup(targetId ?? control.job.backupId);
     this.write(`backup:${backup.id}`, { ...backup, ...fields, id: backup.id });
   }
   switchDatabase(jobId: string, active: string) {
@@ -123,6 +145,10 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
     const control = this.control();
     if (control.job?.id !== jobId) return;
     const job = control.job;
+    if (failed && job.safetyBackupId) {
+      const safety = this.backup(job.safetyBackupId);
+      if (safety.status === 'creating') this.write(`backup:${safety.id}`, { ...safety, status: 'failed', error: failureMessage });
+    }
     if (failed && job.kind !== "return") {
       const backup = this.backup(job.backupId);
       this.write(`backup:${backup.id}`, { ...backup, status: job.kind === "backup" ? "failed" : job.kind === "delete" ? "failed" : backup.status, error: failureMessage ?? "Operation failed. Check the Cloudflare Workflow before retrying." });

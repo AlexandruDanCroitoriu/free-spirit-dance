@@ -70,10 +70,12 @@ try {
   const originalFetch=globalThis.fetch;
   const databases=new Map(); let failUpload=false, importCount=0, exportCount=0, uploadedSql='', uploadedEtag='';
   const apiCalls=[];
+  let exportDump = dump;
+  let failExport = false;
   globalThis.fetch=async(input,options={})=>{
     const url=new URL(typeof input==='string'?input:input.url);
     apiCalls.push({url:url.href,method:options.method??'GET'});
-    if(url.hostname==='download.test')return new Response(dump);
+    if(url.hostname==='download.test')return new Response(exportDump);
     if(url.hostname==='upload.test') {
       uploadedSql=await new Response(options.body).text();
       uploadedEtag=createHash('md5').update(uploadedSql).digest('hex');
@@ -85,7 +87,18 @@ try {
     if(path===''&&(options.method==='GET'))return response([...databases].filter(([,v])=>v.name===url.searchParams.get('name')).map(([uuid,v])=>({uuid,name:v.name})));
     if(path==='') { const id=crypto.randomUUID();databases.set(id,{db:new DatabaseSync(':memory:'),name:body.name});return response({uuid:id}); }
     const [,id,operation]=path.split('/');
-    if(operation==='export'){ assert.equal(id,'original'); exportCount++; return response({status:'complete',result:{signed_url:'https://download.test/sql'}}); }
+    if(operation==='export'){
+      if (failExport) return Response.json({ success: false }, { status: 500 });
+      exportDump = dump;
+      if (id !== 'original') {
+        const db = databases.get(id).db;
+        exportDump = db.prepare("SELECT sql FROM sqlite_master WHERE type='table'").all().map(row => row.sql + ';').join('\n');
+        for (const { name } of db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all()) {
+          for (const row of db.prepare(`SELECT * FROM ${name}`).all()) exportDump += `INSERT INTO ${name} VALUES (${Object.values(row).map(value => value === null ? 'NULL' : typeof value === 'number' ? value : "'" + value.replaceAll("'", "''") + "'").join(',')});`;
+        }
+      }
+      exportCount++; return response({status:'complete',result:{signed_url:'https://download.test/sql'}});
+    }
     assert.notEqual(id,'original','Original production must never be imported into, queried via REST, or deleted');
     const database=databases.get(id);assert.ok(database);
     if(options.method==='DELETE'){databases.delete(id);return response({});}
@@ -149,7 +162,7 @@ try {
 
     // Saving while a backup copy is active still exports original production.
     await run(coordinator.reserve('backup','','Original while copy active','owner'));
-    assert.equal(exportCount,2);
+    assert.equal(exportCount,3);
     await run(coordinator.reserve('return','','','owner',2));
     assert.equal(coordinator.status().active,'production');assert.equal(coordinator.status().generation,3);
     await run(coordinator.reserve('activate',backup.id,'','owner',3));
@@ -182,7 +195,10 @@ try {
     assert.equal(coordinator.status().active,before.active);assert.equal(coordinator.status().maintenance,null);
     coordinator.leave(pending.ticket);
     await run(coordinator.reserve('return','','','owner',before.generation));
-    const unused=coordinator.status().backups.find(b=>b.id!==backup.id);
+    const safetyCopy = coordinator.status().backups.find(b => b.category === 'automatic' && bucket.objects.get(`snapshots/${b.id}/images/photo.jpg`)?.bytes.toString() === 'edited-photo');
+    assert.ok(safetyCopy, 'Switch saves current working photos');
+    assert.match(bucket.objects.get(`snapshots/${safetyCopy.id}/database.sql`).bytes.toString(), /Edited working copy/);
+    const unused=coordinator.status().backups.find(b=>b.id!==backup.id && b.category === 'manual');
     failUpload=true;
     await assert.rejects(run(coordinator.reserve('activate',unused.id,'','owner',coordinator.status().generation)));
     assert.equal(coordinator.status().active,'production');assert.equal(coordinator.backup(unused.id).workingReady,undefined);
@@ -198,12 +214,14 @@ try {
     await run(coordinator.reserve('activate',backup.id,'','owner',coordinator.status().generation));
     coordinator.schedule({enabled:false,weekday:6,time:'04:00',once:null});
     const future=Date.parse(backup.expiresAt)+1;
-    assert.equal(coordinator.tick(future),null);
+    let expired;
+    while ((expired = coordinator.tick(future))) await run(expired);
+    assert.equal(coordinator.status().active, backup.id);
     const restarted=new ProductionBackupCoordinator(ctx,env);
     assert.equal(restarted.status().active,backup.id);
     await run(coordinator.reserve('return','','','owner',coordinator.status().generation));
     const cleanup=coordinator.tick(future);assert.equal(cleanup.kind,'delete');await run(cleanup);
-    assert.equal(coordinator.status().backups.length,0);
+    assert.ok(!coordinator.status().backups.some(b => b.id === backup.id));
     assert.equal(source.prepare('SELECT name FROM students').get().name,'Synthetic student');
 
     coordinator.schedule({enabled:true,weekday:6,time:'04:00',once:null});
@@ -212,6 +230,24 @@ try {
     assert.equal(coordinator.tick(Date.parse(due)).id,scheduled.id,'Duplicate delivery reuses the same job');
     await run(scheduled);
     assert.equal(coordinator.tick(Date.parse(due)),null);
+    const automatic = coordinator.backup(scheduled.backupId);
+    assert.equal(automatic.category, 'automatic');
+    assert.throws(() => coordinator.rename(automatic.id, 'Changed'), /read-only/);
+    const automaticBytes = Buffer.from(bucket.objects.get(`snapshots/${automatic.id}/database.sql`).bytes);
+    const manualJob = coordinator.reserve('backup', '', 'Manual from automatic', 'owner', undefined, automatic.id);
+    await run(manualJob);
+    assert.equal(coordinator.backup(manualJob.backupId).category, 'manual');
+    assert.deepEqual(bucket.objects.get(`snapshots/${manualJob.backupId}/database.sql`).bytes, automaticBytes);
+    failExport = true;
+    const blockedSwitch = coordinator.reserve('activate', manualJob.backupId, '', 'owner', coordinator.status().generation);
+    await assert.rejects(run(blockedSwitch));
+    assert.equal(coordinator.status().active, 'production', 'Failed safety snapshot prevents switching');
+    failExport = false;
+    const automaticSwitch = coordinator.reserve('activate', automatic.id, '', 'owner', coordinator.status().generation);
+    await run(automaticSwitch);
+    assert.notEqual(coordinator.status().active, automatic.id);
+    assert.equal(coordinator.backup(coordinator.status().active).category, 'manual');
+    assert.deepEqual(bucket.objects.get(`snapshots/${automatic.id}/database.sql`).bytes, automaticBytes);
 
     // Fetch wrapping pins a tab to its original generation, not a shared cookie.
     const calls=[];const context={window:{fetch:async(input,init)=>{calls.push({input,init});return new Response();}},location:{href:'https://school.test/',origin:'https://school.test'},URL,Request,Headers};

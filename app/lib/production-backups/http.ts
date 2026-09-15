@@ -67,7 +67,8 @@ export async function backupManagement(request: Request, env: CloudflareEnv, dev
     } else if (["backup", "activate", "return", "delete"].includes(String(input.action))) {
       if (input.name !== undefined && (typeof input.name !== "string" || input.name.length > 80)) throw new Error("Backup names can have at most 80 characters.");
       if (input.id !== undefined && (typeof input.id !== "string" || !/^[a-f0-9-]{36}$/.test(input.id))) throw new Error("Invalid backup.");
-      const job = await coordinator.reserve(input.action as Job["kind"], String(input.id ?? ""), String(input.name ?? ""), email ?? "local development service token", typeof input.generation === "number" ? input.generation : undefined);
+      if (input.sourceBackupId !== undefined && (typeof input.sourceBackupId !== 'string' || !/^[a-f0-9-]{36}$/.test(input.sourceBackupId))) throw new Error('Invalid source backup.');
+      const job = await coordinator.reserve(input.action as Job["kind"], String(input.id ?? ""), String(input.name ?? ""), email ?? "local development service token", typeof input.generation === "number" ? input.generation : undefined, input.sourceBackupId as string | undefined);
       // The reservation persists even if Workflow creation temporarily fails.
       await launchJob(env, job).catch(() => console.error("Backup job launch will be retried by the scheduler."));
     } else throw new Error("Unknown backup action.");
