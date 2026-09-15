@@ -27,7 +27,7 @@ export async function GET(request: Request, context: Context) {
   try {
     const db = env.DB;
     if (!await db.prepare("SELECT id FROM students WHERE id = ?").bind(id).first()) return json({ error: "Student not found." }, 404);
-    const historicalAbsences = await readHistoricalAbsences(db, id);
+    const historicalAbsences = url.searchParams.get("useRecordedAbsences") === "false" ? undefined : await readHistoricalAbsences(db, id);
     const hasHistoricalPaymentPeriods = Boolean(await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'history_payment_periods'").first());
     const coverageThrough = hasHistoricalPaymentPeriods
       ? "(SELECT coverage_through FROM history_payment_periods hp WHERE CAST(hp.review_payment_id AS INTEGER) = p.id LIMIT 1)"

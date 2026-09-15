@@ -1,6 +1,7 @@
 "use client";
 
 import PaymentTransferCheckbox from "./payment-transfer-checkbox";
+import { useRecordedAbsencesMode } from "./dashboard-settings";
 import { useEffect, useRef, useState } from "react";
 import { formatLogDate, formatMoney, schoolToday, type StudentActivity as Activity } from "../lib/student-activity";
 import { presetDraft, type PaymentPreset } from "../lib/payment-presets";
@@ -64,6 +65,7 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
   const scrolledAttendanceTarget = useRef("");
   const scrolledPaymentTarget = useRef<number | null>(null);
   const url = `/api/students/${studentId}/activity`;
+  const useRecordedAbsences = useRecordedAbsencesMode();
 
   useEffect(() => {
     const loadColumns = () => setActivityLogColumns(readActivityLogColumns());
@@ -86,12 +88,12 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError("");
-    fetch(`${url}${initialPaymentId ? `?paymentId=${initialPaymentId}` : ""}`, { signal: controller.signal })
+    fetch(`${url}?useRecordedAbsences=${useRecordedAbsences}${initialPaymentId ? `&paymentId=${initialPaymentId}` : ""}`, { signal: controller.signal })
       .then(readResponse).then((body) => { if (!controller.signal.aborted) setData(body as Activity); })
       .catch((reason) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load student activity."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [url, reload, initialPaymentId]);
+  }, [url, reload, initialPaymentId, useRecordedAbsences]);
   useEffect(() => {
     const refresh = (event: Event) => { if ((event as CustomEvent<number>).detail === studentId) setReload((value) => value + 1); };
     const refreshActivity = () => setReload((value) => value + 1);
@@ -262,7 +264,7 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
     return { ...connection, lane };
   });
   const connectorWidth = laneEnds.length ? 12 + laneEnds.length * 10 : 0;
-  const firstTargetAttendance = targetAttendanceDate ? data?.logs.findIndex((row) => (row.kind === "attendance" || row.kind === "practice_attendance") && row.eventDate.slice(0, 10) === targetAttendanceDate) : -1;
+  const firstTargetAttendance = targetAttendanceDate ? data?.logs.findIndex((row) => (row.kind === "attendance" || row.kind === "missed" || row.kind === "practice_attendance") && row.eventDate.slice(0, 10) === targetAttendanceDate) : -1;
 
   return <section aria-labelledby="student-activity-title" className="mt-6 space-y-5 rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="student-activity-title" className="m-0 text-xl font-normal">Attendance & payments</h2><div className="flex flex-wrap gap-2"><button type="button" className={primary} disabled={loading || !data || !data.courses.length} onClick={() => open("payment")}>Record payment</button></div></div>

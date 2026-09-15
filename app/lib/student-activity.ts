@@ -71,8 +71,8 @@ export async function readHistoricalAbsences(db: D1Database, studentId?: number)
   return (await statement.all<{ studentId: number; courseId: number; startsAt: string }>()).results;
 }
 
-// Each payment covers consecutive non-cancelled classes from an attendance no more
-// than four weeks before its coverage start.
+// Each payment starts at the first attendance on or after its payment date. It
+// covers consecutive non-cancelled classes for four weeks from that attendance.
 // A payment-date class counts only when the student attended it; an unattended
 // same-day class must not create a missed record or consume the new credit.
 export function courseCreditBalance(
@@ -87,6 +87,7 @@ export function courseCreditBalance(
   onCancelled?: (startsAt: string) => void,
   recordedAbsences?: readonly string[],
   onUnpaidAttendance?: (startsAt: string) => void,
+  onScheduledClass?: (startsAt: string, attended: boolean) => void,
 ) {
   const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Bucharest", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(now);
   const part = (type: string) => parts.find((p) => p.type === type)!.value;
@@ -123,21 +124,22 @@ export function courseCreditBalance(
     if (recordedAbsences === undefined || slots.has(key)) slots.set(key, !slot.cancelled);
   }
   for (const slot of attended) if (!slots.has(slot)) slots.set(slot, true);
-  // Cancellations are known events, including upcoming classes after the student first participated.
-  const firstActivity = [...payments.map(paymentDate), ...[...attended].map((slot) => slot.slice(0, 10))].sort()[0];
-  if (recordedAbsences === undefined && firstActivity && onCancelled) for (const [slot, active] of slots) {
-    const date = slot.slice(0, 10);
-    if (!active && date >= firstActivity && (!course.startDate || date >= course.startDate) && (!course.endDate || date <= course.endDate)) onCancelled(slot);
-  }
   // Allocate consecutive classes, including gaps before attendance recorded in advance.
   // Consumption follows today or the latest recorded attendance, whichever is later.
   const held = [...slots].filter(([slot, active]) => active && !free.has(slot) && slot.slice(0, 10) <= horizon).map(([slot]) => slot).sort();
+  if (onScheduledClass) for (const slot of held) onScheduledClass(slot, attended.has(slot));
   const covered = new Set<string>();
+  const coveredCancellations = new Set<string>();
   for (const payment of ordered) {
     const paymentStart = paymentDate(payment);
-    const earliestEligibleAttendance = dateAfterDays(paymentStart, -28);
-    const unpaid = held.find((slot) => attended.has(slot) && !covered.has(slot) && slot.slice(0, 10) >= earliestEligibleAttendance && slot.slice(0, 10) <= paymentStart);
-    const start = (unpaid ?? paymentStart).slice(0, 10);
+    const firstAttendance = held.find((slot) => attended.has(slot) && !covered.has(slot) && slot.slice(0, 10) >= paymentStart);
+    // A package begins when the student next attends. Until then, it has not
+    // started its one-month validity period and cannot consume missed classes.
+    if (!firstAttendance) {
+      if (payment.paymentId !== undefined) onCoverage?.(payment.paymentId, { classes: [], remaining: payment.allowance });
+      continue;
+    }
+    const start = firstAttendance.slice(0, 10);
     // A payment covers four calendar weeks of classes. A recorded historical
     // period can shorten that window. Each cancelled session in the window
     // adds the next scheduled session, so cancellations do not shorten the
@@ -175,8 +177,18 @@ export function courseCreditBalance(
       classes.push({ startsAt: slot, attended: attended.has(slot) });
       remaining--;
     }
+    // A cancellation belongs in the log only while this package is valid and
+    // still has an allowance. Overlapping packages must not duplicate entries.
+    if (onCancelled) for (const [slot, active] of coverageSlots) {
+      const date = slot.slice(0, 10);
+      if (active || slot < firstAttendance || date >= windowEnd) continue;
+      if (course.endDate && date > course.endDate) continue;
+      if (remaining === 0 && slot > classes.at(-1)!.startsAt) continue;
+      coveredCancellations.add(slot);
+    }
     if (payment.paymentId !== undefined) onCoverage?.(payment.paymentId, { classes, remaining });
   }
+  if (onCancelled) for (const slot of [...coveredCancellations].sort()) onCancelled(slot);
   // Later recorded attendance establishes that earlier covered classes have been passed.
   const attendanceCutoff = [current, ...attended].sort().at(-1)!;
   const used = [...covered].filter((slot) => slot <= attendanceCutoff).length;

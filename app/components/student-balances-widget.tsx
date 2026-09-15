@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import StudentPanel from "./student-panel";
+import { useRecordedAbsencesMode } from "./dashboard-settings";
 
 const filterStorageKey = "free-spirit-dance.student-balances.filters.v1";
 
 type StudentBalance = { id: number; active: boolean; firstName: string; lastName: string; picture: string | null; balances: { courseId: number; courseName: string; remainingAllowance: number; excessAttendance: number; unpaidAttendances: string[] }[] };
 
 export default function StudentBalancesWidget() {
+  const useRecordedAbsences = useRecordedAbsencesMode();
   const courseDropdown = useRef<HTMLDivElement>(null);
   const courseTrigger = useRef<HTMLButtonElement>(null);
   const calendarMenu = useRef<HTMLDivElement>(null);
@@ -60,14 +62,14 @@ export default function StudentBalancesWidget() {
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError("");
-    fetch("/api/students/balances", { signal: controller.signal }).then(async (response) => {
+    fetch(`/api/students/balances?useRecordedAbsences=${useRecordedAbsences}`, { signal: controller.signal }).then(async (response) => {
       const body = await response.json() as { students?: StudentBalance[]; courses?: { id: number; name: string }[]; error?: string };
       if (!response.ok || !Array.isArray(body.students) || !Array.isArray(body.courses)) throw new Error(body.error ?? "Could not load student balances.");
       if (!controller.signal.aborted) { setStudents(body.students); setCourses(body.courses); setHasLoaded(true); }
     }).catch((reason) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load student balances."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [reload]);
+  }, [reload, useRecordedAbsences]);
   useEffect(() => {
     window.addEventListener("calendar-updated", refresh);
     window.addEventListener("student-activity-updated", refresh);
@@ -105,7 +107,11 @@ export default function StudentBalancesWidget() {
   const validRemaining = /^\d+$/.test(remaining) && Number.isSafeInteger(Number(remaining));
   const remainingSummary = [...new Set([...selectedRemaining, ...(validRemaining ? [Number(remaining)] : [])])].sort((a, b) => a - b);
   const filterSummary = [showUnpaid ? "Unpaid" : "", remainingSummary.length ? `${remainingSummary.join(", ")} left` : ""].filter(Boolean).join(" · ") || "No balances selected";
-  const matches = students.filter((student) => student.active).map((student) => ({ ...student, balances: student.balances.filter((balance) => (courseIds.length === 0 || courseIds.includes(String(balance.courseId))) && ((showUnpaid && balance.excessAttendance > 0) || selectedRemaining.includes(balance.remainingAllowance) || (validRemaining && balance.remainingAllowance === Number(remaining)))) })).filter((student) => student.balances.length > 0);
+  const matches = students.filter((student) => student.active).map((student) => ({ ...student, balances: student.balances.filter((balance) => {
+    const courseMatches = courseIds.length === 0 || courseIds.includes(String(balance.courseId));
+    const selectedCreditBalance = balance.excessAttendance === 0 && (selectedRemaining.includes(balance.remainingAllowance) || (validRemaining && balance.remainingAllowance === Number(remaining)));
+    return courseMatches && ((showUnpaid && balance.excessAttendance > 0) || selectedCreditBalance);
+  }) })).filter((student) => student.balances.length > 0);
   const unpaidMatches = students.filter((student) => student.active).map((student) => ({ ...student, balances: student.balances.filter((balance) => (courseIds.length === 0 || courseIds.includes(String(balance.courseId))) && balance.unpaidAttendances.length > 0) })).filter((student) => student.balances.length > 0);
   async function copyUnpaidAttendance() {
     const text = ["Free Spirit Dance · unpaid attendance review", ...unpaidMatches.flatMap((student) => ["", `${student.firstName} ${student.lastName} (student ${student.id})`, ...student.balances.flatMap((balance) => [`${balance.courseName}: ${balance.unpaidAttendances.length} unpaid attendance${balance.unpaidAttendances.length === 1 ? "" : "s"}`, ...balance.unpaidAttendances.map((attendedAt) => `- ${attendedAt.replace("T", " ")}`)])])].join("\n");

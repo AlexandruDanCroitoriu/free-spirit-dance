@@ -1,11 +1,11 @@
 import { env } from "../../../lib/storage";
 import { courseCreditBalance, readHistoricalAbsences } from "../../../lib/student-activity";
 
-export async function GET() {
+export async function GET(request?: Request) {
   const headers = { "Cache-Control": "no-store" };
   try {
     const db = env.DB;
-    const historicalAbsences = await readHistoricalAbsences(db);
+    const historicalAbsences = request && new URL(request.url).searchParams.get("useRecordedAbsences") === "false" ? undefined : await readHistoricalAbsences(db);
     const hasHistoricalPaymentPeriods = Boolean(await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'history_payment_periods'").first());
     const coverageThrough = hasHistoricalPaymentPeriods
       ? "(SELECT coverage_through FROM history_payment_periods hp WHERE CAST(hp.review_payment_id AS INTEGER) = p.id LIMIT 1)"

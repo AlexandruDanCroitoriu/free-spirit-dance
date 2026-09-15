@@ -3,17 +3,20 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 const storageKey = "free-spirit-dance.dashboard.widgets.v1";
+const historyStorageKey = "free-spirit-dance.dashboard.recorded-absences.v1";
 const widgetLabels = { calendar: "Course calendar", balances: "Student balances", transfers: "Payment transfers" };
 type WidgetId = keyof typeof widgetLabels;
 type Widgets = Record<WidgetId, boolean>;
 const defaults: Widgets = { calendar: true, balances: true, transfers: true };
-const DashboardContext = createContext<{ widgets: Widgets; ready: boolean; toggle: (id: WidgetId) => void } | null>(null);
+const DashboardContext = createContext<{ widgets: Widgets; ready: boolean; useRecordedAbsences: boolean; setUseRecordedAbsences: (value: boolean) => void; toggle: (id: WidgetId) => void } | null>(null);
 
 export function DashboardWidgetsProvider({ children }: { children: ReactNode }) {
   const [widgets, setWidgets] = useState(defaults);
+  const [useRecordedAbsences, setUseRecordedAbsences] = useState(true);
   const [ready, setReady] = useState(false);
   useEffect(() => {
     try {
+      setUseRecordedAbsences(window.localStorage.getItem(historyStorageKey) !== "false");
       const saved: unknown = JSON.parse(window.localStorage.getItem(storageKey) ?? "null");
       if (saved && typeof saved === "object" && !Array.isArray(saved)) {
         const values = saved as Record<string, unknown>;
@@ -34,7 +37,23 @@ export function DashboardWidgetsProvider({ children }: { children: ReactNode }) 
       // Toggles still work for this session when storage is unavailable.
     }
   }, [widgets, ready]);
-  return <DashboardContext.Provider value={{ widgets, ready, toggle: (id) => setWidgets((current) => ({ ...current, [id]: !current[id] })) }}>{children}</DashboardContext.Provider>;
+  useEffect(() => {
+    if (!ready) return;
+    try { window.localStorage.setItem(historyStorageKey, String(useRecordedAbsences)); } catch { /* Keep the session preference. */ }
+  }, [ready, useRecordedAbsences]);
+  return <DashboardContext.Provider value={{ widgets, ready, useRecordedAbsences, setUseRecordedAbsences, toggle: (id) => setWidgets((current) => ({ ...current, [id]: !current[id] })) }}>{children}</DashboardContext.Provider>;
+}
+
+export function useRecordedAbsencesMode() {
+  return useContext(DashboardContext)?.useRecordedAbsences ?? true;
+}
+
+export function HistoricalAbsencesCheckbox() {
+  const { useRecordedAbsences, setUseRecordedAbsences, ready } = useDashboardWidgets();
+  return <label className="flex max-w-44 cursor-pointer items-center gap-2 font-sans text-xs text-slate-700" title="Unchecked: calculate missed classes within paid packages using schedules, attendance and cancellations.">
+    <input type="checkbox" className="h-4 w-4 shrink-0 accent-lime-700" disabled={!ready} checked={useRecordedAbsences} onChange={(event) => setUseRecordedAbsences(event.target.checked)} />
+    Use recorded historical absences
+  </label>;
 }
 
 export function useDashboardWidgets() {
