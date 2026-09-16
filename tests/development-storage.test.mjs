@@ -8,8 +8,8 @@ const code = stripTypeScriptTypes(readFileSync(new URL('../worker.ts', import.me
   .replace('import vinextHandler from "vinext/server/fetch-handler";', '')
   .replace('import { withStorage } from "./app/lib/storage";', '')
   .replace('import { copyBindings, listCopies } from "./app/lib/local-copies";', stripTypeScriptTypes(readFileSync('app/lib/local-copies.ts', 'utf8')).replaceAll('export ', ''))
-  .replace(/^import \{ backupManagement.*$/m, 'const backupManagement = async () => null; const backupsConfigured = () => false; const launchJob = async () => {}; const productionRequest = async (request, env, run) => run(request, env);')
-  .replace(/^import \{ localBackupManagement.*$/m, 'const localBackupManagement = async () => null; const localBackupRequest = async (request, env, selected, run) => run(env);').replace(/^export \{ (ProductionBackup|LocalBackup).*$/gm, '')
+  .replace(/^import \{ backupManagement.*$/m, 'const backupManagement = async () => null; const backupsConfigured = () => false; const launchJob = async () => {}; const localBackupBridgeAuthorized = async () => false; const productionRequest = async (request, env, run) => run(request, env);')
+  .replace(/^import \{ localProductionBackupManagement.*$/m, 'const localProductionBackupManagement = async () => null;').replace(/^export \{ (ProductionBackup|LocalBackup).*$/gm, '')
   .replace('export default', 'exports.default =');
 const exports = {};
 vm.runInNewContext(code, { exports, Request, Response, URL, Headers, console,
@@ -77,16 +77,16 @@ test('localhost has main administrator identity and can switch without signing i
   }
 });
 
-test('other tunnel administrators retain production storage regardless of owner cookies', async () => {
+test('other tunnel administrators use Catalog storage regardless of owner cookies', async () => {
   for (const cookie of ['', 'fsd-storage=local', 'fsd-storage=catalog', 'fsd-storage=production']) {
     const options = { email: 'other@example.com', cookie };
-    assert.deepEqual(await (await request(options)).json(), { db: 'production-db', images: 'production-images' });
+    assert.deepEqual(await (await request(options)).json(), { db: 'catalog-db', images: 'catalog-images' });
     assert.deepEqual(await (await request({ ...options, path: '/api/development-storage' })).json(), { available: false });
     assert.deepEqual(await (await request({ ...options, path: '/api/development-storage', method: 'POST', origin: 'https://dev-free-spirit-dance.alexandru-croitoriu.dev', body: { selected: 'local' } })).json(), { available: false });
   }
 });
 
-test('tunnel page authorization reads granted production permissions instead of empty local permissions', async () => {
+test('tunnel page authorization reads granted Catalog permissions', async () => {
   const checkedStores = [];
   const database = (name, students) => ({ prepare: () => ({ bind: () => ({
     run: async () => {},
@@ -96,8 +96,8 @@ test('tunnel page authorization reads granted production permissions instead of 
     },
   }) }) });
   const env = {
-    LOCAL_STORAGE_ENABLED: 'true', CATALOG_DB: database('catalog', 0), CATALOG_IMAGES: 'catalog-images',
-    DB: database('production', 1), STUDENT_IMAGES: 'production-images', PUBLIC_QR_BASE_URL: 'https://go.example.com',
+    LOCAL_STORAGE_ENABLED: 'true', CATALOG_DB: database('catalog', 1), CATALOG_IMAGES: 'catalog-images',
+    DB: database('production', 0), STUDENT_IMAGES: 'production-images', PUBLIC_QR_BASE_URL: 'https://go.example.com',
   };
   for (const [path, status] of [['/students', 200], ['/courses', 403], ['/administrators', 403]]) {
     const response = await exports.default.fetch(new Request('https://dev-free-spirit-dance.alexandru-croitoriu.dev' + path, {
@@ -105,15 +105,15 @@ test('tunnel page authorization reads granted production permissions instead of 
     }), env, {});
     assert.equal(response.status, status, path);
   }
-  assert.deepEqual(checkedStores, ['production', 'production']);
+  assert.deepEqual(checkedStores, ['catalog', 'catalog']);
 });
 
 
-test('catalog routes database and images together and remains owner-only in development', async () => {
+test('Catalog routes database and images together for every dev-tunnel administrator', async () => {
   const options = { catalog: true, cookie: 'fsd-storage=catalog' };
   assert.deepEqual(await (await request(options)).json(), { db: 'catalog-db', images: 'catalog-images' });
   assert.deepEqual(await (await request({ ...options, development: false })).json(), { db: 'production-db', images: 'production-images' });
-  assert.deepEqual(await (await request({ ...options, email: 'other@example.com' })).json(), { db: 'production-db', images: 'production-images' });
+  assert.deepEqual(await (await request({ ...options, email: 'other@example.com' })).json(), { db: 'catalog-db', images: 'catalog-images' });
   assert.deepEqual(await (await request({ ...options, host: 'untrusted.example.com' })).json(), { db: 'catalog-db', images: 'catalog-images' });
   assert.equal((await request(options)).headers.get('Cache-Control'), 'no-store');
   assert.match((await request(options)).headers.get('Vary'), /Cookie/);

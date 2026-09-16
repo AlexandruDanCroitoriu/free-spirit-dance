@@ -1,4 +1,5 @@
 "use client";
+import DatePicker from './date-picker';
 
 import { useEffect, useRef, useState } from "react";
 import {
@@ -306,7 +307,7 @@ export default function ClassAttendancePanel({
             <p className="font-sans text-sm text-slate-500">Changes apply to this class only. Recorded attendance follows any date or start-time change.</p>
             <fieldset disabled={busy || loading || !data.canManageClass} className="space-y-4 font-sans text-sm">
               <label className="block">Course<select required value={details.courseId} onChange={event => setDetails(current => ({ ...current, courseId: Number(event.target.value) }))} className="mt-2 w-full rounded-md border border-stone-300 bg-white p-2">{data.courses.map(course => <option key={course.id} value={course.id}>{course.name}</option>)}</select></label>
-              <label className="block">Date<input required type="date" min="1900-01-01" max="9999-12-31" value={details.classDate} onChange={event => setDetails(current => ({ ...current, classDate: event.target.value }))} className="mt-2 w-full rounded-md border border-stone-300 bg-white p-2" /></label>
+              <label className="block">Date<DatePicker required type="date" min="1900-01-01" max="9999-12-31" value={details.classDate} onChange={event => setDetails(current => ({ ...current, classDate: event.target.value }))} className="mt-2 w-full rounded-md border border-stone-300 bg-white p-2" /></label>
               <div className="grid gap-3 sm:grid-cols-2">
                 <TimeSelector label="Start time (Bucharest)" value={details.startTime} onChange={startTime => setDetails(current => ({ ...current, startTime }))} />
                 <TimeSelector label="End time (Bucharest)" value={details.endTime || details.startTime} onChange={endTime => setDetails(current => ({ ...current, endTime }))} />

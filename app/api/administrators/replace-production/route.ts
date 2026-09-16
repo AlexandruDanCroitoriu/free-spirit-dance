@@ -1,12 +1,12 @@
 import { env } from "../../../lib/storage";
 import { copyBindings, listCopies } from "../../../lib/local-copies";
-import { tableColumns, type ExportTable } from "../export/route";
+import { tableColumns, upgradeTaskTables, type ExportTable } from "../export/route";
 
 const ownerEmail = "croitoriu.alexandru.code@gmail.com";
 const tableNames = Object.keys(tableColumns) as Array<keyof typeof tableColumns>;
 const legacyEventDeleteOrder = ["event_refunds", "event_payment_handovers", "event_attendance", "event_session_changes", "event_cash_settlements", "event_requests", "event_sessions", "events"] as const;
-const deleteOrder = ["automatic_task_occurrences", "task_rule_state", "manual_tasks", "payment_transfer_filters", "payment_preset_courses", "payment_course_allowances", "attendance", "practice_attendance", "student_payments", "student_courses", "course_schedule", "classes", "payment_presets", "practice_parties", "courses", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
-const insertOrder = ["admin_profiles", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance", "manual_tasks", "task_rule_state", "automatic_task_occurrences"] as const;
+const deleteOrder = ["task_preferences", "task_images", "task_courses", "task_students", "manual_tasks", "task_lists", "task_boards", "payment_transfer_filters", "payment_preset_courses", "payment_course_allowances", "attendance", "practice_attendance", "student_payments", "student_courses", "course_schedule", "classes", "payment_presets", "practice_parties", "courses", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
+const insertOrder = ["admin_profiles", "task_preferences", "task_boards", "task_lists", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance", "manual_tasks", "task_courses", "task_students", "task_images"] as const;
 type DatabaseValue = string | number | null;
 type DevelopmentBindings = CloudflareEnv & Partial<LocalDevelopmentBindings>;
 
@@ -20,6 +20,7 @@ function validValue(value: unknown): value is DatabaseValue {
 }
 
 function parseTables(input: unknown): Map<keyof typeof tableColumns, Record<string, DatabaseValue>[]> | null {
+  input = upgradeTaskTables(input);
   if (!Array.isArray(input)) return null;
   const supplied = new Map<string, ExportTable>();
   for (const table of input) {
@@ -30,7 +31,6 @@ function parseTables(input: unknown): Map<keyof typeof tableColumns, Record<stri
   for (const name of tableNames) {
     const table = supplied.get(name);
     const columns = tableColumns[name];
-    if (!table && (name === "automatic_task_occurrences" || name === "task_rule_state")) { result.set(name, []); continue; }
     if (!table || !Array.isArray(table.columns) || table.columns.length !== columns.length || table.columns.some((column, index) => column !== columns[index]) || !Array.isArray(table.rows)) return null;
     const rows: Record<string, DatabaseValue>[] = [];
     for (const row of table.rows) {
@@ -87,6 +87,7 @@ async function copyLocalImages(tables: Map<keyof typeof tableColumns, Record<str
     ...tables.get("students")!.map((row) => imageKey(row.picture)),
     ...tables.get("admin_profiles")!.map((row) => imageKey(row.picture)),
     ...tables.get("qr_codes")!.map((row) => typeof row.image_path === "string" && row.image_path.startsWith("qr-") ? row.image_path : null),
+    ...(tables.get("task_images") ?? []).map((row) => typeof row.object_key === "string" && row.object_key.startsWith("task-images/") ? row.object_key : null),
   ].filter((key): key is string => key !== null));
   let copied = 0;
   let missing = 0;

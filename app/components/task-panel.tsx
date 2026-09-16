@@ -3,23 +3,29 @@
 import { useEffect, useRef, useState } from 'react';
 import { manualTaskFields, type BoardTask, type ManualTaskFields, type TaskBoard } from '../lib/tasks';
 import { taskRequest, TaskRequestError } from '../lib/tasks-client';
+import TaskStudentsDialog from './task-students-dialog';
+import TaskAssigneeSelect from './task-assignee-select';
+import TaskDueDateSelect from './task-due-date-select';
+import { descriptionLinks } from '../lib/task-description';
+import TaskDescriptionEditor from './task-description-editor';
 import type { Student } from './student-panel';
 
 function fieldsFor(task: BoardTask | null, studentId: number | null): ManualTaskFields {
-  return task ? { title: task.title, description: task.description, dueDate: task.dueDate, status: task.status, studentId: task.student?.id ?? null } : { title: '', description: '', dueDate: null, status: 'todo', studentId };
+  return task ? { status: task.status, title: task.title, description: task.description, dueDate: task.dueDate, studentIds: task.students.map(student => student.id), courseIds: task.courses?.map(course => course.id) ?? [], administratorEmails: task.administratorEmails ?? [], assignedTo: task.assignedTo ?? null } : { title: '', description: '', dueDate: null, studentIds: studentId === null ? [] : [studentId], courseIds: [] };
 }
 
-export default function TaskPanel({ task, board, studentId, onClose, onSaved }: {
-  task: BoardTask | null; board: TaskBoard; studentId: number | null; onClose: () => void; onSaved: (message: string) => void | Promise<void>;
+export default function TaskPanel({ task, board, studentId, listId, onClose, onSaved }: {
+  listId?: number | null; task: BoardTask | null; board: TaskBoard; studentId: number | null; onClose: () => void; onSaved: (message: string) => void | Promise<void>;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const busy = useRef(false);
+  const reviewedUpdatedAt = useRef(task?.updatedAt);
   const [fields, setFields] = useState(() => fieldsFor(task, studentId));
+  const [selectedList, setSelectedList] = useState<number | null>(task?.listId ?? listId ?? null);
   const [revision, setRevision] = useState(board.revision);
   const [students, setStudents] = useState<Student[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
   const [studentError, setStudentError] = useState('');
-  const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [conflict, setConflict] = useState(false);
@@ -27,8 +33,19 @@ export default function TaskPanel({ task, board, studentId, onClose, onSaved }: 
   const [missing, setMissing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [uncertain, setUncertain] = useState(false);
+  const [courses, setCourses] = useState<{ id: number; name: string }[]>([]);
+  const [administrators, setAdministrators] = useState<{ email: string; name: string; picture: string | null }[]>([]);
+  const [administratorsOpen, setAdministratorsOpen] = useState(false);
+  const [administratorError, setAdministratorError] = useState('');
+  const [administratorsLoading, setAdministratorsLoading] = useState(true);
+  const [coursesOpen, setCoursesOpen] = useState(false);
+  const [courseError, setCourseError] = useState('');
+  const [coursesLoading, setCoursesLoading] = useState(true);
+  const [studentsOpen, setStudentsOpen] = useState(false);
+  const [descriptionOpen, setDescriptionOpen] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState(task?.description ?? '');
   // Retain the exact request after a lost response; POST retries are idempotent.
-  const pendingCreate = useRef<(ManualTaskFields & { revision: number; requestKey: string }) | null>(null);
+  const pendingCreate = useRef<(ManualTaskFields & { revision: number; requestKey: string; listId?: number | null }) | null>(null);
   useEffect(() => {
     const element = dialog.current!;
     const focus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -44,18 +61,52 @@ export default function TaskPanel({ task, board, studentId, onClose, onSaved }: 
   }, []);
   useEffect(() => {
     let cancelled = false;
+    taskRequest<{ email: string; name: string; picture: string | null }[]>('/api/tasks/administrators').then(data => { if (!cancelled) setAdministrators(data); }).catch(reason => { if (!cancelled) setAdministratorError(reason instanceof Error ? reason.message : 'Could not load administrators.'); }).finally(() => { if (!cancelled) setAdministratorsLoading(false); });
+    taskRequest<{ id: number; name: string }[]>('/api/courses').then(data => { if (!cancelled) setCourses(data); }).catch(reason => { if (!cancelled) setCourseError(reason instanceof Error ? reason.message : 'Could not load courses.'); }).finally(() => { if (!cancelled) setCoursesLoading(false); });
     taskRequest<Student[]>('/api/students').then(data => { if (!cancelled) setStudents(data); }).catch(reason => { if (!cancelled) setStudentError(reason instanceof Error ? reason.message : 'Could not load students.'); }).finally(() => { if (!cancelled) setStudentsLoading(false); });
     return () => { cancelled = true; };
   }, []);
+  useEffect(() => {
+    if (!task || saving || conflict || missing) return;
+    let cancelled = false;
+    let refreshing = false;
+    const refreshRevision = () => {
+      if (cancelled || refreshing || busy.current || document.visibilityState !== 'visible') return;
+      refreshing = true;
+      void taskRequest<TaskBoard>('/api/tasks').then(current => {
+        if (cancelled) return;
+        const latestTask = current.tasks.find(item => item.key === task.key);
+        if (!latestTask) {
+          setMissing(true); setError('This task was deleted by another administrator. Your draft is still shown below.');
+        } else if (latestTask.updatedAt !== reviewedUpdatedAt.current) {
+          setLatest(latestTask); setConflict(true); setError('This task was updated by another administrator. Your draft has been kept.');
+        } else {
+          // A different card, list, or board changed. Use its current revision
+          // so that it never blocks this untouched task from being saved.
+          setRevision(current.revision);
+        }
+      }).catch(() => {}).finally(() => { refreshing = false; });
+    };
+    const timer = window.setInterval(refreshRevision, 5_000);
+    document.addEventListener('visibilitychange', refreshRevision);
+    window.addEventListener('focus', refreshRevision);
+    window.addEventListener('pageshow', refreshRevision);
+    return () => {
+      cancelled = true; window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshRevision);
+      window.removeEventListener('focus', refreshRevision);
+      window.removeEventListener('pageshow', refreshRevision);
+    };
+  }, [task, saving, conflict, missing]);
 
   async function submit(remove = false) {
     if (busy.current || conflict || missing) return;
     busy.current = true; setSaving(true); setError('');
     try {
       if (remove && task) await taskRequest(`/api/tasks/${encodeURIComponent(task.key)}`, 'DELETE', { revision });
-      else if (task) await taskRequest(`/api/tasks/${encodeURIComponent(task.key)}`, 'PATCH', { ...manualTaskFields(fields), revision });
+      else if (task) await taskRequest(`/api/tasks/${encodeURIComponent(task.key)}`, 'PATCH', { ...manualTaskFields({ ...fields, description: descriptionOpen ? descriptionDraft : fields.description }), listId: selectedList, revision });
       else {
-        pendingCreate.current ??= { ...manualTaskFields(fields), revision, requestKey: crypto.randomUUID() };
+        pendingCreate.current ??= { ...manualTaskFields({ ...fields, description: descriptionOpen ? descriptionDraft : fields.description }), revision, listId: selectedList, requestKey: crypto.randomUUID() };
         await taskRequest('/api/tasks', 'POST', pendingCreate.current);
       }
       await onSaved(remove ? 'Task deleted.' : task ? 'Task updated.' : 'Task created.');
@@ -79,28 +130,53 @@ export default function TaskPanel({ task, board, studentId, onClose, onSaved }: 
       const updated = task ? current.tasks.find(item => item.key === task.key) : null;
       if (task && !updated) { setMissing(true); setError('This task was deleted. Your draft is still shown below.'); return; }
       setLatest(updated ?? null); setRevision(current.revision); setConflict(false);
+      reviewedUpdatedAt.current = updated?.updatedAt;
       setError('Your draft has been kept. Review the latest saved values before saving again.');
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not refresh tasks.'); }
     finally { busy.current = false; setSaving(false); }
   }
-  const input = 'mt-1 min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 font-normal disabled:bg-stone-100';
-  const button = 'min-h-11 rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold disabled:opacity-50';
-  const chosen = students.find(student => student.id === fields.studentId);
-  const choices = students.filter(student => student.id === fields.studentId || `${student.firstName} ${student.lastName}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
-  return <dialog ref={dialog} aria-labelledby="task-editor-title" onCancel={event => { event.preventDefault(); if (!busy.current) onClose(); }} className="fixed inset-0 m-auto box-border max-h-dvh w-full max-w-xl overflow-y-auto rounded-xl border border-stone-200 bg-white p-5 text-slate-800 shadow-2xl backdrop:bg-slate-950/60 sm:max-h-[90dvh]">
+  const button = 'min-h-10 rounded-md border border-white/15 px-3 py-2 text-sm font-medium hover:bg-white/10 focus-visible:outline-blue-400 disabled:opacity-50';
+  const mentions = descriptionLinks(descriptionOpen ? descriptionDraft : fields.description);
+  const selectedStudents = [...new Set([...fields.studentIds, ...mentions.studentIds])];
+  const selectedAdministrators = [...new Set([...(fields.administratorEmails ?? []), ...mentions.administratorEmails])];
+  const administratorChoices = [...administrators];
+  for (const email of [...selectedAdministrators, fields.assignedTo].filter((email): email is string => !!email)) if (!administratorChoices.some(admin => admin.email === email)) administratorChoices.push({ email, name: email, picture: null });
+  const selectedCourses = [...new Set([...fields.courseIds, ...mentions.courseIds])];
+  const courseChoices = [...courses, ...(task?.courses ?? []).filter(course => !courses.some(item => item.id === course.id))].map(course => ({ ...course, picture: null }));
+  const studentChoices = students.map(student => ({ id: student.id, name: `${student.firstName} ${student.lastName}`, picture: student.picture }));
+  for (const id of fields.studentIds) if (!studentChoices.some(student => student.id === id)) studentChoices.push(task?.students.find(student => student.id === id) ?? { id, name: `Student #${id}`, picture: null });
+  return <dialog ref={dialog} aria-labelledby="task-editor-title" onCancel={event => { event.preventDefault(); if (!busy.current) onClose(); }} className="fixed inset-0 m-auto box-border max-h-dvh w-full max-w-2xl overflow-y-auto rounded-xl border border-white/10 bg-[#242528] p-5 text-stone-200 shadow-2xl backdrop:bg-slate-950/60 sm:max-h-[90dvh] sm:p-7">
     <form className="space-y-4 font-sans text-sm" onSubmit={event => { event.preventDefault(); if (!deleting) void submit(); }}>
-      <div className="flex items-center justify-between gap-3"><h2 id="task-editor-title" className="m-0 font-serif text-xl font-normal">{task ? 'Edit task' : 'Create task'}</h2><button type="button" className={button} disabled={saving} onClick={onClose} aria-label="Close task editor">×</button></div>
-      {error && <div role="alert" className="rounded-lg bg-red-50 p-3 text-red-800">{error}{conflict && !missing && <button type="button" className={`${button} mt-2 block`} disabled={saving} onClick={() => void reviewLatest()}>Review latest board</button>}</div>}
-      {latest && <details open className="rounded-lg bg-stone-100 p-3"><summary>Latest saved task</summary><dl className="space-y-1 break-words"><dt className="font-semibold">Title</dt><dd>{latest.title}</dd><dt className="font-semibold">Description</dt><dd className="whitespace-pre-wrap">{latest.description || 'None'}</dd><dt className="font-semibold">Due date / status / student</dt><dd>{latest.dueDate || 'No due date'} · {board.columns.find(column => column.status === latest.status)?.title} · {latest.student?.name || 'No student'}</dd></dl><button type="button" className={button} disabled={saving} onClick={() => { setFields(fieldsFor(latest, null)); setLatest(null); setError(''); }}>Use latest saved values</button></details>}
+      <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-4">
+        <h2 id="task-editor-title" className="sr-only">{task ? 'Edit task' : 'Create task'}</h2>
+        <input aria-label="Task name" required maxLength={200} disabled={saving || uncertain || missing} className="min-h-12 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-2xl font-bold text-stone-100 hover:border-white/20 focus:border-blue-400 focus:outline-none" value={fields.title} onChange={event => setFields({ ...fields, title: event.target.value })} />
+        <button type="button" className={button} disabled={saving} onClick={onClose} aria-label="Close task editor">×</button>
+      </div>
+      {error && <div role="alert" className="rounded-lg border border-red-400/30 bg-red-950/40 p-3 text-red-200">{error}{conflict && !missing && <button type="button" className={`${button} mt-2 block`} disabled={saving} onClick={() => void reviewLatest()}>Review latest board</button>}</div>}
+      {latest && <details open className="rounded-lg border border-white/15 bg-[#292a2c] p-3 text-stone-200"><summary>Latest saved task</summary><dl className="space-y-1 break-words"><dt className="font-semibold">Title</dt><dd>{latest.title}</dd><dt className="font-semibold">Description</dt><dd className="min-w-0 break-words">{latest.description ? <TaskDescriptionEditor readOnly value={latest.description} /> : 'None'}</dd><dt className="font-semibold">Status</dt><dd>{latest.status === 'done' ? 'Done' : 'In progress'}</dd><dt className="font-semibold">Due date / students</dt><dd>{latest.dueDate || 'No due date'} · {latest.students.map(student => student.name).join(', ') || 'No students'}</dd></dl><button type="button" className={button} disabled={saving} onClick={() => { setFields(fieldsFor(latest, null)); setDescriptionDraft(latest.description); setDescriptionOpen(false); setSelectedList(latest.listId); setLatest(null); setError(''); }}>Use latest saved values</button></details>}
       {uncertain && <p role="status">The save may have succeeded. Retry the same request to confirm it before creating another task.</p>}
       {studentsLoading && <p role="status" className="text-slate-500">Loading student choices…</p>}
       <fieldset disabled={saving || uncertain || missing} className="m-0 space-y-4 border-0 p-0">
-        <label className="block font-semibold">Title<input autoFocus required maxLength={200} className={input} value={fields.title} onChange={event => setFields({ ...fields, title: event.target.value })} /></label>
-        <label className="block font-semibold">Description (optional)<textarea rows={4} maxLength={10000} className={input} value={fields.description} onChange={event => setFields({ ...fields, description: event.target.value })} /></label>
-        <div className="grid gap-4 sm:grid-cols-2"><label className="block font-semibold">Due date (optional)<input type="date" min="0001-01-01" max="9999-12-31" className={input} value={fields.dueDate ?? ''} onChange={event => setFields({ ...fields, dueDate: event.target.value || null })} /></label><label className="block font-semibold">Status<select className={input} value={fields.status} onChange={event => setFields({ ...fields, status: event.target.value as ManualTaskFields['status'] })}>{board.columns.map(column => <option key={column.status} value={column.status}>{column.title}</option>)}</select></label></div>
-        <div><label className="block font-semibold">Find student<input type="search" className={input} value={search} onChange={event => setSearch(event.target.value)} placeholder="Search by name" /></label><label className="mt-2 block font-semibold">Linked student (optional)<select className={input} value={fields.studentId ?? ''} onChange={event => setFields({ ...fields, studentId: event.target.value ? Number(event.target.value) : null })}><option value="">No student</option>{fields.studentId && !chosen && <option value={fields.studentId}>{task?.student?.name ?? `Student #${fields.studentId}`}</option>}{choices.map(student => <option key={student.id} value={student.id}>{student.firstName} {student.lastName}{student.active ? '' : ' (inactive)'} · #{student.id}</option>)}</select></label>{studentError && <p role="alert" className="text-red-700">{studentError} You can keep or remove the current link.</p>}<p className="text-xs text-slate-500">Choose “No student” to remove the relationship. Linked students cannot be deleted.</p></div>
+        <button type="button" className={button} aria-haspopup="dialog" onClick={() => setStudentsOpen(true)}>Students{selectedStudents.length ? ` (${selectedStudents.length})` : ''}</button>
+        <button type="button" className={button} aria-haspopup="dialog" onClick={() => setCoursesOpen(true)}>Courses{selectedCourses.length ? ` (${selectedCourses.length})` : ''}</button>
+        <button type="button" className={button} aria-haspopup="dialog" onClick={() => setAdministratorsOpen(true)}>Administrators{selectedAdministrators.length ? ` (${selectedAdministrators.length})` : ''}</button>
+        <div><span className="block text-stone-300">Status</span><div role="group" aria-label="Task status" className="mt-2 inline-flex gap-1 rounded-lg border border-white/20 bg-[#292a2c] p-1">
+          {(['in_progress', 'done'] as const).map(status => <button key={status} type="button" aria-pressed={(fields.status ?? 'in_progress') === status} className={`min-h-11 rounded-md px-4 font-semibold transition-colors ${(fields.status ?? 'in_progress') === status ? 'bg-blue-400 text-slate-950' : 'text-stone-300 hover:bg-white/10'}`} onClick={() => setFields(previous => ({ ...previous, status }))}>{status === 'done' ? 'Done' : 'In progress'}</button>)}
+        </div></div>
+        <div className="grid grid-cols-2 items-start gap-3">
+          <TaskAssigneeSelect administrators={administratorChoices} value={fields.assignedTo ?? null} disabled={saving || uncertain || missing} onChange={assignedTo => setFields(previous => ({ ...previous, assignedTo }))} />
+          <TaskDueDateSelect value={fields.dueDate} disabled={saving || uncertain || missing} onChange={dueDate => setFields(previous => ({ ...previous, dueDate }))} />
+        </div>
+        {administratorError && <p role="alert" className="text-red-300">{administratorError}</p>}
+        <section className="py-4" aria-labelledby="task-description-label">
+          <h3 id="task-description-label" className="mb-4 flex items-center gap-3 font-semibold"><svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="2"><path d="M3 5h18M3 12h18M3 19h10" /></svg>Description</h3>
+          {descriptionOpen ? <><TaskDescriptionEditor administrators={administratorChoices} courses={courseChoices} students={studentChoices} value={descriptionDraft} onChange={setDescriptionDraft} disabled={saving || uncertain || missing} /><div className="mt-2 flex gap-2"><button type="button" disabled={descriptionDraft.length > 10000} className={`${button} bg-blue-400 text-slate-950`} onClick={() => { setFields({ ...fields, description: descriptionDraft }); setDescriptionOpen(false); }}>Save description</button><button type="button" className={button} onClick={() => setDescriptionOpen(false)}>Cancel</button></div><p className="text-xs text-stone-400">Changes are saved with Save task.</p></> : <div role="button" tabIndex={saving || uncertain || missing ? -1 : 0} aria-label="Edit description" onClick={() => { if (saving || uncertain || missing) return; setDescriptionDraft(fields.description); setDescriptionOpen(true); }} onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); event.currentTarget.click(); } }} className="min-h-20 w-full cursor-text break-words rounded-md border border-white/30 px-3 py-3 text-left text-stone-300 hover:bg-white/5">{fields.description ? <TaskDescriptionEditor administrators={administratorChoices} readOnly value={fields.description} /> : 'Add a more detailed description…'}</div>}
+        </section>
       </fieldset>
-      {deleting ? <div className="rounded-lg border border-red-200 bg-red-50 p-3"><p>Permanently delete this task? This also removes its student relationship.</p><div className="flex flex-wrap gap-2"><button autoFocus type="button" className={button} disabled={saving} onClick={() => setDeleting(false)}>Keep task</button><button type="button" className={`${button} bg-red-700 text-white`} disabled={saving || conflict || missing} onClick={() => void submit(true)}>Confirm delete</button></div></div> : <div className="flex flex-wrap justify-end gap-2">{task?.canDelete && <button type="button" className={`${button} mr-auto text-red-700`} disabled={saving || missing} onClick={() => setDeleting(true)}>Delete task</button>}<button type="button" className={button} disabled={saving} onClick={onClose}>Cancel</button><button className={`${button} bg-slate-800 text-white`} disabled={saving || conflict || missing || !fields.title.trim()}>{saving ? 'Saving…' : uncertain ? 'Retry save' : 'Save task'}</button></div>}
+      {deleting ? <div className="rounded-lg border border-red-400/40 bg-red-950/45 p-3 text-red-100"><p className="m-0">Permanently delete this task? This also removes its student relationship.</p><div className="mt-3 flex flex-wrap gap-2"><button autoFocus type="button" className={`${button} bg-white/10 text-stone-100 hover:bg-white/15`} disabled={saving} onClick={() => setDeleting(false)}>Keep task</button><button type="button" className={`${button} bg-red-600 text-white hover:bg-red-500`} disabled={saving || conflict || missing} onClick={() => void submit(true)}>Confirm delete</button></div></div> : <div className="flex flex-wrap justify-end gap-2">{task?.canDelete && <button type="button" className={`${button} mr-auto text-red-700`} disabled={saving || missing} onClick={() => setDeleting(true)}>Delete task</button>}<button type="button" className={button} disabled={saving} onClick={onClose}>Cancel</button><button className={`${button} bg-slate-800 text-white`} disabled={saving || conflict || missing || !fields.title.trim()}>{saving ? 'Saving…' : uncertain ? 'Retry save' : 'Save task'}</button></div>}
     </form>
+    {studentsOpen && <TaskStudentsDialog students={studentChoices} selected={selectedStudents} loading={studentsLoading} error={studentError} onChange={studentIds => setFields(previous => ({ ...previous, studentIds }))} onClose={() => setStudentsOpen(false)} />}
+    {administratorsOpen && <TaskStudentsDialog kind="administrators" students={administratorChoices.map((admin, index) => ({ id: index + 1, name: admin.name, picture: admin.picture }))} selected={administratorChoices.flatMap((admin, index) => selectedAdministrators.includes(admin.email) ? [index + 1] : [])} loading={administratorsLoading} error={administratorError} onChange={ids => setFields(previous => ({ ...previous, administratorEmails: ids.map(id => administratorChoices[id - 1].email) }))} onClose={() => setAdministratorsOpen(false)} />}
+    {coursesOpen && <TaskStudentsDialog kind="courses" students={courseChoices} selected={selectedCourses} loading={coursesLoading} error={courseError} onChange={courseIds => setFields(previous => ({ ...previous, courseIds }))} onClose={() => setCoursesOpen(false)} />}
   </dialog>;
 }

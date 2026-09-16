@@ -35,6 +35,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 }
 
 const relationships = [
+  ["task_courses", "Linked tasks"],
   ["classes", "Recorded classes"],
   ["course_schedule", "Weekly scheduled classes"],
   ["student_courses", "Assigned students"],

@@ -1,102 +1,76 @@
-# Task board
+# Tasks workspace
 
-The Tasks page uses the existing `/api/tasks` backend and its configured columns.
-The UI uses the approved dnd-kit React integration, sortable helpers, and DOM and
-collision configuration packages, pinned to `0.5.0`. No database migration is
-needed for drag-and-drop. Apply the backend's
-`0055_manual_tasks.sql` and `0056_automatic_tasks.sql` through the normal environment migration workflow before
-using Tasks; the UI implementation does not migrate any application database.
+The workspace has a personal **Inbox** on the left and a **School / Personal** board toggle on the right. School is shared by administrators with Tasks permission; Personal and Inbox belong only to the signed-in administrator.
 
-## Administration
+## Layout and use
 
-The owner grants **Tasks** access on the Administrators page. Tasks appears in
-navigation for administrators with that permission.
+- **Hide Inbox / Show Inbox** toggles the personal panel and remembers the setting
+  in this browser. Unsent Inbox drafts survive toggling.
+- Inbox stays beside the board and has an **Add a card** input at the top.
+- The page header contains the School / Personal toggle, Hide Inbox / Show Inbox,
+  Change color, and an icon-only Refresh button. Each scope has one board;
+  administrators create named lists within it.
+- Lists stay side by side. **Add another list**, immediately after the last list,
+  opens a name input, Add list, and Cancel. New lists appear before the composer.
+- Each list has **Add a card**. Cards show a compact title and optional due date
+  and a linked student’s profile image (initials when absent). Click the card to
+  edit its full details or delete it; click the image to open the student.
+- Open a card to use its List selector and Move up/down controls in the editor. There is no card ellipsis menu. Selecting a list takes effect on Save; up/down changes are saved immediately.
+  Moving an Inbox card into a shared list makes it visible to other administrators.
+  Moving a shared card to My Inbox makes it private to the administrator moving it.
+- Lists determine the workflow. There are no task statuses or task-page filters.
+- The editor uses a searchable multiselect with photos and full names to link several students. Unchecking one student leaves the others linked.
+- Student photos and the bottom-right due date share a compact card footer.
+- Student links open the existing student panel. Personal student relationships
+  are visible only to the task owner and still prevent student deletion.
+- Dates use Europe/Bucharest calendar dates. Next 7/30 days includes today.
 
-- Create, edit, or delete a manual task; only its title is required.
-- Set an optional due date, description, and student relationship.
-- Search the student picker by name; inactive students remain selectable.
-- Open a linked student in the existing student panel. Normal modified link
-  clicks still open the directory's student deep link in another tab.
-- In **Student info → Linked tasks**, review every relationship, including
-  completed and dismissed tasks, and explicitly remove links. Removing a link keeps the task.
-  Students cannot be deleted until all task relationships have been removed.
+The narrow-screen workspace scrolls horizontally between Inbox and shared board;
+shared lists also scroll horizontally. Thin scrollbars keep both axes usable
+without heavy tracks, and long lists scroll within their own panels. Inbox scrolls vertically independently.
+Controls support keyboard and touch, with 44px action targets.
 
-## Views and movement
+## Colors and list order
 
-All tasks mixes manual tasks and retained automatic occurrences. Manual tasks
-limits the board to manually created tasks; Student Birthdays shows birthday
-occurrences. Further category views come from the backend registry.
+The gear at the right of every list, Inbox, and board header opens its settings.
+**Change color** offers solid and gradient presets plus Default. School board/list
+colors are shared. Personal board/list colors and Inbox color belong to the
+signed-in administrator and persist across browsers. Cards retain readable neutral surfaces.
+The color dropdown opens above scrolling panels and fits narrow screens.
 
-Automatic cards have a category label and reuse the same student links, date
-presentation, movement controls, and drag-and-drop. Their generated content is
-read-only. Move to Done to complete an occurrence, or use Dismiss occurrence.
-Include dismissed tasks reveals those cards and their Restore occurrence action.
-Remove student link asks for confirmation and preserves the occurrence state.
-Completion, dismissal, and unlinking affect one year only.
+Drag a list by its heading to reorder it within the current board. Inbox remains
+fixed. Keyboard sorting provides the accessible alternative. Order is saved with
+the same revision guard as card moves; failed saves restore the previous
+arrangement and offer Refresh. Cards retain their lists and positions when a
+whole list moves. List settings also provide a confirmed **Remove list** action;
+move or delete its cards first.
 
-Opening/refreshing the board synchronizes birthday occurrences, including missed
-overdue birthdays since activation. Read-only database copies show saved tasks
-without synchronization or editing. Birthdays appear up to 30 days ahead; inactive
-students receive no new occurrences. Existing tasks survive inactivity and removal
-of a birth date. February 29 uses March 1 in non-leap years.
+## Drag and drop
 
-Date filters use Europe/Bucharest calendar dates. Next 7/30 days includes today
-through today + 7/30. Overdue excludes completed and dismissed tasks; undated tasks appear only
-under All dates. Completed tasks are included by default. View, date, status,
-completed/dismissed visibility, and student filters are saved in the URL and support
-browser Back/Forward.
+The existing dnd-kit integration handles pointer, touch, and keyboard input.
+Move the pressed card by four pixels to drag immediately, or hold it for
+250 ms. Mouse, pen, and touch use the same card surface.
+A quick click opens the editor. On touch screens, swipe the list background or
+header to scroll; the card surface reserves touch movement for dragging. Student
+links do not start drags. Keyboard: focus the card, then Enter/Space, arrows, Enter/Space to drop,
+Escape to cancel. Explicit movement controls provide the same operations.
 
-The board stacks columns on mobile and uses three columns on wide screens.
-Every card has a status selector and Move up/down/top/bottom buttons. Up/down
-uses adjacent visible tasks; top/bottom uses the complete column, including
-hidden tasks. Changing status appends to the destination column. All views share
-the same saved order.
+Drag previews are optimistic. Failed saves restore the prior layout and request
+a refresh. Revision conflicts preserve editor drafts for review. Creation retries
+retain their original request key to avoid duplicate cards or lists.
+Board selection is saved in the URL.
 
-## Drag-and-drop
+## Setup and verification
 
-Drag a task by its dedicated handle. Mouse/pen movement starts after six pixels;
-touch requires a 250 ms hold with a small movement tolerance. Only the handle
-disables touch scrolling. Links, edit buttons, and the rest of the card keep
-their usual behavior. Empty columns are drop targets. The implementation follows
-the [dnd-kit multiple-list pattern](https://dndkit.com/react/guides/multiple-sortable-lists/).
+Apply migrations through `0061_task_appearance.sql` using the normal
+migration workflow. Existing manual tasks remain shared after upgrading.
+No application database is migrated by UI tests.
 
-Keyboard users can focus the handle, press Enter/Space, move with the arrow keys,
-then press Enter/Space to drop or Escape to cancel. Screen-reader instructions
-and announcements describe the operation. The status and up/down/top/bottom
-controls remain available on every card, including on mobile.
+- `node scripts/test-task-ui.mjs`
+- `TASK_UI_CHROME=/path/to/chrome node scripts/test-task-ui-browser.mjs`
+- `node scripts/test-task-boards.mjs`
+- `node scripts/test-tasks.mjs`
+- `npm run typecheck` and `npm run build`
 
-Dragging shows an optimistic preview and keeps that preview while saving. A drop
-is translated into a single relative move and sent through the same revision-
-checked `/api/tasks/move` call as the buttons. Hidden tasks are never submitted
-as a replacement list. A drop into a column with no visible tasks appends to that
-complete column; other drops use visible neighboring tasks as relative anchors.
-
-Escape, dropping outside the board, and unchanged positions make no write.
-A failed save restores the previous layout and requires a refresh before another
-move, including when a lost response makes the server's outcome uncertain.
-Filters and other movement actions are disabled during a drag/save.
-
-Explicit controls continue to wait for server confirmation. Editor conflicts
-preserve the draft and provide the latest saved values for review before a
-deliberate retry. A lost create response retains its original request and retry
-key to avoid duplicate creation. Refresh failures after a save are shown without
-reporting the completed save as failed.
-
-## Verification
-
-- `node scripts/test-task-ui.mjs`: filter combinations, calendar boundaries,
-  URL serialization, card/editor/server rendering, drag-to-relative-move mapping,
-  and HTTP error handling.
-- `TASK_UI_CHROME=/path/to/chrome node scripts/test-task-ui-browser.mjs`:
-  synthetic mouse, touch, and keyboard dragging; empty/populated columns;
-  cancellation, optimistic rollback, conflicts, quick taps and mobile scrolling;
-  CRUD, lost-response retries, explicit movement, focus restoration, persisted
-  ordering, URL history, student-panel unlinking, desktop/mobile layout, automatic
-  views/completion/dismissal/restoration/unlinking, and read-only refresh.
-  Uses a temporary localhost fixture and
-  an already installed Chromium; no real student data or application database.
-  Without `TASK_UI_CHROME`, this optional suite reports a skip.
-- Existing task API and Worker permission tests remain the backend regression
-  checks. Run `npm run typecheck` and `npm run build` for the complete application.
-
-The repository currently has no lint script or linter configuration.
+Browser tests use synthetic data and a temporary localhost fixture. The repository
+has no lint script or linter configuration.

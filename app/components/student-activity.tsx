@@ -1,4 +1,5 @@
 "use client";
+import DatePicker from './date-picker';
 
 import PaymentTransferCheckbox from "./payment-transfer-checkbox";
 import { useEffect, useRef, useState } from "react";
@@ -321,7 +322,7 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
       <p id="activity-dialog-help" className="font-sans text-sm leading-5 text-slate-500">{"Record the money received and how many classes it covers in each course. Use 0 for a class-credit-only payment."}</p>
       <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
         <fieldset disabled={locked} className="m-0 space-y-4 border-0 p-0 font-sans text-xs font-semibold text-slate-600">
-          <label className="block">{"Payment date"}<input autoFocus required type="date" min="1900-01-01" max={data.canRecordFuturePayments ? undefined : schoolToday()} value={date} onChange={(event) => setDate(event.target.value)} className={inputClass} /></label>
+          <label className="block">{"Payment date"}<DatePicker autoFocus required type="date" min="1900-01-01" max={data.canRecordFuturePayments ? undefined : schoolToday()} value={date} onChange={(event) => setDate(event.target.value)} className={inputClass} /></label>
           <fieldset className="border-0 p-0"><legend>Received via</legend>{paymentMethods.length ? <div className="mt-2 flex flex-wrap gap-2">{paymentMethods.map((method) => <label key={method} className="cursor-pointer"><input required className="peer sr-only" type="radio" name="received-method" value={method} checked={receivedMethod === method} onChange={() => setReceivedMethod(method)} /><span className="inline-flex rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-slate-700 transition-colors peer-checked:border-lime-700 peer-checked:bg-lime-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-lime-600">{method}</span></label>)}</div> : <p className="mt-2 font-normal text-slate-500">Add a method in <a className="underline" href="/settings" target="_blank" rel="noopener noreferrer">Settings</a> before recording a payment.</p>}</fieldset>
           <>
             <label className="block">Payment preset<select className={inputClass} value={presetId} disabled={presetsLoading} onChange={(event) => {

@@ -7,6 +7,9 @@
     "@dnd-kit/dom": "0.5.0",
     "@dnd-kit/helpers": "0.5.0",
     "@dnd-kit/react": "0.5.0",
+    "@tiptap/pm": "^3.31.3",
+    "@tiptap/react": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
     "@vinext/cloudflare": "latest",
     "qrcode": "^1.5.4",
     "react": "19.2.6",
@@ -24,11 +27,11 @@
     "@vitejs/plugin-react": "latest",
     "@vitejs/plugin-rsc": "latest",
     "concurrently": "^10.0.5",
+    "esbuild": "0.28.1",
     "tailwindcss": "latest",
     "typescript": "latest",
     "vite": "latest",
-    "wrangler": "^4.129.0",
-    "esbuild": "0.28.1"
+    "wrangler": "^4.129.0"
   },
   "type": "module",
   "scripts": {

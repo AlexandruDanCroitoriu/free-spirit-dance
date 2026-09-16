@@ -22,8 +22,8 @@ for table, records in before.items():
 assert db.execute('SELECT COUNT(*) FROM task_rule_state').fetchone()[0] == 0
 assert db.execute('SELECT COUNT(*) FROM automatic_task_occurrences').fetchone()[0] == 0
 db.execute('UPDATE manual_tasks SET student_id=NULL')
-db.execute("INSERT INTO task_rule_state VALUES ('birthday','2026-09-15','2026-09-15')")
-sql = "INSERT INTO automatic_task_occurrences(rule_key,subject_key,occurrence_key,student_id,title,due_date,sort_order,created_at,updated_at) VALUES ('birthday','student:1','2027',1,'Birthday','2027-03-01',0,'2026-09-15','2026-09-15')"
+db.execute("INSERT INTO task_rule_state VALUES ('event','2026-09-15','2026-09-15')")
+sql = "INSERT INTO automatic_task_occurrences(rule_key,subject_key,occurrence_key,student_id,title,due_date,sort_order,created_at,updated_at) VALUES ('event','student:1','2027',1,'Event','2027-03-01',0,'2026-09-15','2026-09-15')"
 db.execute(sql)
 db.commit()
 

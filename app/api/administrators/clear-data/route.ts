@@ -33,9 +33,14 @@ export async function POST(request: Request) {
     // payment methods, and their R2 images intact.
     await db.batch([
       db.prepare("UPDATE task_board_state SET revision = revision + 1 WHERE id = 1"),
-      db.prepare("DELETE FROM automatic_task_occurrences"),
-      db.prepare("DELETE FROM task_rule_state"),
+      db.prepare("DELETE FROM task_courses"),
+      db.prepare("DELETE FROM task_preferences"),
+      db.prepare("DELETE FROM task_students"),
       db.prepare("DELETE FROM manual_tasks"),
+      db.prepare("DELETE FROM task_lists"),
+      db.prepare("DELETE FROM task_boards"),
+      db.prepare("INSERT INTO task_boards(id, name) VALUES (1, 'School')"),
+      db.prepare("INSERT INTO task_lists(id, board_id, name, sort_order) VALUES (1, 1, 'Tasks', 0)"),
       db.prepare("DELETE FROM payment_preset_courses"),
       db.prepare("DELETE FROM payment_course_allowances"),
       db.prepare("DELETE FROM attendance"),

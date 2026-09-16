@@ -1,4 +1,5 @@
 "use client";
+import DatePicker from './date-picker';
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import ConfirmationDialog from "./confirmation-dialog";
 import { backupTable, romanianParts, type Backup, type Control } from "../lib/production-backups/model";
@@ -131,7 +132,7 @@ function BackupCard({ local = false, endpoint = defaultEndpoint, connected = tru
           <label><input type="checkbox" checked={schedule.enabled} onChange={e => setSchedule({ ...schedule, enabled: e.target.checked })} /> Weekly backup</label>
           <label className="grid gap-1">Day<select className={button} value={schedule.weekday} onChange={e => setSchedule({ ...schedule, weekday: Number(e.target.value) })}>{["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map((day,i) => <option key={day} value={i}>{day}</option>)}</select></label>
           <label className="grid gap-1">Romania time<input className={button} required type="time" value={schedule.time} onChange={e => setSchedule({ ...schedule, time: e.target.value })} /></label>
-          <label className="grid gap-1">One-time backup (optional)<input className={button} type="datetime-local" value={schedule.once} onChange={e => setSchedule({ ...schedule, once: e.target.value })} /></label>
+          <label className="grid gap-1">One-time backup (optional)<DatePicker className={button} type="datetime-local" value={schedule.once} onChange={e => setSchedule({ ...schedule, once: e.target.value })} /></label>
           <button disabled={busy} className={button}>Save schedule</button><button type="button" className={button} onClick={() => setSchedule(null)}>Cancel</button>
         </form>}
       </div>

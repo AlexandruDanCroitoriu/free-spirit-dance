@@ -20,23 +20,57 @@ const timeout = setTimeout(() => { console.error('Task browser test timed out.')
 try {
   const fixture = `
     import React from 'react'; import {createRoot} from 'react-dom/client';
-    import TaskBoard from './app/components/task-board'; import {taskColumns} from './app/lib/tasks';
+    import TaskBoard from './app/components/task-board';
     const student={id:1,firstName:'Test',lastName:'Student',email:'',phone:'',birthDate:null,facebookUrl:'',instagramUrl:'',picture:null,active:true};
-    const make=(id,title,status='todo')=>({key:'manual:'+id,title,status,source:'manual',category:'manual',description:'',dueDate:null,student:null,sortOrder:id,dismissed:false,canEditContent:true,canDelete:true,createdBy:'',createdAt:'',updatedBy:'',updatedAt:''});
-    window.fixture={tasks:[make(10,'First'),make(2,'Second'),make(3,'Completed','done')],revision:1,columns:taskColumns,views:[{key:'all',title:'All tasks'},{key:'manual',title:'Manual tasks'},{key:'birthday',title:'Student Birthdays'}],today:'2026-09-15',failSave:false,loseCreate:false};
+    const make=(id,title,listId=1)=>({key:'manual:'+id,title,source:'manual',category:'manual',listId,description:'',dueDate:null,students:[],sortOrder:id,canDelete:true,createdBy:'',createdAt:'',updatedBy:'',updatedAt:''});
+    window.fixture={inboxColor:'default',tasks:[make(10,'First'),make(2,'Second'),make(3,'Completed',3)],revision:1,boards:[{id:1,name:'School',scope:'school'}],lists:[{id:1,boardId:1,title:'This Week',sortOrder:0},{id:2,boardId:1,title:'Planning',sortOrder:1},{id:3,boardId:1,title:'Finished',sortOrder:2}],views:[{key:'all',title:'All tasks'},{key:'manual',title:'Manual tasks'}],today:'2026-09-15',failSave:false,loseCreate:false};
     window.fixture.tasks[0].sortOrder=0;window.fixture.tasks[1].sortOrder=0;
-    window.fixture.tasks[2].student={id:1,name:'Test Student'};
-    let nextId=4; const creates=new Map();window.moveRequests=[];window.refreshRequests=0;
+    window.fixture.tasks[2].students=[{id:1,name:'Test Student',picture:'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}];
+    let nextId=4; const creates=new Map();window.moveRequests=[];window.refreshRequests=0;window.listMoves=[];
     window.fetch=async(url,options={})=>{
       const state=window.fixture, method=options.method||'GET', body=JSON.parse(options.body||'{}');
       const json=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json'}});
       if(url==='/api/production-database')return json({readOnly:!!state.readOnly});
-      if(url==='/api/tasks/refresh'){window.refreshRequests++;return json(state);}
       if(url==='/api/access-permissions')return json({tasks:true,students:true});
-      if(url==='/api/students')return json([student]);
+      if(url==='/api/students')return json([student,{...student,id:2,firstName:'Another',picture:window.fixture.tasks[2].students[0].picture}]);
+      if(url==='/api/students/1/activity')return json({courses:[],payments:[],logs:[],summary:{attendanceCount:0,paidAllowance:0,excessAttendance:0}});
       if(url==='/api/students/1')return json(student);
       if(!url.startsWith('/api/tasks'))return json([]);
-      if(method==='GET')return json({...state,tasks:url.includes('studentId=1')?state.tasks.filter(t=>t.student?.id===1):state.tasks});
+      if(url==='/api/tasks/appearance'||url==='/api/tasks/lists/move'){
+        if(state.failLayout){state.failLayout=false;return json({error:'Layout changed.'},409);}
+        if(body.revision!==state.revision)return json({error:'Board changed.'},409);
+        state.revision++;
+        if(url.endsWith('appearance')) {
+          if(body.target==='inbox')state.inboxColor=body.color;
+          if(body.target==='list')state.lists.find(list=>list.id===body.listId).color=body.color;
+          if(body.target==='board') {
+            let board=state.boards.find(board=>board.scope===body.scope);
+            if(!board){board={id:2,name:'Personal',scope:'personal'};state.boards.push(board);}
+            board.color=body.color;
+          }
+        } else {
+          window.listMoves.push(body);
+          const source=state.lists.find(list=>list.id===body.listId), rest=state.lists.filter(list=>list.boardId===source.boardId&&list.id!==source.id).sort((a,b)=>a.sortOrder-b.sortOrder);
+          rest.splice(rest.findIndex(list=>list.id===body.targetId)+(body.position==='after'?1:0),0,source);rest.forEach((list,index)=>list.sortOrder=index);state.lists.sort((a,b)=>a.sortOrder-b.sortOrder);
+        }
+        return json(state);
+      }
+      if(method==='DELETE'&&url.startsWith('/api/tasks/lists/')){
+        if(body.revision!==state.revision)return json({error:'Board changed.'},409);
+        const id=Number(url.slice('/api/tasks/lists/'.length));
+        if(state.tasks.some(task=>task.listId===id))return json({error:'Move or delete all cards before removing this list.'},409);
+        state.revision++;state.lists=state.lists.filter(list=>list.id!==id);return json(state);
+      }
+      if(url==='/api/tasks/lists'){
+        if(body.revision!==state.revision)return json({error:'Board changed.'},409);
+        state.revision++;
+        let board=state.boards.find(board=>board.scope===body.scope);
+        if(!board){board={id:2,name:'Personal',scope:'personal'};state.boards.push(board);}
+        const id=Math.max(0,...state.lists.map(item=>item.id))+1;
+        state.lists.push({id,boardId:board.id,title:body.name,sortOrder:state.lists.length});
+        return json({...state,createdId:id},201);
+      }
+      if(method==='GET')return json({...state,tasks:url.includes('studentId=1')?state.tasks.filter(t=>t.students.some(s=>s.id===1)):state.tasks});
       if(method==='POST'&&url==='/api/tasks'&&creates.has(body.requestKey))return json(creates.get(body.requestKey));
       if(url==='/api/tasks/move'){
         window.moveRequests.push(body);
@@ -47,18 +81,18 @@ try {
       if(body.revision!==state.revision)return json({error:'Board changed.'},409);
       state.revision++;
       if(url==='/api/tasks/move'){
-        const task=state.tasks.find(t=>t.key===body.key), rest=state.tasks.filter(t=>t.key!==task.key&&t.status===body.status).sort((a,b)=>a.sortOrder-b.sortOrder);
+        const task=state.tasks.find(t=>t.key===body.key), rest=state.tasks.filter(t=>t.key!==task.key&&t.listId===(body.listId===undefined?task.listId:body.listId)).sort((a,b)=>a.sortOrder-b.sortOrder);
         const index=body.position==='top'?0:body.position==='bottom'?rest.length:rest.findIndex(t=>t.key===body.targetKey)+(body.position==='after'?1:0);
-        task.status=body.status;rest.splice(index,0,task);rest.forEach((t,i)=>t.sortOrder=i);return json(state);
+        task.listId=body.listId===undefined?task.listId:body.listId;rest.splice(index,0,task);rest.forEach((t,i)=>t.sortOrder=i);return json(state);
       }
       if(method==='POST'){
-        const task={...make(nextId++,body.title),...body,student:body.studentId===1?{id:1,name:'Test Student'}:null};state.tasks.push(task);
+        const task={...make(nextId++,body.title),...body,students:(body.studentIds||[]).map(id=>({id,name:id===1?'Test Student':'Another Student',picture:null}))};state.tasks.push(task);
         const result={task,revision:state.revision};creates.set(body.requestKey,result);
         if(state.loseCreate){state.loseCreate=false;throw new TypeError('Lost response');}return json(result,201);
       }
       const key=decodeURIComponent(url.split('/').at(-1)), task=state.tasks.find(t=>t.key===key);
       if(method==='DELETE'){state.tasks=state.tasks.filter(t=>t.key!==key);return json({deleted:true,revision:state.revision});}
-      Object.assign(task,body);if('studentId' in body)task.student=body.studentId===1?{id:1,name:'Test Student'}:null;
+      Object.assign(task,body);if('studentIds' in body)task.students=body.studentIds.map(id=>({id,name:id===1?'Test Student':'Another Student',picture:null}));
       return json({task,revision:state.revision});
     };
     createRoot(document.getElementById('root')).render(<TaskBoard/>);
@@ -67,7 +101,7 @@ try {
   const css = await postcss([tailwind()]).process(await readFile('app/globals.css', 'utf8'), { from: resolve('app/globals.css') });
   server = createServer((request, response) => {
     response.setHeader('Content-Type', request.url === '/fixture.js' ? 'text/javascript' : request.url === '/style.css' ? 'text/css' : 'text/html');
-    response.end(request.url === '/fixture.js' ? bundle.outputFiles[0].text : request.url === '/style.css' ? css.css : '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><div id="root"></div><script src="/fixture.js"></script>');
+    response.end(request.url === '/fixture.js' ? bundle.outputFiles[0].text : request.url === '/style.css' ? css.css : '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><header><div id="task-page-header-actions" class="task-scrollbar flex min-w-0 max-w-full items-center overflow-x-auto"></div></header><div id="root"></div><script src="/fixture.js"></script>');
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   chrome = spawn(process.env.TASK_UI_CHROME, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--disable-background-networking', '--remote-debugging-port=0', `--user-data-dir=${directory}`, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
@@ -84,62 +118,84 @@ try {
   await call('Runtime.enable'); await call('Page.enable'); await call('Page.bringToFront');
   const evaluate = async expression => { const data = await call('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (data.exceptionDetails) throw new Error(JSON.stringify(data.exceptionDetails)); return data.result.value; };
   const waitFor = async expression => { for (let count = 0; count < 100; count++) { if (await evaluate(`Boolean(${expression})`)) return; await new Promise(resolve => setTimeout(resolve, 40)); } throw new Error(`Timed out: ${expression}; ${JSON.stringify(await evaluate("({body:document.body.innerText.slice(0,2500),url:location.href})"))}; exceptions: ${JSON.stringify(exceptions)}`); };
-  const click = async label => { await evaluate(`(()=>{const button=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(label)}&&!b.disabled);if(!button)throw Error('Missing enabled button: '+${JSON.stringify(label)});button.focus();button.click()})()`); };
+  const click = async label => { await evaluate(`(()=>{const button=[...document.querySelectorAll('button')].find(b=>(b.textContent.trim()===${JSON.stringify(label)}||b.getAttribute('aria-label')===${JSON.stringify(label)})&&!b.disabled&&b.getClientRects().length);if(!button)throw Error('Missing enabled button: '+${JSON.stringify(label)});button.focus();button.click()})()`); };
   const input = async (selector, value) => { await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(Object.getPrototypeOf(e),'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event(e.tagName==='SELECT'?'change':'input',{bubbles:true}))})()`); };
   const point = selector => evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
   const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
   const key = async (name, code, keyCode) => { await call('Input.dispatchKeyEvent', { type: 'keyDown', key: name, code, windowsVirtualKeyCode: keyCode, ...(name === 'Enter' ? { text: '\r' } : {}) }); await call('Input.dispatchKeyEvent', { type: 'keyUp', key: name, code, windowsVirtualKeyCode: keyCode }); };
-  const drag = async (from, to, cancel = false) => {
+  const drag = async (from, to, cancel = false, hold = false) => {
     const start = await point(from), end = await point(to);
     await call('Input.dispatchMouseEvent', { type: 'mouseMoved', ...start });
     await call('Input.dispatchMouseEvent', { type: 'mousePressed', ...start, button: 'left', clickCount: 1 });
-    await call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: start.x + 8, y: start.y + 8, buttons: 1 });
+    if (hold) await pause(300);
+    else await call('Input.dispatchMouseEvent',{type:'mouseMoved',x:start.x+12,y:start.y,buttons:1});
     await waitFor(`document.querySelector('[data-dragging=true]')`);
     for (let step = 1; step <= 8; step++) { await call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: start.x + (end.x - start.x) * step / 8, y: start.y + (end.y - start.y) * step / 8, buttons: 1 }); await pause(35); }
     if (cancel) await key('Escape', 'Escape', 27);
     await call('Input.dispatchMouseEvent', { type: 'mouseReleased', ...end, button: 'left', clickCount: 1 });
     await waitFor(`!document.querySelector('[data-dragging=true]')`);
     await waitFor(`!document.getAnimations().some(animation=>animation.playState==='running')`);
+    assert.equal(await evaluate(`!!document.querySelector('dialog')`),false,'Dragging must not open the card editor.');
+    await pause(360);
   };
   await call('Emulation.setDeviceMetricsOverride', { width: 1400, height: 1000, deviceScaleFactor: 1, mobile: false });
   await call('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/tasks` });
   await waitFor(`document.querySelectorAll('article').length===3`);
   assert.equal(await evaluate(`document.querySelector('article').getAttribute('aria-label')`), 'First'); // Preserve server order on equal imported positions.
-  assert.equal(await evaluate(`getComputedStyle(document.querySelector('[aria-label="Task board"]')).gridTemplateColumns.split(' ').length`), 3);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('[aria-label="Task board"]')).display`), 'flex');
+  assert.equal(await evaluate(`document.querySelector('article[aria-label="Completed"] a img')!==null`),true);
+  assert.equal(await evaluate(`document.querySelector('article[aria-label="Completed"] a').textContent`),'');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('[aria-label="Task board"]')).scrollbarWidth`),'thin');
+  // A plain card-body click opens all editable details, not just the title.
+  const cardPoint=await evaluate(`(()=>{const r=document.querySelector('article[aria-label="First"]').getBoundingClientRect();return {x:r.x+2,y:r.y+2}})()`);
+  await call('Input.dispatchMouseEvent',{type:'mousePressed',...cardPoint,button:'left',clickCount:1});
+  await call('Input.dispatchMouseEvent',{type:'mouseReleased',...cardPoint,button:'left',clickCount:1});
+  await waitFor(`document.querySelector('dialog')?.open`);
+  assert.equal(await evaluate(`!!document.querySelector('dialog textarea')&&!!document.querySelector('dialog input[type=date]')`),true);
+  await click('Cancel');
+  await input('[aria-label="Inbox card title"]','Keep my draft');
+  await click('Hide Inbox');
+  assert.equal(await evaluate(`document.querySelector('#task-inbox').getBoundingClientRect().width`),0);
+  await click('Show Inbox');
+  assert.equal(await evaluate(`document.querySelector('[aria-label="Inbox card title"]').value`),'Keep my draft');
+  await input('[aria-label="Inbox card title"]','');
+  await click('Hide Inbox'); await call('Page.reload');
+  await waitFor(`document.querySelector('[aria-label="Board scope"]')&&document.querySelector('#task-inbox')?.getBoundingClientRect().width===0`);
+  await click('Show Inbox');
   // Mouse sorting uses the same guarded endpoint and keeps controls separate.
   await drag('[aria-label="Drag First"]', '[aria-label="Drag Second"]');
   await waitFor(`window.moveRequests.length===1&&!document.querySelector('[aria-busy=true]')`);
   assert.equal(await evaluate(`document.querySelector('article').getAttribute('aria-label')`), 'Second');
-  assert.deepEqual(await evaluate(`window.moveRequests[0]`), { key: 'manual:10', status: 'todo', position: 'after', targetKey: 'manual:2', revision: 1 });
+  assert.deepEqual(await evaluate(`window.moveRequests[0]`), { key: 'manual:10', listId: 1, position: 'after', targetKey: 'manual:2', revision: 1 });
   assert.equal(await evaluate(`!!document.querySelector('dialog')`), false);
-  await click('Refresh'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
+  await click('Refresh tasks'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
   assert.equal(await evaluate(`document.querySelector('article').getAttribute('aria-label')`), 'Second');
-  await drag('[aria-label="Drag First"]', '[aria-labelledby="column-in_progress"] > div');
-  await waitFor(`window.fixture.tasks.find(t=>t.title==='First').status==='in_progress'&&!document.querySelector('[aria-busy=true]')`);
+  await drag('[aria-label="Drag First"]', '[aria-labelledby="column-2"] > div',false,true);
+  await waitFor(`window.fixture.tasks.find(t=>t.title==='First').listId===2&&!document.querySelector('[aria-busy=true]')`);
   await drag('[aria-label="Drag First"]', '[aria-label="Drag Completed"]');
-  await waitFor(`window.fixture.tasks.find(t=>t.title==='First').status==='done'&&!document.querySelector('[aria-busy=true]')`);
+  await waitFor(`window.fixture.tasks.find(t=>t.title==='First').listId===3&&!document.querySelector('[aria-busy=true]')`);
   const saved = await evaluate(`JSON.stringify(window.fixture.tasks)`), count = await evaluate(`window.moveRequests.length`);
-  await drag('[aria-label="Drag First"]', '[aria-labelledby="column-in_progress"] > div', true);
+  await drag('[aria-label="Drag First"]', '[aria-labelledby="column-2"] > div', true);
   assert.equal(await evaluate(`window.moveRequests.length`), count);
   assert.equal(await evaluate(`JSON.stringify(window.fixture.tasks)`), saved);
-  await drag('[aria-label="Drag First"]', '#task-board-summary');
+  await drag('[aria-label="Drag First"]', '[aria-label="Board scope"]');
   assert.equal(await evaluate(`window.moveRequests.length`), count); // Outside-board drops cancel.
   assert.equal(await evaluate(`JSON.stringify(window.fixture.tasks)`), saved);
   // Pending preview, rollback on server error, then revision-conflict recovery.
   await evaluate(`window.fixture.delayMove=true;window.fixture.failMove=500`);
-  await drag('[aria-label="Drag First"]', '[aria-labelledby="column-in_progress"] > div');
+  await drag('[aria-label="Drag First"]', '[aria-labelledby="column-2"] > div');
   await waitFor(`!!window.releaseMove`);
-  assert.equal(await evaluate(`!!document.querySelector('[aria-labelledby="column-in_progress"] [aria-label="Drag First"]')`), true);
+  assert.equal(await evaluate(`!!document.querySelector('[aria-labelledby="column-2"] [aria-label="Drag First"]')`), true);
   await evaluate(`window.fixture.delayMove=false;window.releaseMove()`);
   await waitFor(`document.querySelector('[role=alert]')?.textContent.includes('Save failed')`);
-  assert.equal(await evaluate(`!!document.querySelector('[aria-labelledby="column-done"] [aria-label="Drag First"]')`), true);
+  assert.equal(await evaluate(`!!document.querySelector('[aria-labelledby="column-3"] [aria-label="Drag First"]')`), true);
   assert.equal(await evaluate(`JSON.stringify(window.fixture.tasks)`), saved);
-  await click('Refresh'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
+  await click('Refresh tasks'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
   await evaluate(`window.fixture.failMove=409`);
-  await drag('[aria-label="Drag First"]', '[aria-labelledby="column-in_progress"] > div');
+  await drag('[aria-label="Drag First"]', '[aria-labelledby="column-2"] > div');
   await waitFor(`document.querySelector('[role=alert]')?.textContent.includes('Board changed')`);
-  assert.equal(await evaluate(`!!document.querySelector('[aria-labelledby="column-done"] [aria-label="Drag First"]')`), true);
-  await click('Refresh'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
+  assert.equal(await evaluate(`!!document.querySelector('[aria-labelledby="column-3"] [aria-label="Drag First"]')`), true);
+  await click('Refresh tasks'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
   // Keyboard drag can be canceled; screen-reader instructions remain attached.
   await evaluate(`document.querySelector('[aria-label="Drag Second"]').focus()`);
   await key('Enter', 'Enter', 13); await waitFor(`document.querySelector('[data-dragging=true]')`);
@@ -149,119 +205,172 @@ try {
   const keyboardCount = await evaluate(`window.moveRequests.length`);
   await evaluate(`document.querySelector('[aria-label="Drag Second"]').focus()`);
   await key('Enter', 'Enter', 13); await waitFor(`document.querySelector('[data-dragging=true]')`);
-  await key('ArrowRight', 'ArrowRight', 39); await pause(100);
+  for (let step=0;step<3;step++) { await key('ArrowRight','ArrowRight',39); await pause(100); if(await evaluate(`!!document.querySelector('[aria-labelledby="column-2"] [aria-label="Drag Second"]')`)) break; }
   await key('Enter', 'Enter', 13);
   await waitFor(`window.moveRequests.length===${keyboardCount + 1}&&!document.querySelector('[aria-busy=true]')`);
-  assert.equal(await evaluate(`window.fixture.tasks.find(t=>t.title==='Second').status`), 'in_progress');
+  assert.equal(await evaluate(`window.fixture.tasks.find(t=>t.title==='Second').listId`), 2);
   await waitFor(`!document.getAnimations().some(animation=>animation.playState==='running')`);
   // Touch: a quick tap never moves a task; a deliberate hold then drag does.
   await call('Emulation.setTouchEmulationEnabled', { enabled: true });
-  const touchStart = await point('[aria-label="Drag First"]'), touchEnd = await point('[aria-labelledby="column-todo"] > div');
+  const touchStart = await point('[aria-label="Drag First"]'), touchEnd = await point('[aria-labelledby="column-1"] > div');
   const touchCount = await evaluate(`window.moveRequests.length`);
   await call('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...touchStart, id: 1 }] });
   await pause(50); await call('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   assert.equal(await evaluate(`window.moveRequests.length`), touchCount);
-  assert.equal(await evaluate(`!!document.querySelector('dialog')`), false);
+  await waitFor(`document.querySelector('dialog')?.open`);
+  await click('Cancel'); await waitFor(`!document.querySelector('dialog')`);
   await call('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...touchStart, id: 1 }] });
   await pause(300); await waitFor(`document.querySelector('[data-dragging=true]')`);
   for (let step = 1; step <= 8; step++) { await call('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: touchStart.x + (touchEnd.x - touchStart.x) * step / 8, y: touchStart.y + (touchEnd.y - touchStart.y) * step / 8, id: 1 }] }); await pause(35); }
   await call('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await waitFor(`window.moveRequests.length===${touchCount + 1}&&!document.querySelector('[aria-busy=true]')`);
-  assert.equal(await evaluate(`window.fixture.tasks.find(t=>t.title==='First').status`), 'todo');
+  assert.equal(await evaluate(`window.fixture.tasks.find(t=>t.title==='First').listId`), 1);
   await call('Emulation.setTouchEmulationEnabled', { enabled: false });
-  // Reset only the synthetic fixture for the existing CRUD/mobile regression suite.
+  // Personal quick-add, card editor, explicit publication and persisted placement.
   await call('Page.reload'); await waitFor(`window.fixture?.revision===1&&document.querySelectorAll('article').length===3`);
-  if (process.env.TASK_UI_SCREENSHOTS) { const shot = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true }); await writeFile(resolve(process.env.TASK_UI_SCREENSHOTS, 'tasks-desktop.png'), Buffer.from(shot.data, 'base64')); }
-  await click('+ Create task'); await waitFor(`document.querySelector('dialog')?.open`);
-  assert.equal(await evaluate(`document.activeElement===document.querySelector('dialog input')`), true);
-  await input('dialog input', 'Follow up'); await input('dialog input[type=date]', '2026-09-22');
-  await waitFor(`document.querySelector('dialog select:last-of-type')!==null`);
-  await input('dialog div > label.mt-2 select', '1');
-  await click('Save task'); await waitFor(`!document.querySelector('dialog')&&document.querySelectorAll('article').length===4`);
-  assert.equal(await evaluate(`window.fixture.tasks.find(t=>t.title==='Follow up').student?.id`), 1);
-  assert.equal(await evaluate(`document.activeElement.textContent`), '+ Create task');
-  await evaluate(`document.querySelector('[aria-label="Edit First"]').focus(); document.querySelector('[aria-label="Edit First"]').click(); window.fixture.failSave=true`);
-  await input('dialog input', 'My draft'); await click('Save task'); await waitFor(`document.querySelector('[role=alert]')?.textContent.includes('Board changed')`);
-  assert.equal(await evaluate(`document.querySelector('dialog input').value`), 'My draft');
-  await click('Review latest board'); await waitFor(`document.querySelector('details')?.textContent.includes('Another administrator')`);
-  await click('Save task'); await waitFor(`!document.querySelector('dialog')&&document.querySelector('[aria-label="Edit My draft"]')`);
-  await waitFor(`document.activeElement.getAttribute('aria-label')==='Edit My draft'`);
-  await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: '\r' });
-  await call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: '\r' });
-  await waitFor(`document.querySelector('dialog')?.open`);
-  await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
-  await waitFor(`!document.querySelector('dialog')`);
-  await waitFor(`document.activeElement.getAttribute('aria-label')==='Edit My draft'`);
-  await evaluate(`document.querySelector('[aria-label="Position of My draft"] button:nth-child(2)').focus()`);
-  await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: '\r' });
-  await call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: '\r' });
-  await waitFor(`document.querySelector('article').getAttribute('aria-label')==='Second'`);
-  await click('Refresh'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
-  assert.equal(await evaluate(`document.querySelector('article').getAttribute('aria-label')`), 'Second');
-  await input('[aria-label="Status for My draft"]', 'done');
-  await waitFor(`window.fixture.tasks.find(t=>t.title==='My draft').status==='done'`);
-  await evaluate(`document.querySelector('[aria-label="Task filters"] input[type=checkbox]').click()`);
-  await waitFor(`document.querySelectorAll('article').length===2`);
-  assert.equal(await evaluate(`new URL(location.href).searchParams.get('completed')`), '0');
-  await evaluate(`history.back()`); await waitFor(`document.querySelectorAll('article').length===4`);
-  await evaluate(`document.querySelector('[aria-label="Edit My draft"]').click()`); await click('Delete task'); await click('Confirm delete');
-  await waitFor(`!document.querySelector('dialog')&&document.querySelectorAll('article').length===3`);
-  await click('+ Create task'); await input('dialog input', 'Lost save'); await evaluate(`window.fixture.loseCreate=true`); await click('Save task');
-  await waitFor(`document.querySelector('dialog fieldset').disabled`); await click('Retry save'); await waitFor(`!document.querySelector('dialog')`);
-  assert.equal(await evaluate(`window.fixture.tasks.filter(t=>t.title==='Lost save').length`), 1);
-  await call('Emulation.setDeviceMetricsOverride', { width: 320, height: 740, deviceScaleFactor: 1, mobile: true });
-  assert.equal(await evaluate(`getComputedStyle(document.querySelector('[aria-label="Task board"]')).gridTemplateColumns.split(' ').length`), 1);
-  assert.equal(await evaluate(`document.documentElement.scrollWidth<=320`), true);
-  assert.equal(await evaluate(`[...document.querySelectorAll('article button,article select')].every(e=>e.getBoundingClientRect().height>=44)`), true);
-  await call('Emulation.setTouchEmulationEnabled', { enabled: true });
-  await evaluate(`document.querySelector('article').scrollIntoView({block:'center'})`);
-  const scrollStart = await evaluate(`window.scrollY`), scrollPoint = await point('article h3');
-  const beforeScrollMoves = await evaluate(`window.moveRequests.length`);
-  await call('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...scrollPoint, id: 1 }] });
-  for (let step = 1; step <= 6; step++) { await call('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: scrollPoint.x, y: scrollPoint.y - step * 20, id: 1 }] }); await pause(35); }
-  await call('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await waitFor(`window.scrollY>${scrollStart}`);
-  assert.equal(await evaluate(`window.moveRequests.length`), beforeScrollMoves);
-  await call('Emulation.setTouchEmulationEnabled', { enabled: false });
-  await evaluate(`window.scrollTo(0,0)`);
-  if (process.env.TASK_UI_SCREENSHOTS) { const shot = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true }); await writeFile(resolve(process.env.TASK_UI_SCREENSHOTS, 'tasks-mobile.png'), Buffer.from(shot.data, 'base64')); }
-  await click('+ Create task'); await waitFor(`document.querySelector('dialog')?.open`);
-  assert.equal(await evaluate(`document.querySelector('dialog').scrollWidth<=320`), true);
-  await click('Cancel'); await waitFor(`!document.querySelector('dialog')`);
-  await evaluate(`document.querySelector('article a').click()`); await waitFor(`document.querySelector('dialog')?.textContent.includes('Student info')`);
-  await evaluate(`document.querySelector('#student-tab-info').click()`); await waitFor(`document.querySelector('[aria-label="Linked tasks"]')?.textContent.includes('Follow up')`);
-  assert.equal(await evaluate(`document.querySelector('[aria-label="Linked tasks"]').textContent.includes('Completed')`), true);
-  await click('Remove link from Follow up'); await click('Confirm remove link'); await waitFor(`!window.fixture.tasks.find(t=>t.title==='Follow up').student`);
-  await click('Remove link from Completed'); await click('Confirm remove link'); await waitFor(`document.querySelector('[aria-label="Linked tasks"]')?.textContent.includes('No linked tasks')`);
-  assert.equal(await evaluate(`window.fixture.tasks.find(t=>t.title==='Follow up').student`), null);
-  // Automatic occurrences reuse the same cards, movement and mobile filters.
-  await call('Page.reload'); await waitFor(`window.fixture?.revision===1&&document.querySelectorAll('article').length===3`);
-  await evaluate(`window.fixture.tasks.push({...window.fixture.tasks[0],key:'automatic:birthday:student%3A1:2026',source:'automatic',category:'birthday',title:'Birthday: Test Student',student:{id:1,name:'Test Student'},dueDate:'2026-09-20',canEditContent:false,canDelete:false})`);
-  await click('Refresh'); await waitFor(`document.querySelectorAll('article').length===4`);
-  await input('[aria-label="Task filters"] select', 'birthday');
-  await waitFor(`document.querySelectorAll('article').length===1`);
-  assert.equal(await evaluate(`document.querySelector('article').textContent.includes('Automatic · Student Birthdays')`), true);
-  assert.equal(await evaluate(`!!document.querySelector('[aria-label="Edit Birthday: Test Student"]')`), false);
-  await input('[aria-label="Status for Birthday: Test Student"]', 'done');
-  await waitFor(`window.fixture.tasks.at(-1).status==='done'&&!document.querySelector('[aria-busy=true]')`);
-  await evaluate(`document.querySelector('[aria-label="Task filters"] input').click()`);
-  await waitFor(`document.querySelectorAll('article').length===0`);
-  await evaluate(`document.querySelector('[aria-label="Task filters"] input').click()`);
-  await waitFor(`document.querySelectorAll('article').length===1`);
-  await click('Dismiss occurrence'); await waitFor(`document.querySelectorAll('article').length===0`);
-  await evaluate(`document.querySelectorAll('[aria-label="Task filters"] input')[1].click()`);
-  await waitFor(`document.querySelector('article')?.textContent.includes('Dismissed')`);
-  await click('Restore occurrence'); await waitFor(`!window.fixture.tasks.at(-1).dismissed&&!document.querySelector('[aria-busy=true]')`);
-  await click('Remove student link'); await click('Confirm unlink');
-  await waitFor(`!document.querySelector('article a')&&!document.querySelector('[aria-busy=true]')`);
-  assert.equal(await evaluate(`document.documentElement.scrollWidth<=320`), true);
-  assert.equal(await evaluate(`[...document.querySelectorAll('article button,article select')].every(e=>e.getBoundingClientRect().height>=44)`), true);
-  const refreshCount = await evaluate(`window.refreshRequests`);
-  await evaluate(`window.fixture.readOnly=true`); await click('Refresh');
-  await waitFor(`document.querySelector('article select').disabled`);
-  assert.equal(await evaluate(`window.refreshRequests`), refreshCount, 'Read-only copies must never synchronize rules.');
-  assert.deepEqual(exceptions, []);
-  console.log('PASS: mouse/touch/keyboard dragging, empty and populated columns, cancellation, optimistic rollback, stale saves, CRUD, filters, explicit movement, reload ordering, student unlink, mobile layout, focus restoration, automatic views/actions, and read-only refresh.');
+  await input('[aria-label="Inbox card title"]', 'Private follow up'); await click('Add card');
+  await waitFor(`document.querySelector('[aria-labelledby="column-inbox"] article')`);
+  assert.equal(await evaluate(`window.fixture.tasks.at(-1).listId`),null);
+  await click('Private follow up'); await waitFor(`document.querySelector('dialog')?.open`);
+  await input('dialog input[type=date]', '2026-09-22'); await input('dialog textarea','Notes');
+  await click('Save task'); await waitFor(`!document.querySelector('dialog')`);
+  await click('Private follow up'); await waitFor(`document.querySelector('dialog')?.open`);
+  await input('[aria-label="Task list"]','2'); await click('Save task'); await waitFor(`!document.querySelector('dialog')`);
+  await waitFor(`document.querySelector('[aria-labelledby="column-2"] article[aria-label="Private follow up"]')&&!document.querySelector('[aria-busy=true]')`);
+  await click('Refresh tasks'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
+  await click('Private follow up'); await waitFor(`document.querySelector('dialog')?.open`);
+  await input('[aria-label="Task list"]','inbox'); await click('Save task'); await waitFor(`!document.querySelector('dialog')`);
+  await waitFor(`document.querySelector('[aria-labelledby="column-inbox"] article')&&!document.querySelector('[aria-busy=true]')`);
+  // Search and select multiple students; retain selections across searches and saves.
+  await click('Private follow up'); await waitFor(`document.querySelector('dialog')?.open`);
+  await evaluate(`document.querySelector('dialog details summary').click()`);
+  await input('dialog input[type=search]', 'Test');
+  await evaluate(`document.querySelector('[aria-label="Student choices"] input').click()`);
+  await input('dialog input[type=search]', 'Another');
+  assert.equal(await evaluate(`!!document.querySelector('[aria-label="Student choices"] img')`), true);
+  await evaluate(`document.querySelector('[aria-label="Student choices"] input').click()`);
+  await click('Save task'); await waitFor(`!document.querySelector('dialog')`);
+  assert.equal(await evaluate(`document.querySelectorAll('article[aria-label="Private follow up"] a').length`),2);
+  assert.equal(await evaluate(`(()=>{const c=document.querySelector('article[aria-label="Private follow up"]'), d=c.querySelector('time').getBoundingClientRect(), a=c.querySelector('a').getBoundingClientRect();return d.left>a.right&&Math.abs(d.bottom-a.bottom)<10})()`),true);
+  await click('Private follow up'); await waitFor(`document.querySelector('dialog')?.open`);
+  await evaluate(`document.querySelector('dialog details summary').click()`);
+  assert.equal(await evaluate(`document.querySelectorAll('[aria-label="Student choices"] input:checked').length`),2);
+  await evaluate(`document.querySelector('[aria-label="Student choices"] input').click()`);
+  await click('Save task'); await waitFor(`!document.querySelector('dialog')`);
+  assert.equal(await evaluate(`document.querySelectorAll('article[aria-label="Private follow up"] a').length`),1);
+  // Drag directly from the private Inbox to a shared list and back.
+  await drag('[aria-label="Drag Private follow up"]','[aria-labelledby="column-2"] > div');
+  await waitFor(`window.fixture.tasks.at(-1).listId===2&&!document.querySelector('[aria-busy=true]')`);
+  await drag('[aria-label="Drag Private follow up"]','[aria-labelledby="column-inbox"] h2');
+  await waitFor(`window.fixture.tasks.at(-1).listId===null&&!document.querySelector('[aria-busy=true]')`);
+  await input('[aria-label="Inbox card title"]','Second private'); await click('Add card');
+  await waitFor(`document.querySelectorAll('[aria-labelledby="column-inbox"] article').length===2`);
+  await click('Second private'); await waitFor(`document.querySelector('dialog')?.open`);
+  await click('Move up'); await waitFor(`!document.querySelector('dialog button:disabled[aria-label="Close task editor"]')`);
+  await evaluate(`document.querySelector('[aria-label="Close task editor"]').click()`);
+  await waitFor(`document.querySelector('[aria-labelledby="column-inbox"] article')?.getAttribute('aria-label')==='Second private'&&!document.querySelector('[aria-busy=true]')`);
+  assert.equal(await evaluate(`document.querySelectorAll('article details').length`),0);
+  // List handles reorder whole panels; cards keep their list and order.
+  const taskPlacements=await evaluate('window.fixture.tasks.map(task=>[task.key,task.listId,task.sortOrder])');
+  await drag('[aria-label="Drag list This Week"]','[aria-label="Drag list Finished"]');
+  await waitFor(`window.listMoves.length===1&&!document.querySelector('[aria-busy=true]')`);
+  assert.deepEqual(await evaluate('window.fixture.tasks.map(task=>[task.key,task.listId,task.sortOrder])'),taskPlacements);
+  const listOrderBeforeFailure=await evaluate('window.fixture.lists.map(list=>list.id)');
+  await evaluate('window.fixture.failLayout=true');
+  await drag('[aria-label="Drag list This Week"]','[aria-label="Drag list Planning"]');
+  await waitFor(`document.querySelector('[role=alert]')`);
+  assert.deepEqual(await evaluate(`[...document.querySelectorAll('[aria-label="Task board"] > section')].map(e=>Number(e.getAttribute('aria-labelledby').slice(7)))`),listOrderBeforeFailure);
+  await click('Refresh tasks'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
+  await evaluate(`document.querySelector('[aria-label="Planning list settings"]').click()`);
+  assert.equal(await evaluate(`document.body.textContent.includes('Move left')||document.body.textContent.includes('Move right')`),false);
+  await click('Remove list'); await click('Remove list');
+  await waitFor(`!window.fixture.lists.some(list=>list.title==='Planning')&&!document.querySelector('[aria-busy=true]')`);
+  // Keyboard list sorting uses the header; Escape cancels without persistence.
+  const listMovesBeforeKeyboard=await evaluate('window.listMoves.length');
+  await evaluate(`document.querySelector('[aria-label="Drag list This Week"]').focus()`);
+  await key(' ', 'Space', 32); await waitFor(`document.querySelector('section[data-dragging=true]')`); await pause(150);
+  await key('ArrowLeft','ArrowLeft',37); await pause(150); await key(' ', 'Space', 32);
+  await waitFor(`window.listMoves.length===${listMovesBeforeKeyboard+1}&&!document.querySelector('[aria-busy=true]')`); await pause(400);
+  await evaluate(`document.querySelector('[aria-label="Drag list This Week"]').focus()`);
+  await key(' ', 'Space', 32); await waitFor(`document.querySelector('section[data-dragging=true]')`); await pause(150);
+  await key('ArrowRight','ArrowRight',39); await key('Escape','Escape',27); await pause(400);
+  assert.equal(await evaluate('window.listMoves.length'),listMovesBeforeKeyboard+1);
+  const listMovesBeforeTouch=await evaluate('window.listMoves.length');
+  await call('Emulation.setTouchEmulationEnabled',{enabled:true});
+  const listTouchStart=await point('[aria-label="Drag list This Week"]'), listTouchEnd=await point('[aria-label="Drag list Finished"]');
+  await call('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...listTouchStart,id:1}]});
+  await pause(300);
+  await waitFor(`document.querySelector('section[data-dragging=true]')`); await pause(150);
+  for(let step=1;step<=6;step++){await call('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:listTouchStart.x+(listTouchEnd.x-listTouchStart.x)*step/6,y:listTouchStart.y,id:1}]});await pause(40);}
+  await call('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await waitFor(`window.listMoves.length===${listMovesBeforeTouch+1}&&!document.querySelector('[aria-busy=true]')`);
+  await pause(400); await call('Emulation.setTouchEmulationEnabled',{enabled:false});
+  const paint=async(label,color)=>{
+    if(label==='School board'||label==='Personal board') await evaluate(`document.querySelector('[aria-label="Change color"]').click()`);
+    else {
+      await evaluate(`document.querySelector('[aria-label="${label} settings"]').click()`);
+      await evaluate(` [...document.querySelectorAll(':popover-open button')].find(button=>button.textContent.trim()==='Change color').click()`);
+    }
+    await evaluate(`document.querySelector(':popover-open [aria-label="${color}"]').click()`);
+    await waitFor(`!document.querySelector(':popover-open')&&!document.querySelector('[aria-busy=true]')`);
+  };
+  await paint('School board','Ocean'); await paint('Inbox','Plum'); await paint('This Week list','Gold');
+  assert.equal(await evaluate(`window.fixture.boards[0].color`),'ocean');
+  assert.equal(await evaluate(`window.fixture.inboxColor`),'plum');
+  await click('Refresh tasks'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
+  assert.equal(await evaluate(`document.querySelector('[aria-labelledby="column-1"]').style.background`),'rgb(206, 144, 50)');
+  // The reference geometry: tall Inbox, aligned shared header, horizontal lists.
+  assert.equal(await evaluate(`(()=>{const inbox=document.querySelector('[aria-labelledby="column-inbox"]').getBoundingClientRect(), shared=document.querySelector('[aria-label="School board"]').getBoundingClientRect();return Math.abs(inbox.top-shared.top)<2&&shared.left>inbox.right&&inbox.height>800})()`),true);
+  if (process.env.TASK_UI_SCREENSHOTS) { const shot=await call('Page.captureScreenshot',{format:'png'});await writeFile(resolve(process.env.TASK_UI_SCREENSHOTS,'tasks-desktop.png'),Buffer.from(shot.data,'base64')); }
+  assert.equal(await evaluate(`!document.querySelector('[aria-controls="task-filters"]')&&!document.querySelector('[aria-label="Task filters"]')`),true);
+  await input('[aria-label="Inbox card title"]','Unsent private draft');
+  await click('Personal');
+  await waitFor(`document.querySelector('[aria-label="Personal board"]')`);
+  assert.equal(await evaluate(`document.querySelector('[aria-label="Inbox card title"]').value`),'Unsent private draft');
+  await paint('Personal board','Lilac');
+  assert.equal(await evaluate(`window.fixture.boards.find(board=>board.scope==='school').color`),'ocean');
+  await input('[aria-label="Inbox card title"]','');
+  assert.equal(await evaluate(`document.querySelectorAll('[aria-label="Task board"] article').length`),0);
+  assert.equal(await evaluate(`document.querySelectorAll('[aria-labelledby="column-inbox"] article').length`),2);
+  await click('+ Add another list'); await input('[aria-label="Create list"] input','Invitations'); await click('Add list');
+  await waitFor(`window.fixture.lists.some(list=>list.title==='Invitations')&&!document.querySelector('[aria-busy=true]')`);
+  await input('[aria-label="Create list"] input','Venue'); await click('Add list');
+  await waitFor(`document.querySelectorAll('[aria-label="Task board"] > section').length===2&&!document.querySelector('[aria-busy=true]')`);
+  await evaluate(`document.querySelector('[aria-label="Cancel adding list"]').click()`);
+  await click('+ Add a card'); await input('[aria-label="Card title"]','Invite teachers'); await click('Add card');
+  await waitFor(`document.querySelector('[aria-label="Task board"] article')`);
+  assert.equal(await evaluate(`window.fixture.tasks.at(-1).listId===window.fixture.lists.find(list=>list.title==='Invitations').id`),true);
+  await call('Emulation.setDeviceMetricsOverride',{width:320,height:740,deviceScaleFactor:1,mobile:true});
+  assert.equal(await evaluate(`document.documentElement.scrollWidth<=320`),true);
+  assert.equal(await evaluate(`document.querySelector('[aria-label="Task workspace"]').scrollWidth>320`),true);
+  await evaluate(`document.querySelector('[aria-label="Inbox settings"]').click()`);
+  await click('Change color');
+  assert.equal(await evaluate(`(()=>{const r=document.querySelector(':popover-open').getBoundingClientRect();return r.left>=0&&r.right<=320&&r.top>=0&&r.bottom<=740})()`),true);
+  await evaluate(`document.querySelector(':popover-open [aria-label="Default"]').click()`);
+  await waitFor(`!document.querySelector(':popover-open')&&!document.querySelector('[aria-busy=true]')`);
+  await evaluate(`document.querySelector('[aria-label="Task workspace"]').scrollLeft=0`);
+  await call('Emulation.setTouchEmulationEnabled',{enabled:true});
+  const swipeStart=await point('[aria-labelledby="column-inbox"] h2'), movesBeforeSwipe=await evaluate('window.moveRequests.length');
+  await call('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...swipeStart,id:1}]});
+  for(let step=1;step<=4;step++){await call('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:swipeStart.x-step*25,y:swipeStart.y,id:1}]});await pause(20);}
+  await call('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await waitFor(`document.querySelector('[aria-label="Task workspace"]').scrollLeft>0`);
+  assert.equal(await evaluate('window.moveRequests.length'),movesBeforeSwipe,'Swiping the list background should scroll, not drag.');
+  await pause(400); await call('Emulation.setTouchEmulationEnabled',{enabled:false});
+  await evaluate(`document.querySelector('[aria-label="Task workspace"]').scrollLeft=0`);
+  await click('Second private'); await waitFor(`document.querySelector('dialog')?.open`);
+  assert.equal(await evaluate(`document.querySelector('dialog').scrollWidth<=320`),true);
+  await click('Delete task'); await click('Confirm delete'); await waitFor(`!document.querySelector('dialog')`);
+  assert.equal(await evaluate(`window.fixture.tasks.some(t=>t.title==='Second private')`),false);
+  if(process.env.TASK_UI_SCREENSHOTS){const shot=await call('Page.captureScreenshot',{format:'png'});await writeFile(resolve(process.env.TASK_UI_SCREENSHOTS,'tasks-mobile.png'),Buffer.from(shot.data,'base64'));}
+  await evaluate(`window.fixture.loseCreate=true`);
+  await input('[aria-label="Inbox card title"]','Lost-response draft'); await click('Add card');
+  await waitFor(`document.querySelector('[aria-label="Add Inbox card"] [role=alert]')`);
+  assert.equal(await evaluate(`document.querySelector('[aria-label="Inbox card title"]').disabled`),true);
+  await click('Retry'); await waitFor(`document.querySelector('article[aria-label="Lost-response draft"]')`);
+  assert.equal(await evaluate(`window.fixture.tasks.filter(t=>t.title==='Lost-response draft').length`),1);
+  assert.deepEqual(exceptions,[]);
+  console.log('PASS: desktop/mobile reference layout, Inbox/list creation, private/shared moves, mouse/touch/keyboard drag, rollback, compact cards/editor/delete, explicit ordering, School/Personal boards and lists, and header controls.');
   await call('Browser.close');
 } finally {
   clearTimeout(timeout); socket?.close(); chrome?.kill(); server?.close();

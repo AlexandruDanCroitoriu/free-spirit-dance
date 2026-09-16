@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { addCalendarDays, nextBirthday } from "../lib/task-dates";
+import { addCalendarDays, nextBirthday } from "../lib/calendar-dates";
 import { schoolToday } from "../lib/tasks";
 
 type Student = { id: number; firstName: string; lastName: string; birthDate: string | null; active: boolean };
@@ -61,7 +61,7 @@ export default function BirthdayNotifications() {
     if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
   }}>
     <button ref={trigger} type="button" aria-label={label} aria-expanded={open} aria-controls="birthday-notifications" onClick={() => setOpen((current) => !current)} className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-stone-300 bg-white text-slate-700 hover:bg-stone-50 focus-visible:outline-lime-600">
-      <svg aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
+      <svg aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12h16v9H4zM2 21h20M8 12V9m4 3V9m4 3V9M4 16c2 2 3 2 4 0 2 2 3 2 4 0 2 2 3 2 4 0 2 2 3 2 4 0M8 6V4m4 2V3m4 3V4" /></svg>
       {loaded && birthdays.length > 0 && <span aria-hidden="true" className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">{birthdays.length > 99 ? "99+" : birthdays.length}</span>}
     </button>
     {open && <div id="birthday-notifications" role="dialog" aria-label="Upcoming birthdays" className="absolute right-0 top-full z-30 mt-2 w-72 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-lg">

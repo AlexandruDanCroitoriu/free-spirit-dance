@@ -1,33 +1,29 @@
 "use client";
 
 import { formatTaskDate } from '../lib/task-filters';
-import type { BoardTask, TaskBoard, TaskStatus } from '../lib/tasks';
-import { useState, type ReactNode } from 'react';
-import type { TaskMove } from '../lib/task-move';
+import type { BoardTask } from '../lib/tasks';
 
-export type AutomaticAction = 'dismiss' | 'restore' | 'unlink';
-export default function TaskCard({ task, columns, today, previous, next, canTop, canBottom, disabled, dragHandle, categoryTitle, onAction, onEdit, onStudent, onMove }: {
-  task: BoardTask; columns: TaskBoard['columns']; today: string; previous?: string; next?: string; canTop: boolean; canBottom: boolean; disabled: boolean;
-  dragHandle?: ReactNode;
-  categoryTitle?: string; onAction?: (action: AutomaticAction) => void;
-  onEdit: () => void; onStudent: (id: number) => void; onMove: (move: TaskMove) => void;
+export type TaskCardAdministrator = { email: string; name: string; picture: string | null };
+
+export default function TaskCard({ task, administrator, today, disabled, onStudent, onEdit }: {
+  task: BoardTask;
+  administrator?: TaskCardAdministrator;
+  today: string; disabled: boolean;
+  onStudent: (id: number) => void; onEdit: (task: BoardTask) => void;
 }) {
-  const [unlinking, setUnlinking] = useState(false);
-  const button = 'min-h-11 rounded-lg border border-stone-300 bg-white px-3 text-xs font-semibold hover:bg-stone-50 disabled:opacity-40';
-  const overdue = !task.dismissed && task.status !== 'done' && task.dueDate !== null && task.dueDate < today;
-  return <article aria-label={task.title} className="min-w-0 rounded-xl border border-stone-200 bg-white p-4 shadow-sm font-sans">
-    {task.source === 'automatic' && <p className="mb-2 mt-0 text-xs font-semibold text-lime-800">Automatic · {categoryTitle ?? task.category}{task.dismissed && ' · Dismissed'}</p>}
-    <div className="flex items-start justify-between gap-2">{dragHandle}<h3 className="m-0 min-w-0 flex-1 break-words text-sm font-bold">{task.title}</h3>{task.canEditContent && <button type="button" disabled={disabled} className={button} aria-label={`Edit ${task.title}`} onClick={onEdit}>Edit</button>}</div>
-    {task.description && <p className="line-clamp-3 whitespace-pre-wrap break-words text-sm text-slate-600">{task.description}</p>}
-    <p className={`text-xs ${overdue ? 'font-semibold text-red-700' : 'text-slate-500'}`}>{task.dueDate ? <><time dateTime={task.dueDate}>{formatTaskDate(task.dueDate)}</time>{overdue ? ' · Overdue' : task.dueDate === today ? ' · Today' : ''}</> : 'No due date'}{task.status === 'done' && ' · Completed'}</p>
-    {task.student && <a aria-disabled={disabled || undefined} className="mb-2 inline-flex min-h-11 items-center break-words text-sm font-semibold text-lime-800 underline" href={`/students?student=${task.student.id}`} onClick={event => { if (disabled) { event.preventDefault(); return; } if (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.button === 0) { event.preventDefault(); onStudent(task.student!.id); } }}>{task.student.name}</a>}
-    <label className="block text-xs font-semibold">Move to<select aria-label={`Status for ${task.title}`} className="mt-1 min-h-11 w-full rounded-lg border border-stone-300 bg-white px-2 text-sm disabled:opacity-50" disabled={disabled} value={task.status} onChange={event => onMove({ key: task.key, status: event.target.value as TaskStatus, position: 'bottom' })}>{columns.map(column => <option key={column.status} value={column.status}>{column.title}</option>)}</select></label>
-    <div className="mt-2 grid grid-cols-2 gap-2" role="group" aria-label={`Position of ${task.title}`}>
-      <button type="button" className={button} disabled={disabled || !previous} onClick={() => onMove({ key: task.key, status: task.status, position: 'before', targetKey: previous })}>Move up</button>
-      <button type="button" className={button} disabled={disabled || !next} onClick={() => onMove({ key: task.key, status: task.status, position: 'after', targetKey: next })}>Move down</button>
-      <button type="button" className={button} disabled={disabled || !canTop} onClick={() => onMove({ key: task.key, status: task.status, position: 'top' })}>Move to top</button>
-      <button type="button" className={button} disabled={disabled || !canBottom} onClick={() => onMove({ key: task.key, status: task.status, position: 'bottom' })}>Move to bottom</button>
+  const overdue = task.status !== 'done' && task.dueDate !== null && task.dueDate < today;
+  const assigneeName = administrator?.name || task.assignedTo;
+  const assigneePicture = administrator?.picture;
+  return <article onClick={event => { if (!disabled && event.target instanceof Element && !event.target.closest('button, a, details, input, select, textarea')) onEdit(task); }} aria-label={task.title} className="relative rounded-lg border border-stone-200 bg-white p-2 font-sans shadow-sm">
+    <div className="flex items-center gap-2"><button data-task-open type="button" disabled={disabled} onClick={() => onEdit(task)} className="min-h-11 min-w-0 flex-1 break-words rounded-md px-1 text-left text-sm hover:bg-stone-50 disabled:opacity-70">{task.title}</button>
+      {task.assignedTo && assigneeName && <span role="img" aria-label={`Assigned administrator: ${assigneeName}`} title={`Assigned administrator: ${assigneeName}`} className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-purple-200 text-xs font-bold text-purple-950 ring-2 ring-purple-100">
+        {assigneePicture && /^\/(?!\/)/.test(assigneePicture) ? <img src={assigneePicture} alt="" loading="lazy" draggable={false} className="h-full w-full object-cover" /> : assigneeName.split(/\s+/).filter(Boolean).map(part => part[0]).slice(0, 2).join('').toUpperCase()}
+      </span>}
     </div>
-    {task.source === 'automatic' && onAction && <div className="mt-3 flex flex-wrap gap-2"><button type="button" className={button} disabled={disabled} onClick={() => onAction(task.dismissed ? 'restore' : 'dismiss')}>{task.dismissed ? 'Restore occurrence' : 'Dismiss occurrence'}</button>{task.student && !unlinking && <button type="button" className={button} disabled={disabled} onClick={() => setUnlinking(true)}>Remove student link</button>}{task.student && unlinking && <div className="w-full rounded-lg bg-stone-100 p-3 text-xs"><p>Remove this occurrence’s student link? The task and its occurrence state will be kept.</p><button type="button" className={button} disabled={disabled} onClick={() => setUnlinking(false)}>Keep link</button><button type="button" className={`${button} ml-2`} disabled={disabled} onClick={() => { setUnlinking(false); onAction('unlink'); }}>Confirm unlink</button></div>}</div>}
+    <span className={`mx-1 mb-1 inline-block rounded-full px-2 py-0.5 text-xs ${task.status === 'done' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>{task.status === 'done' ? 'Done' : 'In progress'}</span>
+    {(task.dueDate || task.students.length > 0) && <div className="flex items-end justify-between gap-2 px-1">
+      <div className="flex min-w-0 flex-wrap">{task.students.map(student => <a key={student.id} aria-label={`Open student: ${student.name}`} title={student.name} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-lime-700" href={`/students?student=${student.id}`} onClick={event => { if (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.button === 0) { event.preventDefault(); onStudent(student.id); } }}><span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-lime-200 text-xs font-bold text-slate-800">{student.picture ? <img src={student.picture} alt="" loading="lazy" draggable={false} className="h-full w-full object-cover" /> : student.name.split(/\s+/).filter(Boolean).map(part => part[0]).slice(0, 2).join('')}</span></a>)}</div>
+      {task.dueDate && <time dateTime={task.dueDate} aria-label={`${overdue ? 'Overdue: ' : 'Due: '}${formatTaskDate(task.dueDate)}`} className={`mb-1 shrink-0 text-right text-xs ${overdue ? 'text-red-700' : 'text-slate-500'}`}>{formatTaskDate(task.dueDate)}</time>}
+    </div>}
   </article>;
 }

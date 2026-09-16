@@ -66,6 +66,13 @@ try {
   const permissions = await load('app/api/access-permissions/route.ts', 'permissions');
   const administrators = await load('app/api/administrators/[email]/route.ts', 'administrator');
   const domain = await load('app/lib/tasks.ts', 'domain');
+  const filters = await load('app/lib/task-filters.ts', 'filters');
+  for (const status of ['in_progress', 'done']) {
+    const task = { status, source: 'manual', students: [], dueDate: null };
+    assert.equal(filters.matchesTask(task, filters.readTaskFilters(new URLSearchParams()), '2026-09-16'), true);
+    assert.equal(filters.matchesTask(task, filters.readTaskFilters(new URLSearchParams({ status })), '2026-09-16'), true);
+    assert.equal(filters.matchesTask(task, filters.readTaskFilters(new URLSearchParams({ status: status === 'done' ? 'in_progress' : 'done' })), '2026-09-16'), false);
+  }
   const transfer = await load('app/lib/local-database-transfer.ts', 'transfer');
   const exporter = await load('app/api/administrators/export/route.ts', 'export');
   const importer = await load('app/api/administrators/import/route.ts', 'import');
@@ -78,16 +85,16 @@ try {
   await expect(api.POST(request('POST', {}, { headers: { 'cf-access-authenticated-user-email': 'denied@example.test' } })), 403);
   const initial = await expect(api.GET(request()));
   assert.equal(initial.revision, revision()); assert.deepEqual(initial.tasks, []);
-  assert.deepEqual(initial.columns.map(column => column.status), ['todo', 'in_progress', 'done']);
+  assert.equal('columns' in initial, false);
   assert.equal((await api.GET(request())).headers.get('Cache-Control'), 'no-store');
   assert.equal((await expect(permissions.GET(request()))).tasks, true);
 
   const create = (title, extra = {}) => api.POST(request('POST', { title, revision: revision(), requestKey: `task-create-${title.replaceAll(' ', '-').padEnd(10, 'x')}`, ...extra }));
-  const first = await expect(create('First', { studentId: 1, dueDate: '2026-09-15' }), 201);
+  const first = await expect(create('First', { studentIds: [1], dueDate: '2026-09-15' }), 201);
   const second = await expect(create('Second'), 201);
-  const third = await expect(create('Third', { studentId: 2 }), 201);
+  const third = await expect(create('Third', { studentIds: [2] }), 201);
   assert.equal(first.task.key, 'manual:1'); assert.equal(first.task.source, 'manual');
-  assert.deepEqual(first.task.student, { id: 1, name: 'First Student' });
+  assert.deepEqual(first.task.students, [{ id: 1, name: 'First Student', picture: '/api/student-images/student-test' }]);
   assert.equal(second.task.dueDate, null); assert.equal(second.task.description, '');
   assert.equal(first.task.createdBy, admin);
   assert.equal((await expect(item.GET(request(), context(first.task.key)))).task.title, 'First');
@@ -99,11 +106,11 @@ try {
 
   // A response lost in transit can be retried even after the board has changed.
   const beforeRetry = revision();
-  await expect(create('First', { revision: 0, studentId: 1, dueDate: '2026-09-15' }));
+  await expect(create('First', { revision: 0, studentIds: [1], dueDate: '2026-09-15' }));
   assert.equal(revision(), beforeRetry); assert.equal(rows().length, 3);
-  await expect(create('First', { description: 'Different', studentId: 1, dueDate: '2026-09-15' }), 409);
-  for (const extra of [{ title: '' }, { title: 'x'.repeat(201) }, { description: 'x'.repeat(10001) }, { dueDate: '2026-02-30' }, { dueDate: '2026-13-01' }, { status: 'waiting' }, { studentId: -1 }, { studentId: '1' }, { source: 'automatic' }, { sortOrder: 0 }, { revision: -1 }, { requestKey: 'short' }]) await expect(create('Invalid', extra), 400);
-  await expect(create('Missing student', { studentId: 9999 }), 409);
+  await expect(create('First', { description: 'Different', studentIds: [1], dueDate: '2026-09-15' }), 409);
+  for (const extra of [{ title: '' }, { title: 'x'.repeat(201) }, { description: 'x'.repeat(10001) }, { dueDate: '2026-02-30' }, { dueDate: '2026-13-01' }, { status: 'waiting' }, { studentIds: [-1] }, { studentIds: ['1'] }, {studentIds: null}, {studentIds: 1}, {studentIds: Array(501).fill(1)}, { source: 'automatic' }, { sortOrder: 0 }, { revision: -1 }, { requestKey: 'short' }]) await expect(create('Invalid', extra), 400);
+  await expect(create('Missing student', { studentIds: [9999] }), 409);
   assert.equal(rows().length, 3); assert.equal(revision(), beforeRetry, 'Failed FK creation rolls back the guard and profile changes.');
   await expect(api.POST(request('POST', {}, { headers: { Origin: 'https://other.test' } })), 403);
   await expect(api.POST(request('POST', {}, { headers: { Origin: '' } })), 403);
@@ -113,62 +120,70 @@ try {
 
   const patch = (key, fields) => item.PATCH(request('PATCH', { revision: revision(), ...fields }), context(key));
   await expect(patch(first.task.key, { description: 'Call before class', title: 'Updated' }));
-  assert.equal(rows()[0].student_id, 1); assert.equal(rows()[0].due_date, '2026-09-15');
+  assert.equal(db.sqlite.prepare('SELECT student_id FROM task_students WHERE task_id=1').get().student_id, 1); assert.equal(rows()[0].due_date, '2026-09-15');
   assert.equal(rows()[0].created_at, first.task.createdAt);
-  await expect(patch(first.task.key, { studentId: null, dueDate: null }));
-  assert.equal(rows()[0].student_id, null);
-  await expect(patch(first.task.key, { studentId: 1 }));
-  await expect(patch(first.task.key, { status: 'done' }));
+  await expect(patch(first.task.key, { studentIds: [], dueDate: null }));
+  assert.equal(db.sqlite.prepare('SELECT count(*) n FROM task_students WHERE task_id=1').get().n, 0);
+  await expect(patch(first.task.key, { studentIds: [1] }));
+  assert.equal((await expect(patch(first.task.key, { status: 'done' }))).task.status, 'done');
+  assert.equal((await expect(patch(first.task.key, { title: 'Still completed' }))).task.status, 'done', 'Unrelated edits preserve completion');
+  assert.equal((await expect(patch(first.task.key, { status: 'in_progress' }))).task.status, 'in_progress');
   const studentContext = { params: Promise.resolve({ id: '1' }) };
   await expect(students.DELETE(request('DELETE', {}), studentContext), 409);
   assert.deepEqual(deletedImages, []);
   assert.throws(() => db.sqlite.exec('DELETE FROM students WHERE id=1'), /FOREIGN KEY/, 'Done tasks still restrict direct student deletion.');
 
   const move = fields => moves.POST(request('POST', { revision: revision(), ...fields }));
-  await expect(move({ key: first.task.key, status: 'todo', position: 'top' }));
-  const moved = await expect(move({ key: third.task.key, status: 'todo', position: 'before', targetKey: first.task.key }));
+  await expect(move({ key: first.task.key, position: 'top' }));
+  const moved = await expect(move({ key: third.task.key, position: 'before', targetKey: first.task.key }));
   assert.deepEqual(moved.tasks.map(task => task.key), [third.task.key, first.task.key, second.task.key], 'A filtered move retains the hidden Second task.');
-  await expect(move({ key: first.task.key, status: 'in_progress', position: 'bottom' }));
-  assert.deepEqual((await expect(api.GET(request()))).tasks.filter(task => task.status === 'in_progress').map(task => task.key), [first.task.key]);
-  await expect(move({ key: second.task.key, status: 'todo', position: 'after', targetKey: third.task.key }));
+  await expect(move({ key: first.task.key, position: 'bottom' }));
+  await expect(move({ key: second.task.key, position: 'after', targetKey: third.task.key }));
   for (const fields of [
-    { key: second.task.key, status: 'todo', position: 'before', targetKey: second.task.key },
-    { key: second.task.key, status: 'todo', position: 'top', targetKey: third.task.key },
-    { key: second.task.key, status: 'todo', position: 'before' },
-    { key: second.task.key, status: 'todo', position: ['top'] },
+    { key: second.task.key, position: 'before', targetKey: second.task.key },
+    { key: second.task.key, position: 'top', targetKey: third.task.key },
+    { key: second.task.key, position: 'before' },
+    { key: second.task.key, position: ['top'] },
   ]) await expect(move(fields), 400);
-  await expect(move({ key: second.task.key, status: 'todo', position: 'before', targetKey: first.task.key }), 409);
+  await expect(move({ key: second.task.key, position: 'before', targetKey: first.task.key })); // Different statuses may now share a list.
 
   // Interleave another writer after the read, before the guarded D1 batch.
   const beforeRace = rows();
   const raceRevision = revision();
   db.setBeforeMutation(() => db.sqlite.exec("UPDATE manual_tasks SET description='Other administrator' WHERE id=2"));
-  await expect(move({ key: first.task.key, status: 'todo', position: 'top' }), 409);
+  await expect(move({ key: first.task.key, position: 'top' }), 409);
   assert.equal(revision(), raceRevision + 1);
   assert.deepEqual(rows().map(({ description, ...row }) => row), beforeRace.map(({ description, ...row }) => row), 'Stale move must roll back all position/status writes.');
   assert.equal(rows()[1].description, 'Other administrator');
   await expect(patch(first.task.key, { revision: raceRevision, title: 'Stale edit' }), 409);
   const beforeForeignKey = rows();
-  await expect(patch(first.task.key, { studentId: 9999, title: 'Must roll back' }), 409);
+  await expect(patch(first.task.key, { studentIds: [9999], title: 'Must roll back' }), 409);
   assert.deepEqual(rows(), beforeForeignKey);
 
+  const linkedMany = await expect(patch(first.task.key, {studentIds: [2, 1, 2]}));
+  assert.deepEqual(linkedMany.task.students.map(student => student.id), [1, 2]);
+  assert.ok((await expect(api.GET(request('GET', undefined, {url: `${origin}/api/tasks?studentId=2`})))).tasks.some(task => task.key === first.task.key));
+  const linksBefore = db.sqlite.prepare('SELECT * FROM task_students ORDER BY task_id, student_id').all();
+  await expect(patch(first.task.key, {studentIds: [1, 9999]}), 409);
+  assert.deepEqual(db.sqlite.prepare('SELECT * FROM task_students ORDER BY task_id, student_id').all(), linksBefore);
+  await expect(patch(first.task.key, {studentIds: [1]}));
   // Unlinking, rather than completion, is what permits student deletion.
-  await expect(patch(first.task.key, { studentId: null }));
+  await expect(patch(first.task.key, { studentIds: [] }));
   await expect(students.DELETE(request('DELETE', {}), studentContext), 204);
   assert.deepEqual(deletedImages, ['student-test']);
   const beforeDeletedStudent = rows();
-  await expect(patch(first.task.key, { studentId: 1 }), 409);
+  await expect(patch(first.task.key, { studentIds: [1] }), 409);
   assert.deepEqual(rows(), beforeDeletedStudent);
   db.setBeforeMutation(() => db.sqlite.exec('DELETE FROM students WHERE id=2'));
   // Student 2 still has a task: the competing delete itself is rejected.
-  await expect(patch(second.task.key, { studentId: 2 }), 409);
+  await expect(patch(second.task.key, { studentIds: [2] }), 409);
   assert.ok(db.sqlite.prepare('SELECT id FROM students WHERE id=2').get());
   db.sqlite.exec("INSERT INTO students(id,first_name,last_name,email) VALUES (3,'Concurrent','Deletion','')");
   const beforeConcurrentLink = revision();
   db.setBeforeMutation(() => db.sqlite.exec('DELETE FROM students WHERE id=3'));
-  await expect(patch(second.task.key, { studentId: 3 }), 409);
-  assert.equal(revision(), beforeConcurrentLink + 1, 'Only the competing student deletion advances the revision; the failed link guard rolls back.');
-  assert.equal(rows().find(task => task.id === 2).student_id, null);
+  await expect(patch(second.task.key, { studentIds: [3] }), 409);
+  assert.equal(revision(), beforeConcurrentLink, 'The failed link guard rolls back; student changes no longer generate tasks.');
+  assert.equal(db.sqlite.prepare('SELECT count(*) n FROM task_students WHERE task_id=2').get().n, 0);
 
   // Existing administrator forms can omit tasks without revoking its grant.
   const permissionBody = { dashboard: false, students: false, courses: false, practiceParties: false, qrCodes: false };
@@ -190,6 +205,17 @@ try {
   await transfer.replaceDatabase(copy, exported, null);
   assert.deepEqual(copy.sqlite.prepare('SELECT * FROM manual_tasks ORDER BY id').all(), rows());
   assert.deepEqual(copy.sqlite.prepare('PRAGMA foreign_key_check').all(), []);
+  assert.deepEqual(copy.sqlite.prepare('SELECT * FROM task_students ORDER BY task_id,student_id').all(), db.sqlite.prepare('SELECT * FROM task_students ORDER BY task_id,student_id').all());
+  // Older exports keep their single student relationship after upgrading.
+  const legacyColumns = ['id','title','description','due_date','status','student_id','sort_order','created_by','created_at','updated_by','updated_at','request_key','request_payload','list_id','inbox_owner'];
+  const oldExport = exported.filter(table => table.name !== 'task_students').map(table => table.name !== 'manual_tasks' ? table : {...table, columns:legacyColumns, rows:table.rows.map(row => ({...row,status:'done',student_id:db.sqlite.prepare('SELECT student_id FROM task_students WHERE task_id=?').get(row.id)?.student_id ?? null}))});
+  const oldCopy = database();
+  try {
+    await transfer.replaceDatabase(oldCopy, oldExport, null);
+    assert.deepEqual(oldCopy.sqlite.prepare('SELECT * FROM task_students ORDER BY task_id,student_id').all(), db.sqlite.prepare('SELECT * FROM task_students ORDER BY task_id,student_id').all());
+    assert.equal(oldCopy.sqlite.prepare('PRAGMA table_info(manual_tasks)').all().some(column => column.name === 'status'), true);
+    assert.equal(oldCopy.sqlite.prepare("SELECT COUNT(*) AS n FROM manual_tasks WHERE status != 'done'").get().n, 0);
+  } finally { oldCopy.sqlite.close(); }
   const copyRevision = copy.sqlite.prepare('SELECT revision FROM task_board_state').get().revision;
   await transfer.replaceDatabase(copy, exported, null);
   assert.ok(copy.sqlite.prepare('SELECT revision FROM task_board_state').get().revision > copyRevision);
@@ -210,9 +236,10 @@ try {
   const studentTable = additive.find(table => table.name === 'students');
   studentTable.rows.push({ id: 'new:student', first_name: 'New', last_name: 'Student', email: '', phone: '', picture: null, active: 1, birth_date: null, facebook_url: '', instagram_url: '' });
   const manualTable = additive.find(table => table.name === 'manual_tasks');
-  manualTable.rows.push({ ...copyRows[0], id: 'new:task', student_id: 'new:student', request_key: 'imported-task-new-student', created_by: 'historical@example.test', updated_by: 'historical@example.test' });
+  manualTable.rows.push({ ...copyRows[0], id: 'new:task', request_key: 'imported-task-new-student', created_by: 'historical@example.test', updated_by: 'historical@example.test' });
+  additive.find(table => table.name === 'task_students').rows.push({task_id: 'new:task', student_id: 'new:student'});
   await expect(importer.POST(request('POST', { tables: additive }, { headers: { 'cf-access-authenticated-user-email': owner } })));
-  const imported = copy.sqlite.prepare("SELECT student_id FROM manual_tasks WHERE request_key='imported-task-new-student'").get();
+  const imported = copy.sqlite.prepare("SELECT student_id FROM task_students JOIN manual_tasks ON manual_tasks.id=task_students.task_id WHERE request_key='imported-task-new-student'").get();
   assert.equal(copy.sqlite.prepare('SELECT first_name FROM students WHERE id=?').get(imported.student_id).first_name, 'New');
   assert.deepEqual(copy.sqlite.prepare('PRAGMA foreign_key_check').all(), []);
 

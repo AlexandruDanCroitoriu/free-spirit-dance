@@ -1,13 +1,15 @@
+import { taskColors, type TaskColor } from './task-colors';
+import { descriptionDocument } from './task-description';
+import { descriptionImageIds, deleteQueuedTaskImages } from './task-image';
+import { taskMoveState } from './tasks';
 import { env } from './storage';
-import { automaticTaskKey, normalizeAutomatic, evaluateTaskRules, taskRules, type AutomaticCandidate, type AutomaticOccurrence, type RuleSnapshot, type RuleState, type RuleStudent } from './task-rules';
-import { TaskError, manualTaskFields, manualTaskId, schoolToday, taskColumns, taskRevision, taskStatus, type BoardTask, type ManualTaskFields, type TaskBoard } from './tasks';
+import { TaskError, manualTaskFields, manualTaskId, schoolToday, taskRevision, type BoardTask, type ManualTaskFields, type TaskBoard, type TaskList, type NamedTaskBoard } from './tasks';
 
 const ownerEmail = 'croitoriu.alexandru.code@gmail.com';
-type TaskRow = ManualTaskFields & { id: number; studentName: string | null; sortOrder: number; createdBy: string; createdAt: string; updatedBy: string; updatedAt: string; requestKey: string; requestPayload: string };
-const columns = `t.id, t.title, t.description, t.due_date AS dueDate, t.status, t.student_id AS studentId,
-  trim(s.first_name || ' ' || s.last_name) AS studentName, t.sort_order AS sortOrder,
+type TaskRow = ManualTaskFields & { id: number; listId: number | null; inboxOwner: string | null; studentsJson: string; coursesJson: string; sortOrder: number; createdBy: string; createdAt: string; updatedBy: string; updatedAt: string; requestKey: string; requestPayload: string };
+const columns = `t.id, t.status, t.list_id AS listId, t.inbox_owner AS inboxOwner, t.title, t.description, t.due_date AS dueDate, (SELECT json_group_array(json_object('id', s.id, 'name', trim(s.first_name || ' ' || s.last_name), 'picture', s.picture)) FROM task_students ts JOIN students s ON s.id = ts.student_id WHERE ts.task_id = t.id ORDER BY s.id) AS studentsJson, (SELECT json_group_array(json_object('id', c.id, 'name', c.name)) FROM task_courses tc JOIN courses c ON c.id = tc.course_id WHERE tc.task_id = t.id) AS coursesJson, t.sort_order AS sortOrder,
   t.created_by AS createdBy, t.created_at AS createdAt, t.updated_by AS updatedBy, t.updated_at AS updatedAt,
-  t.request_key AS requestKey, t.request_payload AS requestPayload`;
+  t.request_key AS requestKey, t.request_payload AS requestPayload, t.administrator_emails AS administratorEmailsJson, t.assigned_to AS assignedTo`;
 
 export const taskJson = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 export async function taskHandler(work: () => Promise<Response>) {
@@ -15,8 +17,15 @@ export async function taskHandler(work: () => Promise<Response>) {
   catch (error) {
     if (error instanceof TaskError) return taskJson({ error: error.message }, error.status);
     const message = String(error);
+    if (/no such table: task_courses/.test(message)) return taskJson({ error: 'Task course links are not set up. Apply migration 0063.' }, 503);
+    if (/no such table: task_images/.test(message)) return taskJson({ error: 'Task images are not set up. Apply migration 0065.' }, 503);
+    if (/no such table: task_students/.test(message)) return taskJson({ error: 'Task student links are not set up. Apply migration 0060.' }, 503);
+    if (/no such table: task_preferences|no such column: selected_board_scope/.test(message)) return taskJson({ error: 'Task preferences are not set up. Apply migration 0062.' }, 503);
+    if (/no such column: (b\.|l\.)?color/.test(message)) return taskJson({ error: 'Task colors are not set up. Apply migration 0061.' }, 503);
     if (/Task board changed/.test(message)) return taskJson({ error: 'The task board changed. Reload before saving.' }, 409);
-    if (/no such table: (automatic_task_occurrences|task_rule_state)/.test(message)) return taskJson({ error: 'Automatic tasks are not set up in this database. Apply migration 0056.' }, 503);
+    if (/no such table: (task_boards|task_lists)|no such column: (list_id|t.list_id)/.test(message)) return taskJson({ error: 'Task boards are not set up. Apply migration 0057.' }, 503);
+    if (/no such column: (b\.)?owner_email/.test(message)) return taskJson({ error: 'Personal boards are not set up. Apply migration 0059.' }, 503);
+    if (/no such column: (t\.)?inbox_owner/.test(message)) return taskJson({ error: 'Personal inboxes are not set up. Apply migration 0058.' }, 503);
     if (/no such table: (manual_tasks|task_board_state)|no such column: can_tasks/.test(message)) return taskJson({ error: 'Tasks are not set up in this database. Apply migration 0055.' }, 503);
     if (/FOREIGN KEY|UNIQUE|CHECK|NOT NULL/.test(message)) return taskJson({ error: 'The task or linked student changed. Reload and retry.' }, 409);
     console.error('Task operation failed', error instanceof Error ? error.name : 'Unknown error');
@@ -64,178 +73,265 @@ export async function taskInput(request: Request, allowed: string[]): Promise<Re
 }
 
 function serialize(row: TaskRow): BoardTask {
-  return { key: `manual:${row.id}`, source: 'manual', category: 'manual', title: row.title, description: row.description,
-    dueDate: row.dueDate, status: row.status, student: row.studentId === null ? null : { id: row.studentId, name: row.studentName ?? '' },
-    sortOrder: row.sortOrder, dismissed: false, canEditContent: true, canDelete: true,
+  return { key: `manual:${row.id}`, status: row.status ?? 'in_progress', listId: row.listId, source: 'manual', category: 'manual', title: row.title, description: row.description,
+    dueDate: row.dueDate, students: JSON.parse(row.studentsJson), courses: JSON.parse(row.coursesJson),
+    sortOrder: row.sortOrder, canDelete: true, administratorEmails: JSON.parse((row as TaskRow & { administratorEmailsJson: string }).administratorEmailsJson ?? '[]'), assignedTo: row.assignedTo ?? null,
     createdBy: row.createdBy, createdAt: row.createdAt, updatedBy: row.updatedBy, updatedAt: row.updatedAt };
 }
-export type TaskSnapshot = RuleSnapshot & { rows: TaskRow[]; revision: number };
-export function snapshotStatements() {
-  return [env.DB.prepare(`SELECT ${columns} FROM manual_tasks t LEFT JOIN students s ON s.id = t.student_id ORDER BY t.sort_order, t.id`),
-    env.DB.prepare(`SELECT id, rule_key AS ruleKey, subject_key AS subjectKey, occurrence_key AS occurrenceKey, student_id AS studentId, unlinked,
-      title, description, due_date AS dueDate, status, dismissed, sort_order AS sortOrder, created_by AS createdBy, created_at AS createdAt, updated_by AS updatedBy, updated_at AS updatedAt FROM automatic_task_occurrences ORDER BY sort_order, id`),
-    env.DB.prepare('SELECT rule_key AS ruleKey, activated_on AS activatedOn, evaluated_on AS evaluatedOn FROM task_rule_state'),
-    env.DB.prepare('SELECT id, first_name AS firstName, last_name AS lastName, birth_date AS birthDate, active FROM students ORDER BY id'),
+type TaskSnapshot = { inboxColor: TaskColor; selectedBoardScope: 'school' | 'personal'; rows: TaskRow[]; lists: TaskList[]; boards: NamedTaskBoard[]; revision: number };
+// Apply privacy at the SQL boundary, including all mutation response snapshots.
+function snapshotStatements(email: string) {
+  return [env.DB.prepare("SELECT inbox_color AS color, selected_board_scope AS selectedBoardScope FROM task_preferences WHERE email = ?").bind(email),
+    env.DB.prepare("SELECT id, name, color, CASE WHEN owner_email IS NULL THEN 'school' ELSE 'personal' END AS scope FROM task_boards WHERE owner_email IS NULL OR owner_email = ? ORDER BY id").bind(email),
+    env.DB.prepare('SELECT l.id, l.board_id AS boardId, l.name AS title, l.sort_order AS sortOrder, l.color FROM task_lists l JOIN task_boards b ON b.id = l.board_id WHERE b.owner_email IS NULL OR b.owner_email = ? ORDER BY l.sort_order, l.id').bind(email),
+    env.DB.prepare(`SELECT ${columns} FROM manual_tasks t LEFT JOIN task_lists l ON l.id = t.list_id LEFT JOIN task_boards b ON b.id = l.board_id WHERE t.inbox_owner = ? OR (t.inbox_owner IS NULL AND (b.owner_email IS NULL OR b.owner_email = ?)) ORDER BY t.sort_order, t.id`).bind(email, email),
     env.DB.prepare('SELECT revision FROM task_board_state WHERE id = 1')];
 }
-export function snapshot(results: D1Result<unknown>[]): TaskSnapshot {
+function snapshot(results: D1Result<unknown>[]): TaskSnapshot {
   const state = results.at(-1)?.results[0] as { revision: number } | undefined;
   if (!state) throw new TaskError('Task board state is missing. Restore the database before saving.', 503);
-  return { rows: results.at(-5)!.results as TaskRow[], occurrences: results.at(-4)!.results as AutomaticOccurrence[], states: results.at(-3)!.results as RuleState[], students: results.at(-2)!.results as RuleStudent[], revision: state.revision };
+  const preference = results.at(-5)?.results[0] as {color: TaskColor; selectedBoardScope?: 'school' | 'personal'} | undefined;
+  return { inboxColor: preference?.color ?? 'default', selectedBoardScope: preference?.selectedBoardScope === 'personal' ? 'personal' : 'school', boards: results.at(-4)!.results as NamedTaskBoard[], lists: results.at(-3)!.results as TaskList[], rows: results.at(-2)!.results as TaskRow[], revision: state.revision };
 }
-export function board(data: TaskSnapshot, today = schoolToday()): TaskBoard {
-  const tasks = [...data.rows.map(serialize), ...data.occurrences.map(row => normalizeAutomatic(row, data.students, row))];
-  let nextOrder = tasks.filter(task => task.status === 'todo').reduce((max, task) => Math.max(max, task.sortOrder + 1), 0);
-  for (const candidate of evaluateTaskRules(data, today).calculated) tasks.push(normalizeAutomatic(candidate, data.students, undefined, nextOrder++));
-  tasks.sort((a, b) => taskColumns.findIndex(column => column.status === a.status) - taskColumns.findIndex(column => column.status === b.status) || a.sortOrder - b.sortOrder);
-  return { tasks, revision: data.revision, today, columns: taskColumns, views: [{ key: 'all', title: 'All tasks' }, { key: 'manual', title: 'Manual tasks' }, ...taskRules.map(rule => ({ key: rule.key, title: rule.title }))] };
+function board(data: TaskSnapshot): TaskBoard {
+  return { inboxColor: data.inboxColor, selectedBoardScope: data.selectedBoardScope, tasks: data.rows.map(serialize), boards: data.boards, lists: data.lists, revision: data.revision, today: schoolToday(), views: [{ key: 'all', title: 'All tasks' }, { key: 'manual', title: 'Manual tasks' }] };
 }
-export async function readTaskSnapshot() { return snapshot(await env.DB.batch(snapshotStatements())); }
-export function guard(revision: number) { return env.DB.prepare('UPDATE task_board_state SET revision = ? WHERE id = 1').bind(revision + 1); }
-export function profile(email: string) { return env.DB.prepare("INSERT INTO admin_profiles (email, name) VALUES (?, '') ON CONFLICT(email) DO NOTHING").bind(email); }
+async function readTaskSnapshot(email: string) { return snapshot(await env.DB.batch(snapshotStatements(email))); }
+function guard(revision: number) { return env.DB.prepare('UPDATE task_board_state SET revision = ? WHERE id = 1').bind(revision + 1); }
+function profile(email: string) { return env.DB.prepare("INSERT INTO admin_profiles (email, name) VALUES (?, '') ON CONFLICT(email) DO NOTHING").bind(email); }
+function validList(data: TaskSnapshot, value: unknown): number | null {
+  if (value === null) return null; // The authenticated administrator's Inbox.
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || !data.lists.some(list => list.id === value)) throw new TaskError('Choose an existing task list.');
+  return value;
+}
 function requireRevision(expected: number, actual: number) { if (expected !== actual) throw new TaskError('The task board changed. Reload before saving.', 409); }
-function automaticIdentity(key: string): Pick<AutomaticCandidate, 'ruleKey' | 'subjectKey' | 'occurrenceKey'> {
-  const parts = key.split(':');
-  if (parts.length !== 4 || parts[0] !== 'automatic') throw new TaskError('Invalid automatic task key.');
-  try {
-    const [ruleKey, subjectKey, occurrenceKey] = parts.slice(1).map(decodeURIComponent);
-    if (!ruleKey || !subjectKey || !occurrenceKey || ruleKey.length > 80 || subjectKey.length > 200 || occurrenceKey.length > 200) throw new Error('Invalid identity');
-    const identity = { ruleKey, subjectKey, occurrenceKey };
-    if (automaticTaskKey(identity) !== key) throw new Error('Invalid encoding');
-    return identity;
-  } catch { throw new TaskError('Invalid automatic task key.'); }
-}
-function validateKey(key: string) { if (key.startsWith('manual:')) manualTaskId(key); else automaticIdentity(key); }
 function findTask(data: TaskSnapshot, key: string) {
-  validateKey(key);
-  const task = board(data).tasks.find(task => task.key === key);
-  if (!task) throw new TaskError('Task not found.', 404);
-  return task;
+  const id = manualTaskId(key), row = data.rows.find(row => row.id === id);
+  if (!row) throw new TaskError('Task not found.', 404);
+  return serialize(row);
 }
-const nextOrderSql = `(SELECT COALESCE(MAX(sort_order), -1) + 1 FROM (SELECT sort_order FROM manual_tasks WHERE status = 'todo' UNION ALL SELECT sort_order FROM automatic_task_occurrences WHERE status = 'todo'))`;
-export function insertOccurrence(value: AutomaticCandidate, now: string, sortOrder: number | null = null, email: string | null = null, insertedStudent = false) {
-  // The creation route already uses SQLite's inserted-student identity. The
-  // students sequence remains stable after course/occurrence inserts in a batch.
-  const studentSql = insertedStudent ? "(SELECT seq FROM sqlite_sequence WHERE name = 'students')" : '?';
-  const subjectSql = insertedStudent ? `replace(?, '{inserted-student}', ${studentSql})` : '?';
-  const subject = insertedStudent ? taskRules.find(rule => rule.key === value.ruleKey)?.remapSubject?.(value.subjectKey, id => id === '0' ? '{inserted-student}' : id) ?? value.subjectKey : value.subjectKey;
-  const values: (string | number | null)[] = [value.ruleKey, subject];
-  values.push(value.occurrenceKey);
-  if (!insertedStudent) values.push(value.studentId);
-  values.push(value.title, value.description, value.dueDate);
-  if (sortOrder !== null) values.push(sortOrder);
-  values.push(email, now, email, now);
-  return env.DB.prepare(`INSERT INTO automatic_task_occurrences (rule_key, subject_key, occurrence_key, student_id, title, description, due_date, sort_order, created_by, created_at, updated_by, updated_at)
-    VALUES (?, ${subjectSql}, ?, ${studentSql}, ?, ?, ?, ${sortOrder === null ? nextOrderSql : '?'}, ?, ?, ?, ?)
-    ON CONFLICT(rule_key, subject_key, occurrence_key) DO NOTHING`).bind(...values);
-}
-function taskWhere(task: BoardTask) {
-  if (task.source === 'manual') return { table: 'manual_tasks', where: 'id = ?', values: [manualTaskId(task.key)] };
-  const value = automaticIdentity(task.key);
-  return { table: 'automatic_task_occurrences', where: 'rule_key = ? AND subject_key = ? AND occurrence_key = ?', values: [value.ruleKey, value.subjectKey, value.occurrenceKey] };
-}
-function materialize(task: BoardTask, data: TaskSnapshot, now: string) {
-  if (task.source !== 'automatic' || data.occurrences.some(row => automaticTaskKey(row) === task.key)) return [];
-  return [insertOccurrence({ ...automaticIdentity(task.key), studentId: task.student?.id ?? null, title: task.title, description: task.description, dueDate: task.dueDate }, now, task.sortOrder)];
+function appendPosition(data: TaskSnapshot, listId: number | null) {
+  return data.rows.filter(row => row.listId === listId).reduce((max, row) => Math.max(max, row.sortOrder + 1), 0);
 }
 export async function getTasks(request: Request, key?: string) {
-  await taskAccess(request);
-  const data = await readTaskSnapshot();
+  const email = await taskAccess(request), data = await readTaskSnapshot(email);
   if (key !== undefined) return taskJson({ task: findTask(data, key), revision: data.revision });
   const result = board(data), student = new URL(request.url).searchParams.get('studentId');
   if (student !== null) {
     if (!/^[1-9]\d*$/.test(student) || !Number.isSafeInteger(Number(student))) throw new TaskError('Invalid student filter.');
-    result.tasks = result.tasks.filter(task => task.student?.id === Number(student));
+    result.tasks = result.tasks.filter(task => task.students.some(item => item.id === Number(student)));
   }
   return taskJson(result);
 }
-const editable = ['title', 'description', 'dueDate', 'status', 'studentId'];
+const editable = ['status', 'title', 'description', 'dueDate', 'studentIds', 'courseIds', 'administratorEmails', 'assignedTo'];
+export async function taskAdministrators(request: Request) {
+  await taskAccess(request);
+  return taskJson(await administratorChoices());
+}
+export async function assignedTaskNotifications(request: Request) {
+  const email = await taskAccess(request);
+  const result = await env.DB.prepare(`SELECT t.id, t.title, t.due_date AS dueDate, l.name AS listName,
+    CASE WHEN b.owner_email IS NULL THEN 'school' ELSE 'personal' END AS scope
+    FROM manual_tasks t JOIN task_lists l ON l.id = t.list_id JOIN task_boards b ON b.id = l.board_id
+    WHERE (b.owner_email IS NULL OR b.owner_email = ? COLLATE NOCASE) AND t.inbox_owner IS NULL AND t.assigned_to = ? COLLATE NOCASE
+    ORDER BY t.due_date IS NULL, t.due_date, t.updated_at DESC, t.id DESC`).bind(email, email).all<{ id: number; title: string; dueDate: string | null; listName: string; scope: 'school' | 'personal' }>();
+  return taskJson(result.results);
+}
+async function administratorChoices() {
+  const result = await env.DB.prepare("SELECT directory.email, COALESCE(NULLIF(p.name, ''), directory.email) AS name, p.picture FROM (SELECT email FROM administrator_permissions UNION SELECT ? AS email) directory LEFT JOIN admin_profiles p ON p.email = directory.email ORDER BY name COLLATE NOCASE").bind(ownerEmail).all<{ email: string; name: string; picture: string | null }>();
+  return result.results;
+}
+async function validateAdministrators(fields: ManualTaskFields, previous?: BoardTask) {
+  const allowed = new Set((await administratorChoices()).map(item => item.email.toLowerCase()));
+  const retained = new Set([...(previous?.administratorEmails ?? []), previous?.assignedTo]);
+  if ([...(fields.administratorEmails ?? []), fields.assignedTo].some(email => email && !allowed.has(email) && !retained.has(email))) throw new TaskError('Choose an existing administrator.');
+}
+async function validateTaskImages(description: string, email: string, taskId?: number) {
+  const ids = descriptionImageIds(descriptionDocument(description));
+  if (!ids.length) return ids;
+  const rows = await env.DB.prepare(`SELECT id FROM task_images
+    WHERE id IN (SELECT value FROM json_each(?))
+      AND ((task_id IS NULL AND owner_email = ?) OR task_id = ?) AND (expires_at IS NULL OR expires_at > datetime('now'))`)
+    .bind(JSON.stringify(ids), email, taskId ?? -1).all<{ id: string }>();
+  if (rows.results.length !== ids.length) throw new TaskError('One or more task images are no longer available. Remove them and upload again.', 409);
+  return ids;
+}
+function taskImageStatements(taskId: number | string, ids: string[]) {
+  return [env.DB.prepare('DELETE FROM task_images WHERE task_id = ? AND id NOT IN (SELECT value FROM json_each(?))').bind(taskId, JSON.stringify(ids)),
+    env.DB.prepare('UPDATE task_images SET task_id = ?, expires_at = NULL WHERE id IN (SELECT value FROM json_each(?))').bind(taskId, JSON.stringify(ids))];
+}
+function createdTaskImageStatements(requestKey: string, ids: string[]) {
+  return [env.DB.prepare(`DELETE FROM task_images WHERE task_id = (SELECT id FROM manual_tasks WHERE request_key = ?) AND id NOT IN (SELECT value FROM json_each(?))`).bind(requestKey, JSON.stringify(ids)),
+    env.DB.prepare(`UPDATE task_images SET task_id = (SELECT id FROM manual_tasks WHERE request_key = ?), expires_at = NULL WHERE id IN (SELECT value FROM json_each(?))`).bind(requestKey, JSON.stringify(ids))];
+}
 export async function createTask(request: Request) {
-  const email = await taskAccess(request), input = await taskInput(request, [...editable, 'revision', 'requestKey']);
+  const email = await taskAccess(request), input = await taskInput(request, [...editable, 'listId', 'revision', 'requestKey']);
   const expected = taskRevision(input.revision), fields = manualTaskFields(input);
   if (typeof input.requestKey !== 'string' || !/^[a-zA-Z0-9-]{16,80}$/.test(input.requestKey)) throw new TaskError('A valid creation request key is required.');
-  const payload = JSON.stringify({ ...fields, email }), data = await readTaskSnapshot();
+  const data = await readTaskSnapshot(email), listId = input.listId === undefined ? null : validList(data, input.listId);
+  const payload = JSON.stringify({ ...fields, email, listId });
   const previous = data.rows.find(task => task.requestKey === input.requestKey);
   if (previous) {
     if (previous.requestPayload !== payload) throw new TaskError('This request key was already used for different task details.', 409);
     return taskJson({ task: serialize(previous), revision: data.revision });
   }
   requireRevision(expected, data.revision);
-  const position = board(data).tasks.filter(task => task.status === fields.status).reduce((max, task) => Math.max(max, task.sortOrder + 1), 0), now = new Date().toISOString();
+  await validateAdministrators(fields);
+  const imageIds = await validateTaskImages(fields.description, email);
+  const now = new Date().toISOString();
   const result = snapshot(await env.DB.batch([guard(expected), profile(email),
-    env.DB.prepare(`INSERT INTO manual_tasks (title, description, due_date, status, student_id, sort_order, created_by, created_at, updated_by, updated_at, request_key, request_payload)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(fields.title, fields.description, fields.dueDate, fields.status, fields.studentId, position, email, now, email, now, input.requestKey, payload), ...snapshotStatements()]));
+    env.DB.prepare(`INSERT INTO manual_tasks (list_id, inbox_owner, title, description, due_date, sort_order, created_by, created_at, updated_by, updated_at, request_key, request_payload, administrator_emails, assigned_to, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(listId, listId === null ? email : null, fields.title, fields.description, fields.dueDate, appendPosition(data, listId), email, now, email, now, input.requestKey, payload, JSON.stringify(fields.administratorEmails), fields.assignedTo ?? null, fields.status),
+    env.DB.prepare('INSERT INTO task_students(task_id, student_id) SELECT t.id, value FROM manual_tasks t, json_each(?) WHERE t.request_key = ?').bind(JSON.stringify(fields.studentIds), input.requestKey),
+    env.DB.prepare('INSERT INTO task_courses(task_id, course_id) SELECT t.id, value FROM manual_tasks t, json_each(?) WHERE t.request_key = ?').bind(JSON.stringify(fields.courseIds), input.requestKey),
+    ...createdTaskImageStatements(input.requestKey, imageIds), ...snapshotStatements(email)]));
+  await deleteQueuedTaskImages();
   return taskJson({ task: serialize(result.rows.find(task => task.requestKey === input.requestKey)!), revision: result.revision }, 201);
 }
 export async function updateTask(request: Request, key: string) {
-  const email = await taskAccess(request);
-  validateKey(key);
-  const automatic = key.startsWith('automatic:');
-  const allowed = automatic ? ['status', 'studentId', 'dismissed'] : editable;
-  const input = await taskInput(request, [...allowed, 'revision']), expected = taskRevision(input.revision), data = await readTaskSnapshot();
+  const email = await taskAccess(request), input = await taskInput(request, [...editable, 'listId', 'revision']);
+  const data = await readTaskSnapshot(email), current = findTask(data, key), expected = taskRevision(input.revision);
   requireRevision(expected, data.revision);
-  const current = findTask(data, key), now = new Date().toISOString();
-  if (!allowed.some(field => Object.hasOwn(input, field))) throw new TaskError('Choose a task field to update.');
-  const status = input.status === undefined ? current.status : taskStatus(input.status);
-  const position = status === current.status ? current.sortOrder : board(data).tasks.filter(task => task.status === status).reduce((max, task) => Math.max(max, task.sortOrder + 1), 0);
-  const target = taskWhere(current);
-  let update: D1PreparedStatement;
-  if (automatic) {
-    if (input.studentId !== undefined && input.studentId !== null) throw new TaskError('An automatic task can only be unlinked, not assigned to another student.');
-    if (input.dismissed !== undefined && typeof input.dismissed !== 'boolean') throw new TaskError('Dismissed must be true or false.');
-    update = env.DB.prepare(`UPDATE automatic_task_occurrences SET status = ?, dismissed = ?, student_id = ?, unlinked = CASE WHEN ? THEN 1 ELSE unlinked END, sort_order = ?, updated_by = ?, updated_at = ? WHERE ${target.where}`)
-      .bind(status, (input.dismissed ?? current.dismissed) ? 1 : 0, input.studentId === null ? null : current.student?.id ?? null, input.studentId === null ? 1 : 0, position, email, now, ...target.values);
-  } else {
-    const fields = manualTaskFields(input, { title: current.title, description: current.description, dueDate: current.dueDate, status: current.status, studentId: current.student?.id ?? null });
-    update = env.DB.prepare('UPDATE manual_tasks SET title = ?, description = ?, due_date = ?, status = ?, student_id = ?, sort_order = ?, updated_by = ?, updated_at = ? WHERE id = ?')
-      .bind(fields.title, fields.description, fields.dueDate, fields.status, fields.studentId, position, email, now, manualTaskId(key));
-  }
-  const result = snapshot(await env.DB.batch([guard(expected), profile(email), ...materialize(current, data, now), update, ...snapshotStatements()]));
+  if (!editable.some(field => Object.hasOwn(input, field)) && input.listId === undefined) throw new TaskError('Choose a task field to update.');
+  const listId = input.listId === undefined ? current.listId : validList(data, input.listId);
+  const position = listId === current.listId ? current.sortOrder : appendPosition(data, listId);
+  const fields = manualTaskFields(input, { status: current.status, title: current.title, description: current.description, dueDate: current.dueDate, studentIds: current.students.map(student => student.id), courseIds: current.courses.map(course => course.id), administratorEmails: current.administratorEmails, assignedTo: current.assignedTo });
+  await validateAdministrators(fields, current);
+  const imageIds = await validateTaskImages(fields.description, email, manualTaskId(key));
+  const result = snapshot(await env.DB.batch([guard(expected), profile(email),
+    env.DB.prepare('UPDATE manual_tasks SET list_id = ?, inbox_owner = ?, title = ?, description = ?, due_date = ?, sort_order = ?, updated_by = ?, updated_at = ?, administrator_emails = ?, assigned_to = ?, status = ? WHERE id = ?')
+      .bind(listId, listId === null ? email : null, fields.title, fields.description, fields.dueDate, position, email, new Date().toISOString(), JSON.stringify(fields.administratorEmails), fields.assignedTo ?? null, fields.status, manualTaskId(key)),
+    env.DB.prepare('DELETE FROM task_students WHERE task_id = ?').bind(manualTaskId(key)),
+    env.DB.prepare('INSERT INTO task_students(task_id, student_id) SELECT ?, value FROM json_each(?)').bind(manualTaskId(key), JSON.stringify(fields.studentIds)),
+    env.DB.prepare('DELETE FROM task_courses WHERE task_id = ?').bind(manualTaskId(key)),
+    env.DB.prepare('INSERT INTO task_courses(task_id, course_id) SELECT ?, value FROM json_each(?)').bind(manualTaskId(key), JSON.stringify(fields.courseIds)),
+    ...taskImageStatements(manualTaskId(key), imageIds), ...snapshotStatements(email)]));
+  await deleteQueuedTaskImages();
   return taskJson({ task: findTask(result, key), revision: result.revision });
 }
 export async function deleteTask(request: Request, key: string) {
-  await taskAccess(request); validateKey(key);
-  if (key.startsWith('automatic:')) throw new TaskError('Dismiss this occurrence instead of deleting its state.');
-  const id = manualTaskId(key), input = await taskInput(request, ['revision']), expected = taskRevision(input.revision), data = await readTaskSnapshot();
-  requireRevision(expected, data.revision); findTask(data, key);
-  const result = snapshot(await env.DB.batch([guard(expected), env.DB.prepare('DELETE FROM manual_tasks WHERE id = ?').bind(id), ...snapshotStatements()]));
+  const email = await taskAccess(request), input = await taskInput(request, ['revision']), expected = taskRevision(input.revision), data = await readTaskSnapshot(email);
+  findTask(data, key); requireRevision(expected, data.revision);
+  const result = snapshot(await env.DB.batch([guard(expected), env.DB.prepare('DELETE FROM manual_tasks WHERE id = ?').bind(manualTaskId(key)), ...snapshotStatements(email)]));
+  await deleteQueuedTaskImages();
   return taskJson({ deleted: true, revision: result.revision });
 }
 export async function moveTask(request: Request) {
-  const email = await taskAccess(request), input = await taskInput(request, ['key', 'status', 'position', 'targetKey', 'revision']);
+  const email = await taskAccess(request), input = await taskInput(request, ['key', 'listId', 'position', 'targetKey', 'revision', 'moveState']);
+  for (let attempt = 0; ; attempt++) {
+    try { return await applyTaskMove(email, input); }
+    catch (error) {
+      // The transactional guard may observe an unrelated write after our read.
+      // Read again and revalidate the affected lists before retrying.
+      if (attempt >= 2 || typeof input.moveState !== 'string' || error instanceof TaskError || !/Task board changed/.test(String(error))) throw error;
+    }
+  }
+}
+async function applyTaskMove(email: string, input: Record<string, unknown>) {
   if (typeof input.key !== 'string') throw new TaskError('A task key is required.');
-  validateKey(input.key);
-  const status = taskStatus(input.status), expected = taskRevision(input.revision);
+  let expected = taskRevision(input.revision);
   if (typeof input.position !== 'string' || !['before', 'after', 'top', 'bottom'].includes(input.position)) throw new TaskError('Choose before, after, top, or bottom.');
   const relative = input.position === 'before' || input.position === 'after';
   if (relative ? typeof input.targetKey !== 'string' : input.targetKey !== undefined) throw new TaskError('Supply a target task only for before/after moves.');
-  if (relative) validateKey(input.targetKey as string);
   if (input.targetKey === input.key) throw new TaskError('A task cannot be moved relative to itself.');
-  const data = await readTaskSnapshot(); requireRevision(expected, data.revision);
-  const current = findTask(data, input.key);
-  const destination = board(data).tasks.filter(task => task.status === status && task.key !== input.key);
+  const data = await readTaskSnapshot(email), current = findTask(data, input.key);
+  const listId = input.listId === undefined ? current.listId : validList(data, input.listId);
+  if (input.moveState !== undefined) {
+    if (typeof input.moveState !== 'string' || input.moveState !== taskMoveState(board(data), input.key, listId)) throw new TaskError('This task or its list order changed. Refresh the board and review the move.', 409);
+    expected = data.revision;
+  } else requireRevision(expected, data.revision);
+  const destination = board(data).tasks.filter(task => task.listId === listId && task.key !== input.key);
   const targetIndex = relative ? destination.findIndex(task => task.key === input.targetKey) : -1;
-  if (relative && targetIndex === -1) throw new TaskError('The target task is not in the destination column.', 409);
+  if (relative && targetIndex === -1) throw new TaskError('The target task is not in the destination list.', 409);
   const index = input.position === 'top' ? 0 : input.position === 'bottom' ? destination.length : targetIndex + (input.position === 'after' ? 1 : 0);
   destination.splice(index, 0, current);
-  const now = new Date().toISOString();
-  const reordered = destination.map((task, sortOrder) => ({ task, sortOrder })).filter(({ task, sortOrder }) => task.key === current.key || task.sortOrder !== sortOrder);
-  const changes = reordered.flatMap(({ task }) => materialize(task, data, now));
-  // Reindex both sources in bounded JSON batches, so a long overdue column
-  // does not need one D1 query per task. Only the moved task changes attribution.
-  for (const source of ['manual', 'automatic'] as const) {
-    const values = reordered.filter(({ task }) => task.source === source).map(({ task, sortOrder }) => ({
-      ...(source === 'manual' ? { id: manualTaskId(task.key) } : automaticIdentity(task.key)), sortOrder, moved: task.key === current.key ? 1 : 0,
-    }));
-    const table = source === 'manual' ? 'manual_tasks' : 'automatic_task_occurrences';
-    const where = source === 'manual' ? "task.id = json_extract(item.value, '$.id')" : "task.rule_key = json_extract(item.value, '$.ruleKey') AND task.subject_key = json_extract(item.value, '$.subjectKey') AND task.occurrence_key = json_extract(item.value, '$.occurrenceKey')";
-    for (let offset = 0; offset < values.length; offset += 500) changes.push(env.DB.prepare(`UPDATE ${table} AS task
-      SET sort_order = json_extract(item.value, '$.sortOrder'),
-        status = CASE WHEN json_extract(item.value, '$.moved') = 1 THEN ? ELSE task.status END,
-        updated_by = CASE WHEN json_extract(item.value, '$.moved') = 1 THEN ? ELSE task.updated_by END,
-        updated_at = CASE WHEN json_extract(item.value, '$.moved') = 1 THEN ? ELSE task.updated_at END
-      FROM json_each(?) AS item WHERE ${where}`).bind(status, email, now, JSON.stringify(values.slice(offset, offset + 500))));
-  }
-  const result = snapshot(await env.DB.batch([guard(expected), profile(email), ...changes, ...snapshotStatements()]));
+  const now = new Date().toISOString(), changes: D1PreparedStatement[] = [];
+  const values = destination.map((task, sortOrder) => ({ id: manualTaskId(task.key), sortOrder, moved: task.key === current.key ? 1 : 0 }));
+  for (let offset = 0; offset < values.length; offset += 500) changes.push(env.DB.prepare(`UPDATE manual_tasks AS task
+    SET sort_order = json_extract(item.value, '$.sortOrder'), list_id = ?, inbox_owner = ?,
+      updated_by = CASE WHEN json_extract(item.value, '$.moved') = 1 THEN ? ELSE task.updated_by END,
+      updated_at = CASE WHEN json_extract(item.value, '$.moved') = 1 THEN ? ELSE task.updated_at END
+    FROM json_each(?) AS item WHERE task.id = json_extract(item.value, '$.id')`)
+    .bind(listId, listId === null ? email : null, email, now, JSON.stringify(values.slice(offset, offset + 500))));
+  const result = snapshot(await env.DB.batch([guard(expected), profile(email), ...changes, ...snapshotStatements(email)]));
   return taskJson(board(result));
+}
+
+export async function createTaskList(request: Request) {
+  const email = await taskAccess(request);
+  const input = await taskInput(request, ['name', 'scope', 'revision', 'requestKey']);
+  if (input.scope !== 'school' && input.scope !== 'personal') throw new TaskError('Choose School or Personal.');
+  if (typeof input.name !== 'string' || !input.name.trim() || input.name.trim().length > 100 || input.name.includes('\0')) throw new TaskError('Enter a name of 1–100 characters.');
+  if (typeof input.requestKey !== 'string' || !/^[a-zA-Z0-9-]{16,80}$/.test(input.requestKey)) throw new TaskError('A valid creation request key is required.');
+  const name = input.name.trim(), data = await readTaskSnapshot(email);
+  const previous = await env.DB.prepare('SELECT l.id, l.name, b.owner_email AS ownerEmail FROM task_lists l JOIN task_boards b ON b.id = l.board_id WHERE l.request_key = ?').bind(input.requestKey).first<{id: number; name: string; ownerEmail: string | null}>();
+  if (previous) {
+    const owner = input.scope === 'personal' ? email : null;
+    if (previous.ownerEmail !== owner || previous.name !== name) throw new TaskError('This creation request was already used.', 409);
+    return taskJson({ ...board(await readTaskSnapshot(email)), createdId: previous.id });
+  }
+  const expected = taskRevision(input.revision); requireRevision(expected, data.revision);
+  const personal = input.scope === 'personal';
+  const setup = personal ? [profile(email), env.DB.prepare("INSERT INTO task_boards(name, owner_email) VALUES ('Personal', ?) ON CONFLICT(owner_email) DO NOTHING").bind(email)] : [];
+  const write = env.DB.prepare(`INSERT INTO task_lists(board_id, name, sort_order, request_key)
+    SELECT b.id, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM task_lists WHERE board_id = b.id), ?
+    FROM task_boards b WHERE ${personal ? 'b.owner_email = ?' : 'b.owner_email IS NULL'} RETURNING id`)
+    .bind(name, input.requestKey, ...(personal ? [email] : []));
+  const result = await env.DB.batch([guard(expected), ...setup, write, ...snapshotStatements(email)]);
+  return taskJson({ ...board(snapshot(result)), createdId: (result[1 + setup.length].results[0] as { id: number }).id }, 201);
+}
+
+export async function updateTaskColor(request: Request) {
+  const email = await taskAccess(request), input = await taskInput(request, ['target', 'scope', 'listId', 'color', 'revision']);
+  if (!taskColors.some(color => color.key === input.color)) throw new TaskError('Choose a color preset.');
+  const data = await readTaskSnapshot(email), expected = taskRevision(input.revision);
+  requireRevision(expected, data.revision);
+  const writes: D1PreparedStatement[] = [guard(expected), profile(email)];
+  if (input.target === 'inbox' && input.scope === undefined && input.listId === undefined) {
+    writes.push(env.DB.prepare('INSERT INTO task_preferences(email, inbox_color) VALUES (?, ?) ON CONFLICT(email) DO UPDATE SET inbox_color = excluded.inbox_color').bind(email, input.color));
+  } else if (input.target === 'board' && input.listId === undefined && (input.scope === 'school' || input.scope === 'personal')) {
+    if (input.scope === 'personal') writes.push(env.DB.prepare("INSERT INTO task_boards(name, owner_email) VALUES ('Personal', ?) ON CONFLICT(owner_email) DO NOTHING").bind(email));
+    writes.push(input.scope === 'personal'
+      ? env.DB.prepare('UPDATE task_boards SET color = ? WHERE owner_email = ?').bind(input.color, email)
+      : env.DB.prepare('UPDATE task_boards SET color = ? WHERE owner_email IS NULL').bind(input.color));
+  } else if (input.target === 'list' && input.scope === undefined) {
+    const id = validList(data, input.listId);
+    if (id === null) throw new TaskError('Choose a list.');
+    writes.push(env.DB.prepare('UPDATE task_lists SET color = ? WHERE id = ?').bind(input.color, id));
+  } else throw new TaskError('Choose a list, board, or Inbox.');
+  return taskJson(board(snapshot(await env.DB.batch([...writes, ...snapshotStatements(email)]))));
+}
+
+export async function updateTaskViewPreference(request: Request) {
+  const email = await taskAccess(request), input = await taskInput(request, ['selectedBoardScope']);
+  if (input.selectedBoardScope !== 'school' && input.selectedBoardScope !== 'personal') throw new TaskError('Choose the School or Personal board.');
+  await env.DB.batch([profile(email), env.DB.prepare("INSERT INTO task_preferences(email, inbox_color, selected_board_scope) VALUES (?, 'default', ?) ON CONFLICT(email) DO UPDATE SET selected_board_scope = excluded.selected_board_scope").bind(email, input.selectedBoardScope)]);
+  return taskJson(board(await readTaskSnapshot(email)));
+}
+
+export async function moveTaskList(request: Request) {
+  const email = await taskAccess(request), input = await taskInput(request, ['listId', 'targetId', 'position', 'revision']);
+  const data = await readTaskSnapshot(email), expected = taskRevision(input.revision);
+  requireRevision(expected, data.revision);
+  const id = validList(data, input.listId), targetId = validList(data, input.targetId);
+  if (id === null || targetId === null || id === targetId || (input.position !== 'before' && input.position !== 'after')) throw new TaskError('Choose another list and a valid position.');
+  const source = data.lists.find(list => list.id === id)!;
+  const lists = data.lists.filter(list => list.boardId === source.boardId && list.id !== id);
+  const index = lists.findIndex(list => list.id === targetId);
+  if (index < 0) throw new TaskError('Lists must remain on the same board.');
+  lists.splice(index + (input.position === 'after' ? 1 : 0), 0, source);
+  const writes: D1PreparedStatement[] = [guard(expected)];
+  const positions = lists.map((list, sortOrder) => ({ id: list.id, sortOrder }));
+  for (let offset = 0; offset < positions.length; offset += 500) writes.push(env.DB.prepare(`UPDATE task_lists AS list SET sort_order = json_extract(item.value, '$.sortOrder') FROM json_each(?) item WHERE list.id = json_extract(item.value, '$.id')`).bind(JSON.stringify(positions.slice(offset, offset + 500))));
+  return taskJson(board(snapshot(await env.DB.batch([...writes, ...snapshotStatements(email)]))));
+}
+
+export async function removeTaskList(request: Request, listId: string) {
+  const email = await taskAccess(request), input = await taskInput(request, ['revision']);
+  const data = await readTaskSnapshot(email), expected = taskRevision(input.revision);
+  requireRevision(expected, data.revision);
+  const id = validList(data, Number(listId));
+  if (id === null || String(id) !== listId) throw new TaskError('Choose an existing task list.');
+  if (data.rows.some(task => task.listId === id)) throw new TaskError('Move or delete all cards before removing this list.', 409);
+  return taskJson(board(snapshot(await env.DB.batch([guard(expected), env.DB.prepare('DELETE FROM task_lists WHERE id = ?').bind(id), ...snapshotStatements(email)]))));
 }

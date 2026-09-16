@@ -1,4 +1,5 @@
 "use client";
+import DatePicker from './date-picker';
 
 import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { readJson } from "../lib/http";
@@ -272,43 +273,6 @@ function PaymentTreeRow({ payment, giving, onOpen, onGive }: { payment: Payment;
   </div>;
 }
 
-const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const weekdayNames = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
-
-function dateFromIso(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
-  return Number.isInteger(year) && month >= 1 && month <= 12 && day >= 1 ? new Date(year, month - 1, day) : null;
-}
-
-function isoFromDate(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function dateLabel(value: string) {
-  const date = dateFromIso(value);
-  return date ? `${date.getDate()} ${monthNames[date.getMonth()]} ${date.getFullYear()}` : "Select date";
-}
-
 function DateNameInput({ value, disabled, ariaLabel, onCommit }: { value: string; disabled: boolean; ariaLabel: string; onCommit: (value: string) => void }) {
-  const calendar = useReportPopover();
-  const selectedDate = dateFromIso(value);
-  const [visibleMonth, setVisibleMonth] = useState(() => selectedDate ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  useEffect(() => { if (selectedDate) setVisibleMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)); }, [value]);
-  const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
-  const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate();
-  const leadingDays = (firstDay.getDay() + 6) % 7;
-  const days = Array.from({ length: leadingDays + daysInMonth }, (_, index) => index < leadingDays ? null : index - leadingDays + 1);
-  function select(day: number) {
-    const date = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day);
-    onCommit(isoFromDate(date)); calendar.close();
-  }
-  return <div className="relative w-full min-w-0">
-    <button type="button" aria-label={ariaLabel} {...calendar.triggerProps} disabled={disabled} className={`${input} flex items-center justify-between gap-1 text-left`}><span className="truncate">{dateLabel(value)}</span><span aria-hidden="true">▾</span></button>
-    <div {...calendar.popupProps} aria-label={`${ariaLabel} calendar`} className={`${reportPopup} w-60 p-2`}>
-      <div className="mb-2 flex items-center justify-between"><button type="button" aria-label="Previous month" className="rounded px-2 py-1 hover:bg-lime-50" onClick={() => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}>‹</button><span className="font-semibold text-slate-800">{monthNames[visibleMonth.getMonth()]} {visibleMonth.getFullYear()}</span><button type="button" aria-label="Next month" className="rounded px-2 py-1 hover:bg-lime-50" onClick={() => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}>›</button></div>
-      <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-semibold text-slate-500">{weekdayNames.map((day) => <span key={day} className="py-1">{day}</span>)}</div>
-      <div className="grid grid-cols-7 gap-0.5">{days.map((day, index) => day === null ? <span key={`empty-${index}`} /> : <button type="button" key={day} aria-label={`${day} ${monthNames[visibleMonth.getMonth()]} ${visibleMonth.getFullYear()}`} aria-pressed={selectedDate?.getFullYear() === visibleMonth.getFullYear() && selectedDate.getMonth() === visibleMonth.getMonth() && selectedDate.getDate() === day} className={`h-7 rounded text-xs hover:bg-lime-100 focus:outline-none focus:ring-2 focus:ring-lime-600 ${selectedDate?.getFullYear() === visibleMonth.getFullYear() && selectedDate.getMonth() === visibleMonth.getMonth() && selectedDate.getDate() === day ? "bg-lime-600 font-bold text-white hover:bg-lime-700" : "text-slate-700"}`} onClick={() => select(day)}>{day}</button>)}</div>
-      {value && <button type="button" className="mt-2 w-full rounded border border-stone-300 px-2 py-1 text-xs text-slate-700 hover:bg-stone-50" onClick={() => { onCommit(""); calendar.close(); }}>Clear date</button>}
-    </div>
-  </div>;
+  return <DatePicker aria-label={ariaLabel} value={value} disabled={disabled} className={input} onChange={event => onCommit(event.target.value)} onClear={() => onCommit("")} />;
 }

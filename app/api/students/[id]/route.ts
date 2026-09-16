@@ -1,6 +1,5 @@
 import { env } from "../../../lib/storage";
-import { studentTaskMutation } from "../../../lib/task-rules-server";
-import { schoolToday } from "../../../lib/tasks";
+import { schoolToday } from "../../../lib/calendar-dates";
 
 type StudentRow = { id: number; first_name: string; last_name: string; email: string; phone: string; birth_date: string | null; facebook_url: string; instagram_url: string; picture: string | null; active: number };
 
@@ -72,16 +71,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       const duplicatePhone = await db.prepare("SELECT id FROM students WHERE id <> ? AND trim(phone) = ? LIMIT 1").bind(id, phone).first<{ id: number }>();
       if (duplicatePhone) return Response.json({ error: "A student with this phone number already exists." }, { status: 409 });
     }
-    const [updated] = await studentTaskMutation<StudentRow>([db.prepare("UPDATE students SET first_name = ?, last_name = ?, email = ?, phone = ?, birth_date = ?, facebook_url = ?, instagram_url = ?, picture = ?, active = ? WHERE id = ? RETURNING id, first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active").bind(
+    const [updated] = await db.batch<StudentRow>([db.prepare("UPDATE students SET first_name = ?, last_name = ?, email = ?, phone = ?, birth_date = ?, facebook_url = ?, instagram_url = ?, picture = ?, active = ? WHERE id = ? RETURNING id, first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active").bind(
       student.firstName.trim(), student.lastName.trim(), student.email.trim(), phone, typeof student.birthDate === "string" && student.birthDate.trim() ? student.birthDate.trim() : null, facebookUrl, instagramUrl, typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active ? 1 : 0, id,
-    )], { id, firstName: student.firstName.trim(), lastName: student.lastName.trim(), birthDate: typeof student.birthDate === 'string' && student.birthDate ? student.birthDate : null, active: student.active ? 1 : 0 });
+    )]);
     const result = updated.results[0];
     if (!result) return Response.json({ error: "Student not found." }, { status: 404 });
     const previousImageKey = imageKey(existing.picture);
     if (previousImageKey && existing.picture !== result.picture) await env.STUDENT_IMAGES.delete(previousImageKey);
     return Response.json(serialize(result));
   } catch (error) {
-    if (String(error).includes('Task board changed')) return Response.json({ error: 'Student or task information changed. Reload and try again.' }, { status: 409 });
     if (isPhoneConstraintError(error)) return Response.json({ error: "A student with this phone number already exists." }, { status: 409 });
     console.error("Could not update student", error);
     return Response.json({ error: "Could not update student. Check the Cloudflare Access service token." }, { status: 500 });
@@ -95,13 +93,12 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     const db = env.DB;
     const student = await db.prepare("SELECT picture FROM students WHERE id = ?").bind(id).first<{ picture: string | null }>();
     if (!student) return Response.json({ error: "Student not found." }, { status: 404 });
-    const [result] = await studentTaskMutation([db.prepare("DELETE FROM students WHERE id = ?").bind(id)]);
+    const [result] = await db.batch([db.prepare("DELETE FROM students WHERE id = ?").bind(id)]);
     if (result.meta.changes === 0) return Response.json({ error: "Student not found." }, { status: 404 });
     const studentImageKey = imageKey(student.picture);
     if (studentImageKey) await env.STUDENT_IMAGES.delete(studentImageKey);
     return new Response(null, { status: 204 });
   } catch (error) {
-    if (String(error).includes('Task board changed')) return Response.json({ error: 'Student or task information changed. Reload and try again.' }, { status: 409 });
     if (String(error).includes("FOREIGN KEY")) return Response.json({ error: "This student has linked records, such as tasks, attendance, or payments. Remove task relationships before deleting, or mark the student inactive to preserve their records." }, { status: 409 });
     console.error("Could not delete student", error);
     return Response.json({ error: "Could not delete student. Check the Cloudflare Access service token." }, { status: 500 });

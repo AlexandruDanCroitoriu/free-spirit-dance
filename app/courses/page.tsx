@@ -1,4 +1,5 @@
 "use client";
+import DatePicker from '../components/date-picker';
 
 import { requestJson } from "../lib/http";
 import { useEffect, useRef, useState } from "react";
@@ -189,8 +190,8 @@ export default function CoursesPage() {
             <div className="mt-3 grid grid-cols-2 gap-3 font-semibold"><label>Amount (RON)<input required inputMode="decimal" pattern="[0-9]{1,6}([.,][0-9]{1,2})?" maxLength={9} placeholder="e.g. 200.00" className={inputClass} value={presetAmount} onChange={(event) => updatePresetAmount(event.target.value)} /></label><label>Classes covered<input required type="number" min="1" max="10000" step="1" className={inputClass} value={presetAllowance} onChange={(event) => setPresetAllowance(event.target.value)} /></label></div>
           </fieldset>
           <div className="grid grid-cols-2 gap-3 font-sans text-xs font-semibold text-slate-600">
-            <label>Start date (optional)<input type="date" min="1900-01-01" max={form.endDate || "9999-12-31"} className={inputClass} value={form.startDate ?? ""} onChange={(event) => setForm((current) => ({ ...current, startDate: event.target.value }))} /></label>
-            <label>End date (optional)<input type="date" min={form.startDate || "1900-01-01"} max="9999-12-31" className={inputClass} value={form.endDate ?? ""} onChange={(event) => setForm((current) => ({ ...current, endDate: event.target.value }))} /></label>
+            <label>Start date (optional)<DatePicker type="date" min="1900-01-01" max={form.endDate || "9999-12-31"} className={inputClass} value={form.startDate ?? ""} onChange={(event) => setForm((current) => ({ ...current, startDate: event.target.value }))} /></label>
+            <label>End date (optional)<DatePicker type="date" min={form.startDate || "1900-01-01"} max="9999-12-31" className={inputClass} value={form.endDate ?? ""} onChange={(event) => setForm((current) => ({ ...current, endDate: event.target.value }))} /></label>
           </div>
           <p className="font-sans text-xs text-slate-500">Weekly classes follow the dates you set, inclusive. Leave both dates empty for an ongoing course.</p>
           <fieldset className="min-w-0 font-sans text-xs font-semibold text-slate-600">

@@ -1,5 +1,4 @@
--- Occurrences are separate from rule definitions. Birthdays retain only events
--- that entered the eligible window; transient rules can store state on demand.
+-- Historical generated-task storage; retired by migration 0058.
 CREATE TABLE task_rule_state (
   rule_key TEXT PRIMARY KEY CHECK (length(rule_key) BETWEEN 1 AND 80),
   activated_on TEXT NOT NULL CHECK (length(activated_on) = 10 AND date(activated_on, '+0 days') IS NOT NULL AND date(activated_on, '+0 days') = activated_on),

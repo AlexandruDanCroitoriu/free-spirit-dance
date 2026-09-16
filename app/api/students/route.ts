@@ -1,6 +1,5 @@
 import { env } from "../../lib/storage";
-import { studentTaskMutation } from "../../lib/task-rules-server";
-import { schoolToday } from "../../lib/tasks";
+import { schoolToday } from "../../lib/calendar-dates";
 
 type StudentRow = { id: number; first_name: string; last_name: string; email: string; phone: string; birth_date: string | null; facebook_url: string; instagram_url: string; picture: string | null; active: number; course_ids?: string };
 
@@ -76,13 +75,12 @@ export async function POST(request: Request) {
       (student.firstName as string).trim(), (student.lastName as string).trim(), email, phone, typeof student.birthDate === "string" && student.birthDate.trim() ? student.birthDate.trim() : null, (student.facebookUrl as string).trim(), (student.instagramUrl as string).trim(), typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active === false ? 0 : 1,
     );
     // Keep creation and assignments atomic; materialize the student id before inserting course rows.
-    const results = await studentTaskMutation<StudentRow>([
+    const results = await db.batch<StudentRow>([
       insert,
       db.prepare("INSERT INTO student_courses (student_id, course_id) SELECT student.id, courses.value FROM (SELECT last_insert_rowid() AS id LIMIT 1) student CROSS JOIN json_each(?) courses").bind(JSON.stringify(student.courseIds ?? [])),
-    ], { id: 0, firstName: (student.firstName as string).trim(), lastName: (student.lastName as string).trim(), birthDate: typeof student.birthDate === 'string' && student.birthDate ? student.birthDate : null, active: student.active === false ? 0 : 1 });
+    ]);
     return json(serialize(results[0].results[0]), { status: 201 });
   } catch (error) {
-    if (String(error).includes('Task board changed')) return json({ error: 'Student or task information changed. Reload and try again.' }, { status: 409 });
     if (String(error).includes("FOREIGN KEY")) return json({ error: "A selected course no longer exists. Reload courses and try again." }, { status: 409 });
     if (isPhoneConstraintError(error)) return json({ error: "A student with this phone number already exists." }, { status: 409 });
     console.error("Could not create student", error);

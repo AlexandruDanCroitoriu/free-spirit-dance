@@ -1,9 +1,9 @@
-import { tableColumns, type ExportTable } from "../api/administrators/export/route";
+import { tableColumns, upgradeTaskTables, type ExportTable } from "../api/administrators/export/route";
 const tableNames = Object.keys(tableColumns) as Array<keyof typeof tableColumns>;
 const legacyEventDeleteOrder = ["event_refunds", "event_payment_handovers", "event_attendance", "event_session_changes", "event_cash_settlements", "event_requests", "event_sessions", "events"] as const;
 const catalogAuxiliaryDeleteOrder = ["group_sheet_audit", "catalog_v2_audit", "catalog_v2_runs", "group_sheet_runs", "practica_2026_audit", "practica_2026_runs", "_fsd_catalog_import", "history_import_notes", "history_issues", "history_payment_periods", "history_source_cells", "history_unmapped_classes"] as const;
-export const deleteOrder = ["automatic_task_occurrences", "task_rule_state", "manual_tasks", "payment_transfer_filters", "payment_preset_courses", "payment_course_allowances", "attendance", "practice_attendance", "student_payments", "student_courses", "course_schedule", "classes", "payment_presets", "practice_parties", "courses", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
-const insertOrder = ["admin_profiles", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance", "manual_tasks", "task_rule_state", "automatic_task_occurrences"] as const;
+export const deleteOrder = ["task_preferences", "task_images", "task_courses", "task_students", "manual_tasks", "task_lists", "task_boards", "payment_transfer_filters", "payment_preset_courses", "payment_course_allowances", "attendance", "practice_attendance", "student_payments", "student_courses", "course_schedule", "classes", "payment_presets", "practice_parties", "courses", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
+const insertOrder = ["admin_profiles", "task_preferences", "task_boards", "task_lists", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance", "manual_tasks", "task_courses", "task_students", "task_images"] as const;
 const historicalAbsenceColumns = ["student_id", "course_id", "class_date", "start_time"] as const;
 type DatabaseValue = string | number | null;
 
@@ -62,6 +62,7 @@ export async function copyImages(source: R2Bucket, target: R2Bucket, tables: Exp
     ...(table.get("students") ?? []).map((row) => imageKey(row.picture)),
     ...(table.get("admin_profiles") ?? []).map((row) => imageKey(row.picture)),
     ...(table.get("qr_codes") ?? []).map((row) => typeof row.image_path === "string" && row.image_path.startsWith("qr-") ? row.image_path : null),
+    ...(table.get("task_images") ?? []).map((row) => typeof row.object_key === "string" && row.object_key.startsWith("task-images/") ? row.object_key : null),
   ].filter((key): key is string => key !== null));
   let copied = 0;
   let missing = 0;
@@ -88,7 +89,7 @@ export async function replaceDatabase(target: D1Database, tables: ExportTable[],
   const legacyTables = new Set(existing.results.map((row) => row.name));
   const historicalTable = await target.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'history_absences'").first();
   if (historicalAbsences && !historicalTable) await target.prepare("CREATE TABLE history_absences (student_id TEXT, course_id TEXT, class_date TEXT, start_time TEXT)").run();
-  const rows = new Map(tables.map((table) => [table.name, table.rows as Record<string, DatabaseValue>[]]));
+  const rows = new Map((upgradeTaskTables(tables) as ExportTable[]).map((table) => [table.name, table.rows as Record<string, DatabaseValue>[]]));
   const statements = [
     ...legacyEventDeleteOrder.filter((name) => legacyTables.has(name)).map((name) => `DELETE FROM "${name}"`),
     ...catalogAuxiliaryDeleteOrder.filter((name) => legacyTables.has(name)).map((name) => `DELETE FROM "${name}"`),

@@ -9,6 +9,17 @@ import { copyBindings, listCopies } from "./app/lib/local-copies";
 
 const restrictedAdministrator = "croitoriu.alexandru.code@gmail.com";
 
+async function removeExpiredTaskImages(env: CloudflareEnv) {
+  await env.DB.prepare("DELETE FROM task_images WHERE task_id IS NULL AND expires_at IS NOT NULL AND expires_at <= datetime('now')").run();
+  const queued = await env.DB.prepare('SELECT object_key AS objectKey FROM task_image_deletions ORDER BY created_at LIMIT 100').all<{ objectKey: string }>();
+  for (const item of queued.results) {
+    try {
+      await env.STUDENT_IMAGES.delete(item.objectKey);
+      await env.DB.prepare('DELETE FROM task_image_deletions WHERE object_key = ?').bind(item.objectKey).run();
+    } catch (error) { console.error('Could not delete queued task image', error); }
+  }
+}
+
 function isLocalhost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
 }
@@ -82,12 +93,11 @@ export default {
     const email = request.headers.get("cf-access-authenticated-user-email")?.trim().toLowerCase();
     const canSwitch = development && email === restrictedAdministrator &&
       (url.hostname === "dev-free-spirit-dance.alexandru-croitoriu.dev" || isLocalhost(url.hostname));
-    // Other tunnel administrators use the same permissions and records as production.
-    // Only the owner can opt into the separate local development store.
-    const tunnelAdministrator = development && url.hostname === "dev-free-spirit-dance.alexandru-croitoriu.dev" &&
-      Boolean(email) && email !== restrictedAdministrator;
     const preference = /(?:^|;\s*)fsd-storage=(catalog|working|copy[2-8]|production)(?:;|$)/.exec(request.headers.get("Cookie") ?? "")?.[1];
-    const selected = tunnelAdministrator ? "production" : canSwitch ? preference ?? "catalog" : "catalog";
+    // The tunnel is another way into this local Worker. Administrators who
+    // authenticate through Access must therefore use the same local Catalog
+    // by default, including its administrator-permission records.
+    const selected = canSwitch ? preference ?? "catalog" : "catalog";
     if (url.pathname === "/api/development-storage") {
       const headers = new Headers({ "Cache-Control": "no-store" });
       if (!canSwitch) return Response.json({ available: false }, { headers });
@@ -123,10 +133,12 @@ export default {
     return result;
   },
   async scheduled(controller, env, ctx) {
-    if (env.LOCAL_STORAGE_ENABLED === "true" || !backupsConfigured(env)) return;
     ctx.waitUntil((async () => {
-      const job = await env.PRODUCTION_BACKUPS.getByName("production").tick(controller.scheduledTime);
-      if (job) await launchJob(env, job);
+      await removeExpiredTaskImages(env);
+      if (env.LOCAL_STORAGE_ENABLED !== "true" && backupsConfigured(env)) {
+        const job = await env.PRODUCTION_BACKUPS.getByName("production").tick(controller.scheduledTime);
+        if (job) await launchJob(env, job);
+      }
     })());
   },
 } satisfies ExportedHandler<DevelopmentEnv>;
