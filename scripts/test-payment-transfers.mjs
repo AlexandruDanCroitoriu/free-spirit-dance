@@ -39,7 +39,7 @@ const api=await import(moduleUrl(readFileSync('app/api/students/[id]/activity/ro
 sqlite.exec("INSERT INTO students (first_name,last_name,email) VALUES ('A','Student','a@test'),('B','Student','b@test'); INSERT INTO courses (name) VALUES ('Zouk'),('Basics')");
 const ctx=(id=1)=>({params:Promise.resolve({id:String(id)})});
 sqlite.exec("INSERT INTO admin_profiles (email, name) VALUES ('admin@test', '')");
-const body={kind:'payment',requestKey:'payment-edit-test-1234',notes:'Original',paidOn:'2026-01-01',amount:'280',receivedMethod:'Cash',allocations:[{courseId:1,allowance:4}]};
+const body={kind:'payment',requestKey:'payment-edit-test-1234',notes:'Original',paidOn:'2026-01-01',amount:'280',receivedMethod:'CASH',allocations:[{courseId:1,allowance:4}]};
 const req=(method,data)=>new Request('https://school.test/api/students/1/activity',{method,headers:{'Content-Type':'application/json','cf-access-authenticated-user-email':'admin@test'},body:JSON.stringify(data)});
 assert.equal((await api.POST(req('POST',body),ctx())).status,201);
 
@@ -50,8 +50,8 @@ assert.equal(result.count, 1);
 assert.equal(result.payments[0].givenToSchool, 0);
 assert.equal(result.payments[0].recordedBy, 'admin@test');
 assert.equal(result.totals.pendingMinor, 28000);
-assert.deepEqual((await list('?collector=admin%40test')).methods, [{ method: 'Cash' }]);
-assert.equal((await list('?collector=admin%40test&method=Cash')).count, 1);
+assert.deepEqual((await list('?collector=admin%40test')).methods, [{ method: 'CASH' }]);
+assert.equal((await list('?collector=admin%40test&method=CASH')).count, 1);
 assert.equal((await list('?collector=admin%40test&method=Revolut')).count, 0);
 sqlite.exec("INSERT INTO administrator_permissions (email) VALUES ('active@example.test'), ('removed@example.test'); INSERT INTO admin_profiles (email, name) VALUES ('active@example.test', 'Active administrator'), ('removed@example.test', 'Removed administrator')");
 assert.deepEqual((await list()).collectors.map((collector) => collector.email), ['active@example.test', 'croitoriu.alexandru.code@gmail.com', 'removed@example.test']);

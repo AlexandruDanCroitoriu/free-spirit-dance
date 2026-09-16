@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { DatabaseSync } from 'node:sqlite';
-const moduleUrl = source => 'data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(source)).toString('base64');
+const moduleUrl = source => 'data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(source, { mode: 'transform' })).toString('base64');
+const cloud = moduleUrl(readFileSync('app/lib/production-backups/cloud.ts', 'utf8'));
+const productionStorage = moduleUrl(readFileSync('app/lib/production-backups/production-storage.ts', 'utf8').replace("'./cloud'", JSON.stringify(cloud)));
 const helper = moduleUrl(readFileSync('app/lib/local-copies.ts', 'utf8'));
-const exporter = moduleUrl(readFileSync('app/api/administrators/export/route.ts', 'utf8').replace('import { env } from "../../../lib/storage";', 'const env = globalThis.copyTestEnv;'));
+const exporter = moduleUrl(readFileSync('app/api/administrators/export/route.ts', 'utf8').replace(/"(?:\.\.\/)+lib\/production-backups\/production-storage"/, JSON.stringify(productionStorage)).replace('import { env } from "../../../lib/storage";', 'const env = globalThis.copyTestEnv;'));
 const transfer = moduleUrl(readFileSync('app/lib/local-database-transfer.ts', 'utf8').replace('"../api/administrators/export/route"', JSON.stringify(exporter)));
 function database() {
   const sqlite = new DatabaseSync(':memory:');
@@ -32,7 +34,7 @@ production.sqlite.exec("INSERT INTO task_students(task_id,student_id) VALUES (1,
 await productionImages.put('student-test', 'original-image');
 globalThis.copyTestEnv = { WORKING_DB: first, WORKING_IMAGES: firstImages, COPY2_DB: second, COPY2_IMAGES: secondImages, CATALOG_DB: catalog, CATALOG_IMAGES: catalogImages, PRODUCTION_DB: production, PRODUCTION_IMAGES: productionImages };
 // Reimport after environment initialization: each isolated test module captures its bindings.
-const source = readFileSync('app/api/development-copy-production/route.ts', 'utf8').replace('import { env } from "../../lib/storage";', 'const env = globalThis.copyTestEnv;').replace('"../../lib/local-copies"', JSON.stringify(helper)).replace('"../administrators/export/route"', JSON.stringify(exporter)).replace('"../../lib/local-database-transfer"', JSON.stringify(transfer));
+const source = readFileSync('app/api/development-copy-production/route.ts', 'utf8').replace(/"(?:\.\.\/)+lib\/production-backups\/production-storage"/, JSON.stringify(productionStorage)).replace('import { env } from "../../lib/storage";', 'const env = globalThis.copyTestEnv;').replace('"../../lib/local-copies"', JSON.stringify(helper)).replace('"../administrators/export/route"', JSON.stringify(exporter)).replace('"../../lib/local-database-transfer"', JSON.stringify(transfer));
 const api = await import(moduleUrl(source + '\n// initialized'));
 const origin = 'https://dev-free-spirit-dance.alexandru-croitoriu.dev';
 const request = (method = 'POST', body, email = 'croitoriu.alexandru.code@gmail.com', requestOrigin = origin) => new Request(origin + '/api/development-copy-production', { method, headers: { Origin: requestOrigin, 'cf-access-authenticated-user-email': email }, ...(body ? { body: JSON.stringify(body) } : {}) });
@@ -64,7 +66,7 @@ for (const db of [production, first, second]) assert.deepEqual(db.sqlite.prepare
 console.log('PASS: copies preserve previous edits and production, isolate images, validate names and enforce owner/origin checks.');
 
 globalThis.copyTestEnv.CATALOG_IMAGES = bucket();
-const uploader = await import(moduleUrl(readFileSync('app/api/administrators/replace-production/route.ts', 'utf8').replace('import { env } from "../../../lib/storage";', 'const env = globalThis.copyTestEnv;').replace('"../../../lib/local-copies"', JSON.stringify(helper)).replace('"../export/route"', JSON.stringify(exporter))));
+const uploader = await import(moduleUrl(readFileSync('app/api/administrators/replace-production/route.ts', 'utf8').replace(/"(?:\.\.\/)+lib\/production-backups\/production-storage"/, JSON.stringify(productionStorage)).replace('import { env } from "../../../lib/storage";', 'const env = globalThis.copyTestEnv;').replace('"../../../lib/local-copies"', JSON.stringify(helper)).replace('"../export/route"', JSON.stringify(exporter))));
 const { tableColumns } = await import(exporter);
 const tables = Object.entries(tableColumns).map(([name, columns]) => ({ name, columns, rows: first.sqlite.prepare(`SELECT ${columns.join(',')} FROM ${name}`).all() }));
 const uploadRequest = new Request(origin + '/api/administrators/replace-production', { method: 'POST', headers: { Origin: origin, 'cf-access-authenticated-user-email': 'croitoriu.alexandru.code@gmail.com' }, body: JSON.stringify({ source: 'working', tables }) });

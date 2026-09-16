@@ -17,6 +17,7 @@ export default function TaskQuickAdd({ inbox = false, compact = false, disabled,
   }}>
     <input aria-label={inbox ? 'Inbox card title' : 'Card title'} autoFocus maxLength={200} required placeholder="Add a card" disabled={disabled || saving || uncertain} value={title} onChange={event => setTitle(event.target.value)} onBlur={() => { if (!saving && !uncertain) { setTitle(''); setOpen(false); } }} onKeyDown={event => { if (compact && event.key === 'Escape' && !saving) { setTitle(''); setOpen(false); } }} className={`${compact ? 'min-h-10 min-w-0 flex-1' : 'min-h-11 w-full'} rounded-md border border-stone-300 bg-white px-3 text-sm text-slate-800 placeholder:text-slate-400`} />
     {!compact && (title || !inbox) && <div className="mt-1 flex gap-2"><button disabled={disabled || saving || !title.trim()} className="min-h-11 rounded-md bg-slate-800 px-3 text-sm text-white disabled:opacity-50">{uncertain ? 'Retry' : 'Add card'}</button>{!inbox && <button type="button" aria-label="Cancel adding card" disabled={saving} className="min-h-11 px-3" onClick={() => setOpen(false)}>×</button>}</div>}
+    {compact && uncertain && <button type="submit" disabled={disabled || saving} className="min-h-10 rounded-md bg-slate-800 px-3 text-sm text-white disabled:opacity-50">Retry</button>}
     {error && <p role="alert" className="text-xs text-red-700">{error}{uncertain && ' Retry to confirm the original request.'}</p>}
   </form>;
 }

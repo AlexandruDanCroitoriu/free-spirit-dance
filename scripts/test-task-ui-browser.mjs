@@ -128,9 +128,15 @@ try {
   await call('Runtime.enable'); await call('Page.enable'); await call('Page.bringToFront');
   const evaluate = async expression => { const data = await call('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (data.exceptionDetails) throw new Error(JSON.stringify(data.exceptionDetails)); return data.result.value; };
   const waitFor = async expression => { for (let count = 0; count < 100; count++) { if (await evaluate(`Boolean(${expression})`)) return; await new Promise(resolve => setTimeout(resolve, 40)); } throw new Error(`Timed out: ${expression}; ${JSON.stringify(await evaluate("({body:document.body.innerText.slice(0,2500),url:location.href})"))}; exceptions: ${JSON.stringify(exceptions)}`); };
-  const click = async label => { await evaluate(`(()=>{const button=[...document.querySelectorAll('button')].find(b=>(b.textContent.trim()===${JSON.stringify(label)}||b.getAttribute('aria-label')===${JSON.stringify(label)})&&!b.disabled&&b.getClientRects().length);if(!button)throw Error('Missing enabled button: '+${JSON.stringify(label)});button.focus();button.click()})()`); };
-  const input = async (selector, value) => { await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(Object.getPrototypeOf(e),'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event(e.tagName==='SELECT'?'change':'input',{bubbles:true}))})()`); };
-  const point = selector => evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+  const click = async label => { await evaluate(`(()=>{const button=[...document.querySelectorAll('button')].find(b=>(b.textContent.trim().replace(/^−/,'')===${JSON.stringify(label)}||b.getAttribute('aria-label')===${JSON.stringify(label)})&&!b.disabled&&b.getClientRects().length);if(!button)throw Error('Missing enabled button: '+${JSON.stringify(label)});button.focus();button.click()})()`); };
+  const input = async (selector, value) => { await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.focus();Object.getOwnPropertyDescriptor(Object.getPrototypeOf(e),'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event(e.tagName==='SELECT'?'change':'input',{bubbles:true}))})()`); };
+  const quickAdd = async (column, title) => {
+    await evaluate(`(()=>{const column=document.querySelector(${JSON.stringify(column)});const add=[...column.querySelectorAll('button')].find(button=>button.textContent==='+ Add a card');if(add)add.click()})()`);
+    await input(`${column} form input`, title);
+    await evaluate(`document.querySelector(${JSON.stringify(column + ' form input')}).focus()`);
+    await key('Enter', 'Enter', 13);
+  };
+  const point = selector => evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});const r=(e.matches('[data-list-handle]')?e.querySelector('h2'):e).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
   const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
   const refreshBoard = async () => {
     const before = await evaluate('window.refreshRequests');
@@ -139,12 +145,11 @@ try {
     await pause(50);
   };
   const key = async (name, code, keyCode) => { await call('Input.dispatchKeyEvent', { type: 'keyDown', key: name, code, windowsVirtualKeyCode: keyCode, ...(name === 'Enter' ? { text: '\r' } : {}) }); await call('Input.dispatchKeyEvent', { type: 'keyUp', key: name, code, windowsVirtualKeyCode: keyCode }); };
-  const drag = async (from, to, cancel = false, hold = false) => {
+  const drag = async (from, to, cancel = false) => {
     const start = await point(from), end = await point(to);
     await call('Input.dispatchMouseEvent', { type: 'mouseMoved', ...start });
     await call('Input.dispatchMouseEvent', { type: 'mousePressed', ...start, button: 'left', clickCount: 1 });
-    if (hold) await pause(300);
-    else await call('Input.dispatchMouseEvent',{type:'mouseMoved',x:start.x+12,y:start.y,buttons:1});
+    await call('Input.dispatchMouseEvent',{type:'mouseMoved',x:start.x+12,y:start.y,buttons:1});
     await waitFor(`document.querySelector('[data-dragging=true]')`);
     for (let step = 1; step <= 8; step++) { await call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: start.x + (end.x - start.x) * step / 8, y: start.y + (end.y - start.y) * step / 8, buttons: 1 }); await pause(35); }
     if (cancel) await key('Escape', 'Escape', 27);
@@ -195,26 +200,26 @@ try {
   await call('Input.dispatchMouseEvent',{type:'mousePressed',...cardPoint,button:'left',clickCount:1});
   await call('Input.dispatchMouseEvent',{type:'mouseReleased',...cardPoint,button:'left',clickCount:1});
   await waitFor(`document.querySelector('dialog')?.open`);
-  assert.equal(await evaluate(`!!document.querySelector('dialog textarea')&&!!document.querySelector('dialog input[type=date]')`),true);
+  assert.equal(await evaluate(`!!document.querySelector('dialog [aria-label="Edit description"]')&&!!document.querySelector('dialog input[type=date]')`),true);
   await click('Cancel');
-  await input('[aria-label="Inbox card title"]','Keep my draft');
-  await click('Hide Inbox');
-  assert.equal(await evaluate(`document.querySelector('#task-inbox').getBoundingClientRect().width`),0);
-  await click('Show Inbox');
-  assert.equal(await evaluate(`document.querySelector('[aria-label="Inbox card title"]').value`),'Keep my draft');
-  await input('[aria-label="Inbox card title"]','');
-  await click('Hide Inbox'); await call('Page.reload');
+  // Inbox width can collapse and persist through reload via the resize separator.
+  await evaluate(`document.querySelector('[aria-label="Resize or hide Inbox"][aria-orientation="vertical"]').focus()`);
+  for (let step = 0; step < 7; step++) { await key('ArrowLeft', 'ArrowLeft', 37); await pause(40); }
+  assert.equal(await evaluate(`document.querySelector('#task-inbox').getBoundingClientRect().width`), 0);
+  await call('Page.reload');
   await waitFor(`document.querySelector('[aria-label="Board scope"]')&&document.querySelector('#task-inbox')?.getBoundingClientRect().width===0`);
-  await click('Show Inbox');
+  await evaluate(`document.querySelector('[aria-label="Resize or hide Inbox"][aria-orientation="vertical"]').focus()`);
+  for (let step = 0; step < 6; step++) { await key('ArrowRight', 'ArrowRight', 39); await pause(40); }
   // Mouse sorting uses the same guarded endpoint and keeps controls separate.
   await drag('[aria-label="Drag First"]', '[aria-label="Drag Second"]');
   await waitFor(`window.moveRequests.length===1&&!document.querySelector('[aria-busy=true]')`);
   assert.equal(await evaluate(`document.querySelector('article').getAttribute('aria-label')`), 'Second');
-  assert.deepEqual(await evaluate(`window.moveRequests[0]`), { key: 'manual:10', listId: 1, position: 'after', targetKey: 'manual:2', revision: 1 });
+  assert.equal(await evaluate(`JSON.parse(window.moveRequests[0].moveState).task.key`), 'manual:10');
+  assert.deepEqual(await evaluate(`(({moveState,...request})=>request)(window.moveRequests[0])`), { key: 'manual:10', listId: 1, position: 'after', targetKey: 'manual:2', revision: 1 });
   assert.equal(await evaluate(`!!document.querySelector('dialog')`), false);
   await refreshBoard();
   assert.equal(await evaluate(`document.querySelector('article').getAttribute('aria-label')`), 'Second');
-  await drag('[aria-label="Drag First"]', '[aria-labelledby="column-2"] > div',false,true);
+  await drag('[aria-label="Drag First"]', '[aria-labelledby="column-2"] > div');
   await waitFor(`window.fixture.tasks.find(t=>t.title==='First').listId===2&&!document.querySelector('[aria-busy=true]')`);
   await drag('[aria-label="Drag First"]', '[aria-label="Drag Completed"]');
   await waitFor(`window.fixture.tasks.find(t=>t.title==='First').listId===3&&!document.querySelector('[aria-busy=true]')`);
@@ -264,7 +269,7 @@ try {
   await waitFor(`document.querySelector('dialog')?.open`);
   await click('Cancel'); await waitFor(`!document.querySelector('dialog')`);
   await call('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...touchStart, id: 1 }] });
-  await pause(300); await waitFor(`document.querySelector('[data-dragging=true]')`);
+  await pause(500); await waitFor(`document.querySelector('[data-dragging=true]')`);
   for (let step = 1; step <= 8; step++) { await call('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: touchStart.x + (touchEnd.x - touchStart.x) * step / 8, y: touchStart.y + (touchEnd.y - touchStart.y) * step / 8, id: 1 }] }); await pause(35); }
   await call('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await waitFor(`window.moveRequests.length===${touchCount + 1}&&!document.querySelector('[aria-busy=true]')`);
@@ -272,34 +277,39 @@ try {
   await call('Emulation.setTouchEmulationEnabled', { enabled: false });
   // Personal quick-add, card editor, explicit publication and persisted placement.
   await call('Page.reload'); await waitFor(`window.fixture?.revision===1&&document.querySelectorAll('article').length===3`);
-  await input('[aria-label="Inbox card title"]', 'Private follow up'); await click('Add card');
+  await quickAdd('#task-inbox', 'Private follow up');
   await waitFor(`document.querySelector('[aria-labelledby="column-inbox"] article')`);
   assert.equal(await evaluate(`window.fixture.tasks.at(-1).listId`),null);
   await click('Private follow up'); await waitFor(`document.querySelector('dialog')?.open`);
-  await input('dialog input[type=date]', '2026-09-22'); await input('dialog textarea','Notes');
+  await input('dialog input[type=date]', '2026-09-22'); await evaluate(`document.querySelector('[aria-label="Edit description"]').click()`);
+  await waitFor(`document.querySelector('dialog [contenteditable=true]')`);
+  await evaluate(`document.querySelector('dialog [contenteditable=true]').focus()`);
+  await call('Input.insertText', { text: 'Notes' });
   await click('Save task'); await waitFor(`!document.querySelector('dialog')`);
-  await click('Private follow up'); await waitFor(`document.querySelector('dialog')?.open`);
-  await input('[aria-label="Task list"]','2'); await click('Save task'); await waitFor(`!document.querySelector('dialog')`);
+  await drag('[aria-label="Drag Private follow up"]','[aria-labelledby="column-2"] > div');
   await waitFor(`document.querySelector('[aria-labelledby="column-2"] article[aria-label="Private follow up"]')&&!document.querySelector('[aria-busy=true]')`);
   await refreshBoard();
-  await click('Private follow up'); await waitFor(`document.querySelector('dialog')?.open`);
-  await input('[aria-label="Task list"]','inbox'); await click('Save task'); await waitFor(`!document.querySelector('dialog')`);
+  await drag('[aria-label="Drag Private follow up"]','[aria-labelledby="column-inbox"] h2');
   await waitFor(`document.querySelector('[aria-labelledby="column-inbox"] article')&&!document.querySelector('[aria-busy=true]')`);
   // Search and select multiple students; retain selections across searches and saves.
   await click('Private follow up'); await waitFor(`document.querySelector('dialog')?.open`);
-  await evaluate(`document.querySelector('dialog details summary').click()`);
+  await evaluate(`[...document.querySelectorAll('dialog button')].find(button=>button.textContent.startsWith('Students')).click()`);
+  await waitFor(`document.querySelector('[aria-label="Close students selection"]')`);
   await input('dialog input[type=search]', 'Test');
-  await evaluate(`document.querySelector('[aria-label="Student choices"] input').click()`);
+  await evaluate(`document.querySelector('[aria-label="students choices"] input').click()`);
   await input('dialog input[type=search]', 'Another');
-  assert.equal(await evaluate(`!!document.querySelector('[aria-label="Student choices"] img')`), true);
-  await evaluate(`document.querySelector('[aria-label="Student choices"] input').click()`);
+  assert.equal(await evaluate(`!!document.querySelector('[aria-label="students choices"] img')`), true);
+  await evaluate(`document.querySelector('[aria-label="students choices"] input').click()`);
+  await click('Close students selection');
   await click('Save task'); await waitFor(`!document.querySelector('dialog')`);
   assert.equal(await evaluate(`document.querySelectorAll('article[aria-label="Private follow up"] a').length`),2);
   assert.equal(await evaluate(`(()=>{const c=document.querySelector('article[aria-label="Private follow up"]'), d=c.querySelector('time').getBoundingClientRect(), a=c.querySelector('a').getBoundingClientRect();return d.left>a.right&&Math.abs(d.bottom-a.bottom)<10})()`),true);
   await click('Private follow up'); await waitFor(`document.querySelector('dialog')?.open`);
-  await evaluate(`document.querySelector('dialog details summary').click()`);
-  assert.equal(await evaluate(`document.querySelectorAll('[aria-label="Student choices"] input:checked').length`),2);
-  await evaluate(`document.querySelector('[aria-label="Student choices"] input').click()`);
+  await evaluate(`[...document.querySelectorAll('dialog button')].find(button=>button.textContent.startsWith('Students')).click()`);
+  await waitFor(`document.querySelector('[aria-label="Close students selection"]')`);
+  assert.equal(await evaluate(`document.querySelectorAll('[aria-label="students choices"] input:checked').length`),2);
+  await evaluate(`document.querySelector('[aria-label="students choices"] input').click()`);
+  await click('Close students selection');
   await click('Save task'); await waitFor(`!document.querySelector('dialog')`);
   assert.equal(await evaluate(`document.querySelectorAll('article[aria-label="Private follow up"] a').length`),1);
   // Drag directly from the private Inbox to a shared list and back.
@@ -307,13 +317,17 @@ try {
   await waitFor(`window.fixture.tasks.at(-1).listId===2&&!document.querySelector('[aria-busy=true]')`);
   await drag('[aria-label="Drag Private follow up"]','[aria-labelledby="column-inbox"] h2');
   await waitFor(`window.fixture.tasks.at(-1).listId===null&&!document.querySelector('[aria-busy=true]')`);
-  await input('[aria-label="Inbox card title"]','Second private'); await click('Add card');
+  await quickAdd('#task-inbox', 'Second private');
   await waitFor(`document.querySelectorAll('[aria-labelledby="column-inbox"] article').length===2`);
-  await click('Second private'); await waitFor(`document.querySelector('dialog')?.open`);
-  await click('Move up'); await waitFor(`!document.querySelector('dialog button:disabled[aria-label="Close task editor"]')`);
-  await evaluate(`document.querySelector('[aria-label="Close task editor"]').click()`);
+  await evaluate(`document.querySelector('[aria-label="Drag Second private"]').focus()`);
+  await key('Enter', 'Enter', 13); await waitFor(`document.querySelector('[data-dragging=true]')`);
+  await pause(150);
+  for (let step = 0; step < 3; step++) { await key('ArrowUp', 'ArrowUp', 38); await pause(150); if (await evaluate(`document.querySelector('[aria-labelledby="column-inbox"] article')?.getAttribute('aria-label')==='Second private'`)) break; }
+  await key('Enter', 'Enter', 13);
   await waitFor(`document.querySelector('[aria-labelledby="column-inbox"] article')?.getAttribute('aria-label')==='Second private'&&!document.querySelector('[aria-busy=true]')`);
   assert.equal(await evaluate(`document.querySelectorAll('article details').length`),0);
+  await waitFor(`!document.querySelector('[data-dragging=true]')&&!document.getAnimations().some(animation=>animation.playState==='running')`);
+  await pause(360);
   // List handles reorder whole panels; cards keep their list and order.
   const taskPlacements=await evaluate('window.fixture.tasks.map(task=>[task.key,task.listId,task.sortOrder])');
   await drag('[aria-label="Drag list This Week"]','[aria-label="Drag list Finished"]');
@@ -327,7 +341,7 @@ try {
   await refreshBoard();
   await evaluate(`document.querySelector('[aria-label="Planning list settings"]').click()`);
   assert.equal(await evaluate(`document.body.textContent.includes('Move left')||document.body.textContent.includes('Move right')`),false);
-  await click('Remove list'); await click('Remove list');
+  await click('Remove list'); await waitFor(`document.querySelector(':popover-open')?.textContent.includes('Remove this list?')`); await click('Remove list');
   await waitFor(`!window.fixture.lists.some(list=>list.title==='Planning')&&!document.querySelector('[aria-busy=true]')`);
   // Keyboard list sorting uses the header; Escape cancels without persistence.
   const listMovesBeforeKeyboard=await evaluate('window.listMoves.length');
@@ -343,14 +357,14 @@ try {
   await call('Emulation.setTouchEmulationEnabled',{enabled:true});
   const listTouchStart=await point('[aria-label="Drag list This Week"]'), listTouchEnd=await point('[aria-label="Drag list Finished"]');
   await call('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...listTouchStart,id:1}]});
-  await pause(300);
+  await pause(500);
   await waitFor(`document.querySelector('section[data-dragging=true]')`); await pause(150);
   for(let step=1;step<=6;step++){await call('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:listTouchStart.x+(listTouchEnd.x-listTouchStart.x)*step/6,y:listTouchStart.y,id:1}]});await pause(40);}
   await call('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   await waitFor(`window.listMoves.length===${listMovesBeforeTouch+1}&&!document.querySelector('[aria-busy=true]')`);
   await pause(400); await call('Emulation.setTouchEmulationEnabled',{enabled:false});
   const paint=async(label,color)=>{
-    if(label==='School board'||label==='Personal board') await evaluate(`document.querySelector('[aria-label="Change color"]').click()`);
+    if(label==='School board'||label==='Personal board') { await evaluate(`document.querySelector('[aria-label="Board settings settings"]').click()`); await click('Change color'); }
     else {
       await evaluate(`document.querySelector('[aria-label="${label} settings"]').click()`);
       await evaluate(` [...document.querySelectorAll(':popover-open button')].find(button=>button.textContent.trim()==='Change color').click()`);
@@ -367,48 +381,47 @@ try {
   assert.equal(await evaluate(`(()=>{const inbox=document.querySelector('[aria-labelledby="column-inbox"]').getBoundingClientRect(), shared=document.querySelector('[aria-label="School board"]').getBoundingClientRect();return Math.abs(inbox.top-shared.top)<2&&shared.left>inbox.right&&inbox.height>800})()`),true);
   if (process.env.TASK_UI_SCREENSHOTS) { const shot=await call('Page.captureScreenshot',{format:'png'});await writeFile(resolve(process.env.TASK_UI_SCREENSHOTS,'tasks-desktop.png'),Buffer.from(shot.data,'base64')); }
   assert.equal(await evaluate(`!document.querySelector('[aria-controls="task-filters"]')&&!document.querySelector('[aria-label="Task filters"]')`),true);
+  await evaluate(`[...document.querySelectorAll('#task-inbox button')].find(button=>button.textContent==='+ Add a card')?.click()`);
   await input('[aria-label="Inbox card title"]','Unsent private draft');
   await click('Personal');
   await waitFor(`document.querySelector('[aria-label="Personal board"]')`);
-  assert.equal(await evaluate(`document.querySelector('[aria-label="Inbox card title"]').value`),'Unsent private draft');
+  await waitFor(`document.querySelector('[aria-label="Inbox card title"]')===null`); // Blurring quick-add discards the unsaved draft.
   await paint('Personal board','Lilac');
   assert.equal(await evaluate(`window.fixture.boards.find(board=>board.scope==='school').color`),'ocean');
-  await input('[aria-label="Inbox card title"]','');
   assert.equal(await evaluate(`document.querySelectorAll('[aria-label="Task board"] article').length`),0);
   assert.equal(await evaluate(`document.querySelectorAll('[aria-labelledby="column-inbox"] article').length`),2);
-  await click('+ Add another list'); await input('[aria-label="Create list"] input','Invitations'); await click('Add list');
+  await click('+ Add another list'); await input('[aria-label="Create list"] input','Invitations'); await key('Enter','Enter',13);
   await waitFor(`window.fixture.lists.some(list=>list.title==='Invitations')&&!document.querySelector('[aria-busy=true]')`);
-  await input('[aria-label="Create list"] input','Venue'); await click('Add list');
+  await click('+ Add another list'); await input('[aria-label="Create list"] input','Venue'); await key('Enter','Enter',13);
   await waitFor(`document.querySelectorAll('[aria-label="Task board"] > section').length===2&&!document.querySelector('[aria-busy=true]')`);
-  await evaluate(`document.querySelector('[aria-label="Cancel adding list"]').click()`);
-  await click('+ Add a card'); await input('[aria-label="Card title"]','Invite teachers'); await click('Add card');
+  await quickAdd('[aria-label="Task board"] > section', 'Invite teachers');
   await waitFor(`document.querySelector('[aria-label="Task board"] article')`);
   assert.equal(await evaluate(`window.fixture.tasks.at(-1).listId===window.fixture.lists.find(list=>list.title==='Invitations').id`),true);
   await call('Emulation.setDeviceMetricsOverride',{width:320,height:740,deviceScaleFactor:1,mobile:true});
   assert.equal(await evaluate(`document.documentElement.scrollWidth<=320`),true);
-  assert.equal(await evaluate(`document.querySelector('[aria-label="Task workspace"]').scrollWidth>320`),true);
+  assert.equal(await evaluate(`document.querySelector('[aria-label="Task board"]').scrollWidth>320`),true);
   await evaluate(`document.querySelector('[aria-label="Inbox settings"]').click()`);
   await click('Change color');
   assert.equal(await evaluate(`(()=>{const r=document.querySelector(':popover-open').getBoundingClientRect();return r.left>=0&&r.right<=320&&r.top>=0&&r.bottom<=740})()`),true);
   await evaluate(`document.querySelector(':popover-open [aria-label="Default"]').click()`);
   await waitFor(`!document.querySelector(':popover-open')&&!document.querySelector('[aria-busy=true]')`);
-  await evaluate(`document.querySelector('[aria-label="Task workspace"]').scrollLeft=0`);
+  await evaluate(`document.querySelector('[aria-label="Task board"]').scrollLeft=0`);
   await call('Emulation.setTouchEmulationEnabled',{enabled:true});
-  const swipeStart=await point('[aria-labelledby="column-inbox"] h2'), movesBeforeSwipe=await evaluate('window.moveRequests.length');
+  const swipeStart=await point('[aria-label="Task board"] h2'), movesBeforeSwipe=await evaluate('window.moveRequests.length');
   await call('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...swipeStart,id:1}]});
   for(let step=1;step<=4;step++){await call('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:swipeStart.x-step*25,y:swipeStart.y,id:1}]});await pause(20);}
   await call('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-  await waitFor(`document.querySelector('[aria-label="Task workspace"]').scrollLeft>0`);
+  await waitFor(`document.querySelector('[aria-label="Task board"]').scrollLeft>0`);
   assert.equal(await evaluate('window.moveRequests.length'),movesBeforeSwipe,'Swiping the list background should scroll, not drag.');
   await pause(400); await call('Emulation.setTouchEmulationEnabled',{enabled:false});
-  await evaluate(`document.querySelector('[aria-label="Task workspace"]').scrollLeft=0`);
+  await evaluate(`document.querySelector('[aria-label="Task board"]').scrollLeft=0`);
   await click('Second private'); await waitFor(`document.querySelector('dialog')?.open`);
   assert.equal(await evaluate(`document.querySelector('dialog').scrollWidth<=320`),true);
   await click('Delete task'); await click('Confirm delete'); await waitFor(`!document.querySelector('dialog')`);
   assert.equal(await evaluate(`window.fixture.tasks.some(t=>t.title==='Second private')`),false);
   if(process.env.TASK_UI_SCREENSHOTS){const shot=await call('Page.captureScreenshot',{format:'png'});await writeFile(resolve(process.env.TASK_UI_SCREENSHOTS,'tasks-mobile.png'),Buffer.from(shot.data,'base64'));}
   await evaluate(`window.fixture.loseCreate=true`);
-  await input('[aria-label="Inbox card title"]','Lost-response draft'); await click('Add card');
+  await quickAdd('#task-inbox', 'Lost-response draft');
   await waitFor(`document.querySelector('[aria-label="Add Inbox card"] [role=alert]')`);
   assert.equal(await evaluate(`document.querySelector('[aria-label="Inbox card title"]').disabled`),true);
   await click('Retry'); await waitFor(`document.querySelector('article[aria-label="Lost-response draft"]')`);

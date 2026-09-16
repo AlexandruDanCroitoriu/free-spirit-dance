@@ -52,9 +52,9 @@ try {
     assert.ok(html.indexOf("Missed classes") < html.indexOf("Attendances without credit"));
     assert.match(html,/Free attendance for Zouk on 03\/09\/2026/);
     assert.match(html,/aria-pressed="false"/);
-    assert.match(html,/aria-label="Logs pages"/);
-    assert.match(html,/Page 1 of 1/);
-    assert.match(html,/>Previous<|>Next</);
+    assert.doesNotMatch(html,/aria-label="Logs pages"/);
+    assert.match(html, /Student activity log, newest events first/);
+    assert.equal((html.match(/<tbody[^>]*>[\s\S]*?<\/tbody>/)?.[0].match(/<tr/g) ?? []).length, data.logs.length, "The complete activity log renders without pagination");
     assert.match(html,/Activity log/); assert.doesNotMatch(html,/>Record attendance<|>Save attendance</);
     assert.match(html,/Payment/);
     if (mode === "payment") {
@@ -68,7 +68,7 @@ try {
     assert.doesNotMatch(html,/>Details<|<unsafe>/);
     assert.doesNotMatch(html,/earlier allowance|legacy/i);
     if (mode) assert.match(html,/<dialog/);
-    if (mode === 'payment') { assert.match(html,/Payment preset/); assert.match(html,/Four classes/); assert.match(html,/Custom payment/); assert.match(html,/Amount received \(RON\)/); assert.match(html,/Classes covered by course/); assert.equal((html.match(/type="checkbox"/g) ?? []).length,2); }
+    if (mode === 'payment') { assert.match(html,/Payment preset/); assert.match(html,/Four classes/); assert.match(html,/Custom payment/); assert.match(html,/Amount received \(RON\)/); assert.match(html,/Classes covered by course/); assert.equal((html.match(/<dialog[\s\S]*?<\/dialog>/)?.[0].match(/type="checkbox"/g) ?? []).length,2); }
   }
   console.log('PASS: course debt, logs, escaped notes, and payment/attendance popup controls render.');
 } finally { await rm(directory,{recursive:true,force:true}); }

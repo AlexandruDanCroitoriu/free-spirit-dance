@@ -103,7 +103,7 @@ assert.throws(()=>sqlite.exec('DELETE FROM courses WHERE id=1'),/FOREIGN KEY/);
 assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 console.log('PASS: unpaid attendance, per-course balances, payment allocations, exact money parsing, validation, atomic rollback, retries, log snapshots, pagination and preserved history.');
 
-const workerSource = readFileSync('worker.ts','utf8').replace(/^import \{ backupManagement.*$/m, 'const backupManagement = async () => null; const backupsConfigured = () => false; const launchJob = async () => {}; const productionRequest = async (request, env, run) => run(request, env);').replace(/^import \{ localProductionBackupManagement.*$/m, 'const localProductionBackupManagement = async () => null;').replace(/^export \{ (ProductionBackup|LocalBackup).*$/gm, '').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();')
+const workerSource = readFileSync('worker.ts','utf8').replace(/^import \{ backupManagement.*$/m, 'const backupManagement = async () => null; const backupsConfigured = () => false; const launchJob = async () => {}; const productionRequest = async (request, env, run) => run(request, env);').replace(/^import \{ localProductionBackupManagement.*$/m, 'const localProductionBackupManagement = async () => null;').replace(/^export \{ (ProductionBackup|LocalBackup).*$/gm, '').replace('import { localProductionRequest } from "./app/lib/production-backups/local-production";', 'const localProductionRequest = async (_request, _env, run) => run();').replace('import { productionImages } from "./app/lib/production-backups/production-storage";', 'const productionImages = async (_db, images) => images;').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();')
   .replace('import { copyBindings, listCopies } from "./app/lib/local-copies";', stripTypeScriptTypes(readFileSync('app/lib/local-copies.ts', 'utf8')).replaceAll('export ', '')).replace('import vinextHandler from "vinext/server/fetch-handler";', 'const vinextHandler = { fetch: () => new Response("allowed") };');
 const {default:worker} = await import(moduleUrl(workerSource));
 const workerEnv = { DB:db, PUBLIC_QR_BASE_URL:'https://go.example.test' };
@@ -174,12 +174,12 @@ console.log('PASS: cancellation logs are student-scoped, included in pagination 
 
 sqlite.exec("INSERT INTO classes (course_id,class_date,start_time,cancelled) VALUES (1,'2099-01-01','18:30',1)");
 const upcomingLog = await read(1, '?logsPageSize=50');
-assert.ok(upcomingLog.logs.some(row => row.kind === 'cancelled' && row.eventDate === '2099-01-01T18:30:00'), 'known future cancellations are included before attendance reaches them');
+assert.equal(upcomingLog.logs.some(row => row.kind === 'cancelled' && row.eventDate === '2099-01-01T18:30:00'), false, 'Cancellations outside a valid package are excluded, matching course-credit rules');
 assert.equal(upcomingLog.logsCount, upcomingLog.logs.length);
-console.log('PASS: API exposes known upcoming cancellations in activity and pagination.');
+console.log('PASS: activity excludes cancellations outside valid payment coverage.');
 
 sqlite.exec("CREATE TABLE history_absences (student_id TEXT, course_id TEXT, class_date TEXT, start_time TEXT); INSERT INTO history_absences VALUES ('3','1','2026-01-08','18:30'),('3','1','2026-02-05','18:30'),('2','2','2026-08-02','19:00')");
-sqlite.exec("INSERT INTO students(id,first_name,last_name,email) VALUES(3,'Historical','Student','history@example.test'); INSERT INTO admin_profiles(email,name) VALUES('history@example.test','History'); INSERT INTO student_payments(id,student_id,paid_on,amount_minor,notes,recorded_by,recorded_at,request_key,request_payload) VALUES(100,3,'2026-01-01',100,'','history@example.test','2026-01-01','history-payment','{}'); INSERT INTO payment_course_allowances VALUES(100,1,'Zouk',1)");
+sqlite.exec("INSERT INTO students(id,first_name,last_name,email) VALUES(3,'Historical','Student','history@example.test'); INSERT INTO admin_profiles(email,name) VALUES('history@example.test','History'); INSERT INTO student_payments(id,student_id,paid_on,amount_minor,notes,recorded_by,recorded_at,request_key,request_payload) VALUES(100,3,'2026-01-01',100,'','history@example.test','2026-01-01','history-payment','{}'); INSERT INTO payment_course_allowances VALUES(100,1,'Zouk',2); INSERT INTO classes(course_id,class_date,start_time) VALUES(1,'2026-01-01','18:30'); INSERT INTO attendance(student_id,course_id,course_name,attended_at,recorded_by,class_id) VALUES(3,1,'Zouk','2026-01-01T18:30:00','history@example.test',(SELECT id FROM classes WHERE course_id=1 AND class_date='2026-01-01' AND start_time='18:30'))");
 const historical = await read(3, '?logsPageSize=50');
 assert.deepEqual(historical.logs.filter(r => r.kind === 'missed').map(r => r.eventDate), ['2026-01-08T18:30:00']);
 assert.equal(historical.summary.missedClasses, 1);
@@ -198,6 +198,7 @@ const sameDay = await read(4, '?logsPageSize=50');
 assert.deepEqual(sameDay.logs.slice(0, 2).map(row => [row.kind, row.eventDate]), [['payment', '2026-09-01'], ['attendance', '2026-09-01T18:30:00']]);
 console.log('PASS: date-only payments precede same-day attendance in the activity log.');
 
+mock.timers.setTime(Date.parse("2026-09-11T12:00:00Z"));
 sqlite.exec("INSERT INTO students(id,first_name,last_name,email) VALUES(5,'Absent same day','Payment','absent-same-day@example.test'); INSERT INTO classes (course_id,class_date,start_time) VALUES (1,'2026-09-11','18:30'); INSERT INTO student_payments(id,student_id,paid_on,amount_minor,notes,recorded_by,recorded_at,request_key,request_payload) VALUES(102,5,'2026-09-11',100,'','history@example.test','2026-09-11','absent-same-day-payment','{}'); INSERT INTO payment_course_allowances VALUES(102,1,'New name',1);");
 const absentSameDay = await read(5, '?logsPageSize=50');
 assert.equal(absentSameDay.summary.missedClasses, 0, 'an unattended class on the payment date is not missed');

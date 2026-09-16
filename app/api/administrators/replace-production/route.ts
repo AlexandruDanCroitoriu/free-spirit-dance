@@ -1,3 +1,4 @@
+import { productionImages } from "../../../lib/production-backups/production-storage";
 import { env } from "../../../lib/storage";
 import { copyBindings, listCopies } from "../../../lib/local-copies";
 import { tableColumns, upgradeTaskTables, type ExportTable } from "../export/route";
@@ -117,7 +118,7 @@ export async function POST(request: Request) {
     // Copy existing local images first. Historical Catalog snapshots can retain
     // image references whose local bucket objects are unavailable; those must
     // not prevent the requested SQL replacement.
-    const images = await copyLocalImages(tables, sourceImages, bindings.PRODUCTION_IMAGES);
+    const images = await copyLocalImages(tables, sourceImages, await productionImages(bindings.PRODUCTION_DB, bindings.PRODUCTION_IMAGES));
     // D1 batches are transactions. This avoids raw BEGIN/COMMIT statements,
     // which the local D1 runtime intentionally rejects.
     const existing = await bindings.PRODUCTION_DB.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${legacyEventDeleteOrder.map(() => "?").join(", ")})`).bind(...legacyEventDeleteOrder).all<{ name: string }>();

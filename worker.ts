@@ -1,3 +1,5 @@
+import { localProductionRequest } from "./app/lib/production-backups/local-production";
+import { productionImages } from "./app/lib/production-backups/production-storage";
 import { withStorage } from "./app/lib/storage";
 import { backupManagement, backupsConfigured, launchJob, localBackupBridgeAuthorized, productionRequest } from "./app/lib/production-backups/http";
 export { ProductionBackupCoordinator } from "./app/lib/production-backups/coordinator";
@@ -125,7 +127,14 @@ export default {
     const copy = copyBindings(env, selected);
     if (selected !== "catalog" && selected !== "production" && (!copy || !env.WORKING_DB || !(await listCopies(env.WORKING_DB)).some((item) => item.id === selected)) && url.pathname !== "/api/development-copy-production") return new Response("Local database is not available. Select Catalog.", { status: 503 });
     const scoped = selected === "production" ? env : copy ? { ...env, DB: copy.db, STUDENT_IMAGES: copy.images } : { ...env, DB: env.CATALOG_DB, STUDENT_IMAGES: env.CATALOG_IMAGES, PRODUCTION_IMAGES: env.PRODUCTION_IMAGES ?? env.STUDENT_IMAGES };
-    const response = await withStorage(scoped, () => application.fetch(request, scoped, ctx));
+    const run = async () => {
+      const current = selected === 'production' ? { ...scoped, STUDENT_IMAGES: await productionImages(scoped.DB, scoped.STUDENT_IMAGES) } : scoped;
+      return withStorage(current, () => application.fetch(request, current, ctx));
+    };
+    const shellAsset = url.pathname.startsWith('/_next/') || ['/logo.svg', '/favicon.ico'].includes(url.pathname);
+    const operation = selected === 'production' && !shellAsset ? localProductionRequest(request, env, run) : run();
+    ctx.waitUntil?.(operation.then(() => undefined, () => undefined));
+    const response = await operation;
     // Image URLs and record IDs can overlap across stores; never reuse cached data.
     const result = new Response(response.body, response);
     result.headers.set("Cache-Control", "no-store");
@@ -134,8 +143,13 @@ export default {
   },
   async scheduled(controller, env, ctx) {
     ctx.waitUntil((async () => {
-      await removeExpiredTaskImages(env);
       if (env.LOCAL_STORAGE_ENABLED !== "true" && backupsConfigured(env)) {
+        const status = await env.PRODUCTION_BACKUPS.getByName("production").status();
+        const origin = 'https://free-spirit-dance.alexandru-croitoriu.dev';
+        await productionRequest(new Request(`${origin}/api/task-image-cleanup`, { method: 'POST', headers: { Origin: origin, 'X-FSD-Generation': String(status.generation) } }), env, async (_request, scoped) => {
+          await removeExpiredTaskImages(scoped);
+          return new Response(null, { status: 204 });
+        });
         const job = await env.PRODUCTION_BACKUPS.getByName("production").tick(controller.scheduledTime);
         if (job) await launchJob(env, job);
       }

@@ -1,5 +1,6 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { cloudApi, workingDatabase } from "./cloud";
+import { productionImages, productionStorage, storageSchema, storageTable } from "./production-storage";
 import type { Backup, Job } from "./model";
 import { migrateRestoredDatabase } from "./migrate";
 
@@ -96,7 +97,7 @@ export function prepareSqlForD1Import(source: string) {
 }
 
 export async function schemaFingerprint(db: D1Database, local = false) {
-  const result = await db.prepare(`SELECT type, name, tbl_name, sql FROM sqlite_master WHERE sql IS NOT NULL AND substr(name, 1, 4) != '_cf_' AND substr(name, 1, 7) != 'sqlite_' ${local ? "AND name != 'local_database_copies'" : ''} ORDER BY type, name`).all();
+  const result = await db.prepare(`SELECT type, name, tbl_name, sql FROM sqlite_master WHERE sql IS NOT NULL AND substr(name, 1, 4) != '_cf_' AND substr(name, 1, 7) != 'sqlite_' AND name != '${storageTable}' ${local ? "AND name != 'local_database_copies'" : ''} ORDER BY type, name`).all();
   // SQLite exports may add identifier quotes and whitespace. Compare SQL
   // tokens rather than the spelling of the original CREATE statement.
   const normalized = result.results.map(row => {
@@ -112,6 +113,34 @@ export async function schemaFingerprint(db: D1Database, local = false) {
   const bytes = new TextEncoder().encode(JSON.stringify(normalized));
   return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), b => b.toString(16).padStart(2,"0")).join("");
 }
+
+export async function replaceProductionDatabase(db: D1Database, source: string, jobId: string, imagePrefix: string) {
+  const sql = prepareSqlForD1Import(source);
+  const objects = await db.prepare("SELECT type, name FROM sqlite_master WHERE sql IS NOT NULL AND substr(name, 1, 4) != '_cf_' AND substr(name, 1, 7) != 'sqlite_' AND type IN ('trigger', 'view', 'table') ORDER BY CASE type WHEN 'trigger' THEN 0 WHEN 'view' THEN 1 ELSE 2 END").all<{ type: string; name: string }>();
+  const quote = (name: string) => '"' + name.replaceAll('"', '""') + '"';
+  const tables = objects.results.filter(row => row.type === 'table').map(row => row.name);
+  const references = tables.length ? await db.batch<{ table: string }>(tables.map(name => db.prepare(`PRAGMA foreign_key_list(${quote(name)})`))) : [];
+  const parents = new Map(tables.map((name, index) => [name, references[index].results.map(row => row.table)]));
+  const visited = new Set<string>(), visiting = new Set<string>(), ordered: string[] = [];
+  const visit = (name: string) => {
+    if (visited.has(name) || !parents.has(name)) return;
+    if (visiting.has(name)) throw new Error('Cyclic table dependencies require a reviewed production restore.');
+    visiting.add(name);
+    for (const parent of parents.get(name)!) if (parent !== name) visit(parent);
+    visiting.delete(name); visited.add(name); ordered.push(name);
+  };
+  tables.forEach(visit);
+  // RESTRICT foreign keys fire immediately, even when deferred. Drop children
+  // first and remove application triggers before SQLite performs implicit deletes.
+  await db.batch([
+    db.prepare('PRAGMA defer_foreign_keys = ON'),
+    ...objects.results.filter(row => row.type !== 'table').map(row => db.prepare(`DROP ${row.type.toUpperCase()} ${quote(row.name)}`)),
+    ...ordered.reverse().map(name => db.prepare(`DROP TABLE ${quote(name)}`)),
+    ...splitBackupStatements(sql).map(statement => db.prepare(statement)),
+    db.prepare(storageSchema),
+    db.prepare(`INSERT OR REPLACE INTO ${storageTable} (id, restore_job, image_prefix) VALUES (1, ?, ?)`).bind(jobId, imagePrefix),
+  ]);
+}
 export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, Job> {
   async run(event: WorkflowEvent<Job>, step: WorkflowStep) {
     const job = event.payload;
@@ -126,7 +155,7 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
         if (await coordinator.pending()) throw new Error("Waiting for existing requests to finish.");
       });
     };
-    const copyImages = async (source: R2Bucket, sourcePrefix: string, targetPrefix: string) => {
+    const copyImages = async (source: R2Bucket, sourcePrefix: string, targetPrefix: string, target: R2Bucket = bucket) => {
       let cursor: string | undefined;
       let photos = 0, bytes = 0;
       for (let page = 0; ; page++) {
@@ -136,7 +165,7 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
           for (const object of list.objects) {
             const image = await source.get(object.key);
             if (!image || image.etag !== object.etag) throw new Error("A source image changed during backup.");
-            const result = await bucket.put(targetPrefix + object.key.slice(sourcePrefix.length), image.body, { httpMetadata: image.httpMetadata, customMetadata: image.customMetadata });
+            const result = await target.put(targetPrefix + object.key.slice(sourcePrefix.length), image.body, { httpMetadata: image.httpMetadata, customMetadata: image.customMetadata });
             if (result.size !== object.size || result.etag !== object.etag) throw new Error("Image verification failed.");
             size += result.size;
           }
@@ -148,18 +177,7 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
       }
       return { photos, bytes };
     };
-    const snapshot = async (destination: string, safetyId?: string) => {
-      const status = await step.do<{ active: string; backups: Backup[] }>(`${destination}capture active source`, async () => {
-        const value = await coordinator.status();
-        return { active: value.readOnly ? value.previewPrevious ?? 'production' : value.active, backups: value.backups };
-      });
-      const active = status.active === "production" ? null : status.backups.find(b => b.id === status.active);
-      const sourceId = active?.databaseId ?? this.env.BACKUP_PRODUCTION_DATABASE_ID;
-      if (active && !active.databaseId) throw new Error("Active database is unavailable.");
-      const sourceDb = active ? workingDatabase(this.env, sourceId) : this.env.DB;
-      const sourceImages = active ? bucket : this.env.STUDENT_IMAGES;
-      const imagePrefix = active ? `working/${active.id}/` : "";
-        const schema = await step.do(`${destination}record database schema`, () => schemaFingerprint(sourceDb));
+    const exportSql = async (sourceId: string, destination: string) => {
         let transfer = await step.do(`${destination}start SQL export`, config, () => cloudApi<Transfer>(this.env, `/${sourceId}/export`, { output_format: "polling" }));
         for (let poll = 0; !transfer.result?.signed_url; poll++) {
           if (transfer.status === "error" || transfer.success === false || !transfer.at_bookmark || poll >= 300) throw new Error("SQL export did not complete.");
@@ -174,6 +192,21 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
           if (!object.size) throw new Error("SQL export was empty.");
           return { bytes: object.size, etag: object.etag };
         });
+      return sql;
+    };
+    const snapshot = async (destination: string, safetyId?: string) => {
+      const status = await step.do<{ active: string; backups: Backup[] }>(`${destination}capture active source`, async () => {
+        const value = await coordinator.status();
+        return { active: value.readOnly ? value.previewPrevious ?? 'production' : value.active, backups: value.backups };
+      });
+      const active = status.active === "production" ? null : status.backups.find(b => b.id === status.active);
+      const sourceId = active?.databaseId ?? this.env.BACKUP_PRODUCTION_DATABASE_ID;
+      if (active && !active.databaseId) throw new Error("Active database is unavailable.");
+      const sourceDb = active ? workingDatabase(this.env, sourceId) : this.env.DB;
+      const sourceImages = active ? bucket : await productionImages(this.env.DB, this.env.STUDENT_IMAGES);
+      const imagePrefix = active ? `working/${active.id}/` : "";
+        const schema = await step.do(`${destination}record database schema`, () => schemaFingerprint(sourceDb));
+        const sql = await exportSql(sourceId, destination);
         const images = await copyImages(sourceImages, imagePrefix, `${destination}images/`);
         await step.do(`${destination}complete snapshot`, config, async () => {
           await bucket.put(`${destination}manifest.json`, JSON.stringify({ version: 1, sourceDatabaseId: sourceId, createdAt: job.startedAt, schema, sql, ...images }));
@@ -193,8 +226,40 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
             await coordinator.updateBackup(job.id, { schema: original.schema, bytes: original.bytes, photos: original.photos, status: 'ready' });
           });
     };
+    const restoreProduction = async (databaseId: string, imagePrefix: string) => {
+      const destination = `temporary/${job.backupId}/${job.id}/production/`;
+      const targetPrefix = `restores/${job.id}/`;
+      await exportSql(databaseId, destination);
+      await copyImages(bucket, imagePrefix, targetPrefix, this.env.STUDENT_IMAGES);
+      await step.do("reserve production replacement", () => coordinator.beginProductionRestore(job.id));
+      await step.do("replace FS-Dance-Db atomically", config, async () => {
+        if ((await productionStorage(this.env.DB))?.restore_job === job.id) return;
+        const object = await bucket.get(`${destination}database.sql`);
+        if (!object || object.size > 24 * 1024 * 1024) throw new Error("Restored SQL is missing or too large.");
+        // Schema, rows and photo routing commit together in one transaction.
+        await replaceProductionDatabase(this.env.DB, await object.text(), job.id, targetPrefix);
+      });
+    };
     try {
-      if (job.kind === "backup") {
+      // A lost completion response must not repeat the replacement or safety backup.
+      if ((await productionStorage(this.env.DB))?.restore_job === job.id) {
+        await coordinator.finish(job.id);
+        return;
+      }
+      if (job.kind === "normalize") {
+        await drain();
+        const safety = await step.do<Backup>('reserve safety backup', () => coordinator.safetyBackup(job.id));
+        if (safety.status !== "ready") await snapshot(`snapshots/${safety.id}/`, safety.id);
+        const active = await step.do<Backup>('load current live database', () => coordinator.backup(job.backupId));
+        if (!active.databaseId || !active.workingReady) throw new Error('Current live database is unavailable.');
+        await step.do('verify current live database', async () => {
+          const db = workingDatabase(this.env, active.databaseId!);
+          if (await schemaFingerprint(db) !== await schemaFingerprint(this.env.DB)) throw new Error('Migrate both database schemas before moving live production.');
+          const checks = await db.batch([db.prepare("PRAGMA quick_check"), db.prepare("PRAGMA foreign_key_check")]);
+          if (JSON.stringify(checks[0].results) !== '[{"quick_check":"ok"}]' || checks[1].results.length) throw new Error('Current live database failed integrity checks.');
+        });
+        await restoreProduction(active.databaseId, `working/${active.id}/`);
+      } else if (job.kind === "backup") {
         await drain();
         if (job.sourceBackupId) await cloneSnapshot();
         else await snapshot(prefix);
@@ -202,7 +267,7 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
         await drain();
         if (!job.readOnly) {
           const safety = await step.do<Backup>('reserve safety backup', () => coordinator.safetyBackup(job.id));
-          await snapshot(`snapshots/${safety.id}/`, safety.id);
+          if (safety.status !== "ready") await snapshot(`snapshots/${safety.id}/`, safety.id);
         }
         if (job.sourceBackupId) await cloneSnapshot();
         const backup = await step.do<Backup>("load backup", () => coordinator.backup(job.backupId));
@@ -286,7 +351,8 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
           const checks = await db.batch([db.prepare("PRAGMA quick_check"), db.prepare("PRAGMA foreign_key_check")]);
           if (JSON.stringify(checks[0].results) !== '[{"quick_check":"ok"}]' || checks[1].results.length) throw new Error("Migrated database integrity verification failed.");
         });
-        await step.do("activate working copy", () => coordinator.switchDatabase(job.id, job.backupId));
+        if (job.readOnly) await step.do("activate working copy", () => coordinator.switchDatabase(job.id, job.backupId));
+        else await restoreProduction(databaseId, workingPrefix);
       } else if (job.kind === "return") {
         await drain();
         const previous = await step.do<{ readOnly: boolean; target: string }>('read return target', async () => {
@@ -295,7 +361,7 @@ export class ProductionBackupWorkflow extends WorkflowEntrypoint<CloudflareEnv, 
         });
         if (!previous.readOnly) {
           const safety = await step.do<Backup>('reserve safety backup', () => coordinator.safetyBackup(job.id));
-          await snapshot(`snapshots/${safety.id}/`, safety.id);
+          if (safety.status !== "ready") await snapshot(`snapshots/${safety.id}/`, safety.id);
         }
         await step.do("activate original production", () => coordinator.switchDatabase(job.id, previous.target));
       } else {

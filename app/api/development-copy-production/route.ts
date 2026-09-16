@@ -1,3 +1,4 @@
+import { productionImages } from "../../lib/production-backups/production-storage";
 import { env } from "../../lib/storage";
 import { copyBindings, copyRegistry, copySlots, listCopies } from "../../lib/local-copies";
 import { readTables, readHistoricalAbsences, copyImages, clearImages, replaceDatabase, deleteOrder } from "../../lib/local-database-transfer";
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
     // Retain a recoverable snapshot of the previous working records before replacement.
     const backupKey = `database-backups/${crypto.randomUUID()}.json`;
     await target.images.put(backupKey, JSON.stringify({ tables: await readTables(target.db) }), { httpMetadata: { contentType: "application/json" } });
-    const images = await copyImages(bindings.PRODUCTION_IMAGES, target.images, tables);
+    const images = await copyImages(await productionImages(bindings.PRODUCTION_DB, bindings.PRODUCTION_IMAGES), target.images, tables);
     await replaceDatabase(target.db, tables, historicalAbsences);
     await registry.prepare("UPDATE local_database_copies SET ready=1 WHERE id=?").bind(reserved).run();
     return Response.json({ id: reserved, copies: await listCopies(registry), copied: tables.reduce((count, table) => count + table.rows.length, 0), imagesCopied: images.copied, imagesMissing: images.missing, backupKey }, { headers: { "Cache-Control": "no-store" } });

@@ -1,3 +1,4 @@
+import { productionImages } from "./production-storage";
 import { withStorage } from "../storage";
 import { prefixedImages, workingDatabase } from "./cloud";
 import type { Job } from "./model";
@@ -61,7 +62,7 @@ export async function backupManagement(request: Request, env: CloudflareEnv, dev
       if (mode === 'sql' && object.size > 24 * 1024 * 1024) return Response.json({ error: 'This backup is too large for local import.' }, { status: 413, headers });
       return new Response(object.body, { headers: { ...headers, 'Content-Type': mode === 'sql' ? 'application/sql' : object.httpMetadata?.contentType ?? 'application/octet-stream' } });
     }
-    if (!management) return Response.json({ available: true, readOnly: Boolean(status.readOnly), active: status.active, generation: status.generation, maintenance: Boolean(status.maintenance), name: status.active === "production" ? "Original production" : status.backups.find(b => b.id === status.active)?.name ?? "Backup working copy" }, { headers });
+    if (!management) return Response.json({ available: true, readOnly: Boolean(status.readOnly), active: status.active, generation: status.generation, maintenance: Boolean(status.maintenance), name: status.active === "production" ? "FS-Dance-Db" : status.backups.find(b => b.id === status.active)?.name ?? "Backup working copy" }, { headers });
     // Database IDs and actor identities stay in the control store.
     return Response.json({ available: true, ...status, backups: status.backups.map(({ databaseId: _databaseId, ...backup }) => backup) }, { headers });
   }
@@ -72,7 +73,29 @@ export async function backupManagement(request: Request, env: CloudflareEnv, dev
     if (raw.length > 4096) return new Response(null, { status: 413, headers });
     const input = JSON.parse(raw) as Record<string, unknown>;
     if (!input || typeof input !== "object") throw new Error("Invalid request.");
-    if (input.action === "recover-deletion") {
+    if (input.action === 'local-production-status') {
+      if (!localBridge) throw new Error('Invalid local production request.');
+      return Response.json({ generation: (await coordinator.status()).generation }, { headers });
+    } else if (input.action === 'enter-local-production') {
+      if (!localBridge || typeof input.mutation !== 'boolean' || !(input.generation === null || typeof input.generation === 'string')) throw new Error('Invalid local production request.');
+      const entry = await coordinator.enter(input.generation, input.mutation);
+      if ('error' in entry) return Response.json({ error: entry.error }, { status: entry.status, headers });
+      if (entry.active !== 'production') {
+        await coordinator.leave(entry.ticket);
+        return Response.json({ error: 'Exit the production preview or move current live data to FS-Dance-Db before connecting locally.' }, { status: 409, headers });
+      }
+      return Response.json({ ticket: entry.ticket, generation: entry.generation }, { headers });
+    } else if (input.action === 'leave-local-production') {
+      if (!localBridge || typeof input.ticket !== 'string' || !/^[a-f0-9-]{36}$/.test(input.ticket)) throw new Error('Invalid local production request.');
+      await coordinator.leave(input.ticket);
+    } else if (input.action === 'retry-restore') {
+      const current = await coordinator.status();
+      if (!current.job?.productionRestore || input.jobId !== current.job.id) throw new Error('The restore job changed. Refresh first.');
+      const instance = await env.BACKUP_WORKFLOW.get(current.job.id);
+      const state = await instance.status();
+      if (!['errored', 'terminated', 'complete'].includes(state.status)) throw new Error('The restore is still running. Wait before retrying.');
+      await instance.restart();
+    } else if (input.action === "recover-deletion") {
       const current = await coordinator.status();
       const job = current.job;
       if (!job || job.kind !== "delete" || input.jobId !== job.id) throw new Error("The deletion job changed. Refresh the list first.");
@@ -95,7 +118,7 @@ export async function backupManagement(request: Request, env: CloudflareEnv, dev
     } else if (input.action === "rename") {
       if (typeof input.id !== "string" || typeof input.name !== "string") throw new Error("Invalid backup name.");
       await coordinator.rename(input.id, input.name);
-    } else if (["backup", "activate", "return", "delete"].includes(String(input.action))) {
+    } else if (["backup", "activate", "return", "delete", "normalize"].includes(String(input.action))) {
       if (input.name !== undefined && (typeof input.name !== "string" || input.name.length > 80)) throw new Error("Backup names can have at most 80 characters.");
       if (input.id !== undefined && (typeof input.id !== "string" || !/^[a-f0-9-]{36}$/.test(input.id))) throw new Error("Invalid backup.");
       if (input.sourceBackupId !== undefined && (typeof input.sourceBackupId !== 'string' || !/^[a-f0-9-]{36}$/.test(input.sourceBackupId))) throw new Error('Invalid source backup.');
@@ -136,7 +159,7 @@ async function trackedProductionRequest(request: Request, env: CloudflareEnv, ru
   try {
     const backup = "backups" in entry ? entry.backups.find(b => b.id === entry.active) : null;
     const databaseId = "databaseId" in entry ? entry.databaseId : backup?.databaseId;
-    const scoped = entry.active === "production" ? env : { ...env, DB: workingDatabase(env, databaseId!), STUDENT_IMAGES: prefixedImages(env.BACKUP_BUCKET, `working/${entry.active}/`) };
+    const scoped = entry.active === "production" ? { ...env, STUDENT_IMAGES: await productionImages(env.DB, env.STUDENT_IMAGES) } : { ...env, DB: workingDatabase(env, databaseId!), STUDENT_IMAGES: prefixedImages(env.BACKUP_BUCKET, `working/${entry.active}/`) };
     let response = await withStorage(scoped, () => run(request, scoped));
     response = new Response(response.body, response);
     response.headers.set("Cache-Control", "no-store");

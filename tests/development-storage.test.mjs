@@ -6,6 +6,7 @@ import { stripTypeScriptTypes } from 'node:module';
 
 const code = stripTypeScriptTypes(readFileSync(new URL('../worker.ts', import.meta.url), 'utf8'))
   .replace('import vinextHandler from "vinext/server/fetch-handler";', '')
+  .replace('import { localProductionRequest } from "./app/lib/production-backups/local-production";', 'const localProductionRequest = async (_request, _env, run) => run();').replace('import { productionImages } from "./app/lib/production-backups/production-storage";', 'const productionImages = async (_db, images) => images;')
   .replace('import { withStorage } from "./app/lib/storage";', '')
   .replace('import { copyBindings, listCopies } from "./app/lib/local-copies";', stripTypeScriptTypes(readFileSync('app/lib/local-copies.ts', 'utf8')).replaceAll('export ', ''))
   .replace(/^import \{ backupManagement.*$/m, 'const backupManagement = async () => null; const backupsConfigured = () => false; const launchJob = async () => {}; const localBackupBridgeAuthorized = async () => false; const productionRequest = async (request, env, run) => run(request, env);')

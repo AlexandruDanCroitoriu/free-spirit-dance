@@ -55,6 +55,7 @@ export function prefixedImages(bucket: R2Bucket, prefix: string): R2Bucket {
     return prefix + value;
   };
   return new Proxy(bucket, { get(target, property) {
+    if (property === 'then') return undefined;
     if (property === "list") return async (options?: R2ListOptions) => {
       const result = await target.list({ ...options, prefix: prefix + (options?.prefix ?? ''),
         ...(options?.startAfter ? { startAfter: key(options.startAfter) } : {}) });

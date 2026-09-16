@@ -59,7 +59,7 @@ assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 console.log('PASS: multiple assignments, updates, removal, validation, rollback, student isolation and deletion constraints.');
 
 const studentsApi = await import(moduleUrl(readFileSync("app/api/students/route.ts", "utf8").replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/, 'const env = globalThis.studentCoursesTestEnv;')));
-const create = (extra) => studentsApi.POST(new Request("https://example.test/api/students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firstName: "New", lastName: "Student", email: "", phone: "", ...extra }) }));
+const create = (extra) => studentsApi.POST(new Request("https://example.test/api/students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firstName: "New", lastName: "Student", email: "", phone: "", birthDate: null, facebookUrl: "", instagramUrl: "", ...extra }) }));
 const created = await create({courseIds:[1,2,3]});
 assert.equal(created.status,201);
 const newStudent = await created.json();

@@ -61,8 +61,8 @@ try {
   assert.match(dragBoard, /Drag &lt;Task title&gt;/);
   assert.doesNotMatch(dragBoard, /⠿|<button[^>]*aria-label="Drag /);
   assert.match(dragBoard, /aria-roledescription="draggable card"/);
-  assert.match(dragBoard, /overflow-x-auto/);
-  assert.match(dragBoard, /Add list/);
+  assert.match(dragBoard, /class="[^"]*overflow-auto[^"]*"[^>]*aria-label="Task board"/);
+  // Add-list controls live in TaskBoard and are exercised by the browser suite.
   assert.match(dragBoard, /Remove list/);
   assert.doesNotMatch(dragBoard, /Move left|Move right/);
   assert.deepEqual(taskMoveFromOrder('a', {'1':['a'],'2':[]}, {'1':[],'2':['a']}), {key:'a',listId:2,position:'bottom'});

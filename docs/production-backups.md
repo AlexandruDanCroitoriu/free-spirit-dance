@@ -1,18 +1,40 @@
 # Production backups
 
-The Administrators page has an owner-only **Production backups** card. Manual
-and weekly jobs always export the original `FS-Dance-Db` database and copy all
-objects from `fs-dance-media`, including student, administrator, and QR images.
-The initial schedule is Saturday at 04:00 Europe/Bucharest. Romania's daylight
-saving changes are handled automatically. The card supports changing the weekly
-schedule, pausing it, and adding a one-time date/time.
+The Administrators page has an owner-only **Production backups** card. Normal
+production uses the bound `FS-Dance-Db` database. Manual and weekly jobs snapshot
+live production and its active photos, including student, administrator, QR and
+task images. The default weekly schedule is Saturday at 04:00 Europe/Bucharest.
+Snapshots expire after six calendar months.
 
-Snapshots expire after six calendar months. Activating one creates a separate D1
-working database and separate R2 image prefix. Subsequent activation reuses that
-working copy, preserving edits. Returning to original production never merges
-changes. Deleting a backup also deletes its saved working database and images.
-An expired active copy is protected; it becomes eligible for cleanup after the
-owner switches away. Cleanup runs through the same background job mechanism.
+**View read-only** prepares a separate `fsd-backup-<id>` D1 database and an image
+prefix in `fs-dance-backups`. Everyone views that copy with saves disabled.
+Exiting preview returns to production without changing production records.
+
+**Replace production** verifies and, when supported, upgrades the separate copy,
+saves a safety snapshot of outgoing live data, then restores into `FS-Dance-Db`.
+Its database ID stays unchanged. It stages photos in a unique `restores/<job>/`
+prefix in `fs-dance-media` and commits that prefix together with all restored SQL
+in one D1 transaction. The internal `_fsd_production_storage` table records the
+photo prefix and restore job; it is excluded from application schema comparisons.
+Old photo prefixes are retained for recovery; no bulk media cleanup is automatic.
+Deleting a saved backup can delete its temporary D1 copy without deleting live
+production data or photos.
+
+## Moving an existing live backup into FS-Dance-Db
+
+Deploy the updated Worker before using the updated localhost Production mode.
+While no other backup job is running, open Administrators and choose **Move live
+data to FS-Dance-Db**. This action appears only when a legacy backup database is
+still serving live production. Exit a read-only preview first.
+
+The action saves a safety backup and copies the **current live database and
+photos**, including edits made after activation. It does not reload the old saved
+snapshot, so a deleted snapshot does not prevent the move. It verifies the source
+and drains requests before replacing the stable database. After completion the
+card reads **FS-Dance-Db**; reload open application tabs. The old working copy
+remains available for retention cleanup rather than being deleted during the move.
+Do not manually change the active pointer to `production`: that would expose the
+old contents of FS-Dance-Db without copying current records.
 
 ## Cloudflare setup before deployment
 
@@ -86,33 +108,13 @@ Configure it once:
    `.env`; it stays only in the deployed Worker and is used there to create and
    restore Cloudflare D1 backups.
 
-Storage behavior:
-
-- **Local test backups** snapshots the local Catalog and locally stored photos to
-  `free-spirit-dance-local-backups`, an explicitly local R2 binding. Activation
-  reserves an unused local database copy slot (out of the existing eight) and
-  selects **Backup test workspace** in the development sidebar. Return to local
-  Catalog preserves the editable copy for later use. These reserved slots cannot
-  be overwritten by the ordinary local-copy manager. The original Catalog is
-  always the local snapshot source, even when a test copy is active. Images that
-  exist only in production are not fetched by local backup jobs.
-- **Live production backups** uses the deployed Worker and Cloudflare storage
-  directly. Local browser requests terminate at the local Worker, which adds the
-  private service-token and bridge credentials before forwarding only the backup
-  API. Every activation affects the live app for everyone.
-
-Local scheduling uses a local Durable Object alarm and runs only while the
-development server is running. After resuming development, due schedules are
-checked; missed weekly runs are coalesced into one backup. Opening the local card
-initializes the alarm. Local schedule settings and six-month retention are
-independent from production. An interrupted local job becomes failed on the next
-alarm so it can be retried; interrupted request tickets still require inspection
-before removal, just as with production.
-
-Local backup operations never read production storage or perform Catalog import
-reconciliation. Existing local data is preserved; only a free slot reserved for
-that backup is replaced. Use synthetic Catalog data when developing if you do
-not need private student information.
+The sidebar's **Production** selection connects to `FS-Dance-Db` and resolves its
+active photo prefix. It uses the same service-token credentials to register and
+release requests with the deployed coordinator. Maintenance and stale-generation
+checks therefore also cover ordinary local production reads and writes. A legacy
+live database or active preview blocks this connection rather than silently
+showing a different database. The Administrators shell remains accessible for
+migration and recovery. Local Catalog and saved local copies remain independent.
 
 ## Operation and recovery
 
@@ -122,8 +124,8 @@ being backed up. Pending launches are retried by the minute trigger with the sam
 Workflow ID. Snapshot SQL and images are streamed into private R2; image checksums
 are verified. Before activation, schema fingerprints and SQLite integrity/foreign
 key checks must pass. Schema fingerprints tolerate export formatting changes.
-Older snapshots with a different schema are blocked from activation; migrating an
-older snapshot requires a separately reviewed migration of its working copy.
+Supported older snapshots are upgraded in the separate working database. Unknown
+migration histories and unsafe legacy migrations are rejected before replacement.
 
 Database and image requests are admitted through the coordinator before storage
 access. Backup and switching jobs close admission and drain existing requests.
@@ -137,33 +139,37 @@ because their IDs are created at runtime; this adds latency and consumes API
 limits. Working copies are intended for recovery/admin use. Unsupported binding
 operations (sessions, exec, dump, unneeded R2 operations) fail explicitly.
 
-The request gate covers the deployed application's traffic. Direct D1/R2 writes
-from Wrangler, migrations, other Workers, or the local development production
-bindings bypass it. Do not run those writers during a backup or switch. D1 and R2
+The request gate covers deployed traffic and ordinary localhost Production
+requests. Direct D1/R2 writes from Wrangler, migrations, other Workers, or legacy
+local cross-database import/copy routes bypass it. Do not run those writers during a backup or switch. D1 and R2
 do not provide a cross-service transaction; external writers must be quiescent.
 
 A crashed request can leave a persistent admission ticket. It is deliberately not
 expired on a timer, because an outstanding write could still complete. If a job
 fails waiting for requests, inspect the coordinator's `requests` SQLite table and
 Workflow logs; only remove an orphan after confirming its request has stopped.
-Do not blindly restart a terminated Workflow: first verify its provider export or
-import has stopped, then allow the scheduled status reconciliation to clear it.
+An interrupted production replacement retains maintenance until its transaction
+commit is confirmed. **Retry restore** restarts a terminal restore job using the
+same reservation and preserved safety backup. A marker committed with the data
+allows recovery from a lost success response without applying the restore twice.
+Do not manually clear this maintenance lock.
 Partial snapshots are never activatable. A retry of an incomplete restore discards
 only its never-activated working database before importing again.
 
 ## Validation
 
 `node scripts/test-production-backups.mjs` uses synthetic SQLite databases, fake
-R2 buckets, and a mocked Cloudflare API. It covers snapshots, paginated photo
-copying, original-only source selection, editable working copies, return/reactivate,
-failed imports, retention, durable restart, stale writes, owner/origin checks,
-calendar month clamping, DST, and duplicate schedule delivery. No production data
-is read or changed by this test.
+R2 buckets and a mocked Cloudflare API. It tests the complete migrated schema
+(including RESTRICT foreign keys, triggers and ID sequences), stable production
+replacement, rollback, lost commit responses, restore retry, previews, migrating
+legacy live edits, image routing, local request admission, retention, permissions,
+stale saves and scheduling. No production records are used by these tests.
 
-Cloudflare resources and a runtime API token are required for an end-to-end remote
-export/import exercise; passing local tests alone does not verify that setup.
+`node scripts/test-production-backups.mjs --d1` additionally rehearses the complete
+schema replacement and rollback in a fresh, local Miniflare D1 runtime. It needs
+localhost sockets and never connects that database to Cloudflare.
 
-`node scripts/test-local-backups.mjs` additionally verifies local Catalog/photo
-snapshots, history preservation, reserved copy slots, edits surviving reactivation,
-local deletion, stale writes, and local alarms. Production binding getters and
-network access throw in this local test.
+`node scripts/test-local-copies.mjs` covers existing local copies and image transfer.
+`npm run typecheck` and `npm run build` verify types and the production bundle.
+Local simulations do not replace a controlled Cloudflare restore rehearsal before
+performing the one-time live migration.

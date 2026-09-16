@@ -1,3 +1,4 @@
+import { productionStorage } from "./production-storage";
 import { DurableObject } from "cloudflare:workers";
 import { initialControl, localToUtc, nextWeekly, sixMonthsAfter, type Backup, type Control, type Job } from "./model";
 
@@ -64,7 +65,12 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
     return this.ctx.storage.transactionSync(() => {
       const control = this.control();
       if (control.job) throw new Error("Another backup operation is still running.");
-      if ((kind === "activate" || kind === "return") && generation !== control.generation) throw new Error("The database selection changed. Refresh the list first.");
+      if ((kind === "activate" || kind === "return" || kind === "normalize") && generation !== control.generation) throw new Error("The database selection changed. Refresh the list first.");
+      if (kind === 'normalize') {
+        if (control.readOnly || control.active === 'production') throw new Error('Exit preview and select the existing live database first.');
+        id = control.active;
+      }
+      if (kind === 'return' && !control.readOnly) throw new Error('Return is only available during a preview. Move current live data to FS-Dance-Db instead.');
       if (sourceBackupId) {
         const source = this.backup(sourceBackupId);
         if (kind !== "backup" || source.snapshotDeleted || source.status !== "ready" || Date.parse(source.expiresAt) <= Date.now()) throw new Error("Choose a ready, unexpired source backup.");
@@ -73,7 +79,7 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
         id = crypto.randomUUID();
         const createdAt = new Date().toISOString();
         this.write(`backup:${id}`, { id, name: name.trim() || `Production ${createdAt.slice(0,16).replace("T", " ")} UTC`, createdAt, expiresAt: sixMonthsAfter(createdAt), status: "creating", bytes: 0, photos: 0, schema: "", category: actor === "schedule" ? "automatic" : "manual", sourceBackupId } satisfies Backup);
-      } else if (kind !== "return") {
+      } else if (kind !== "return" && kind !== "normalize") {
         const backup = this.read<Backup>(`backup:${id}`);
         if (!backup) throw new Error("Backup not found.");
         if (kind === 'delete' && control.readOnly && control.active === id) throw new Error('Exit the read-only preview before deleting this backup.');
@@ -146,6 +152,7 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
     if (control.job?.id !== jobId || control.maintenance !== jobId || this.pending()) throw new Error("Database requests have not drained.");
     if (active !== "production" && !this.backup(active).workingReady) throw new Error("Working copy is not ready.");
     const readOnly = Boolean(control.job.readOnly);
+    if (active !== 'production' && !readOnly && control.job.kind !== 'return') throw new Error('Live production must use FS-Dance-Db.');
     const previewPrevious = readOnly ? (control.previewPrevious ?? control.active) : undefined;
     if (control.active !== active || Boolean(control.readOnly) !== readOnly) this.write("control", { ...control, active, readOnly, previewPrevious, generation: control.generation + 1 });
   }
@@ -156,8 +163,28 @@ export class ProductionBackupCoordinator extends DurableObject<CloudflareEnv> {
     if (control.readOnly && control.active === id) throw new Error('Cannot delete the current preview.');
     return id === (control.readOnly ? control.previewPrevious : control.active);
   }
-  finish(jobId: string, failed = false, failureMessage?: string) {
+  beginProductionRestore(jobId: string) {
     const control = this.control();
+    if (control.job?.id !== jobId || control.maintenance !== jobId || this.pending() || control.job.readOnly || !['activate', 'normalize'].includes(control.job.kind)) throw new Error('Production replacement is not reserved.');
+    if (!control.job.safetyBackupId || this.backup(control.job.safetyBackupId).status !== 'ready') throw new Error('A verified safety backup is required.');
+    this.write('control', { ...control, job: { ...control.job, productionRestore: true, error: undefined } });
+  }
+  async finish(jobId: string, failed = false, failureMessage?: string) {
+    let control = this.control();
+    if (control.job?.id !== jobId) return;
+    if (control.job.productionRestore) {
+      // The D1 commit marker resolves a lost response without guessing whether
+      // the transaction applied. Never unlock an unconfirmed replacement.
+      const committed = (await productionStorage(this.env.DB))?.restore_job === jobId;
+      control = this.control();
+      if (control.job?.id !== jobId) return;
+      if (!committed) {
+        this.write('control', { ...control, job: { ...control.job, error: 'Production replacement did not complete. Retry the restore; application data remains paused.' } });
+        return;
+      }
+      control = { ...control, active: 'production', readOnly: false, previewPrevious: undefined, generation: control.generation + 1 };
+      failed = false;
+    }
     if (control.job?.id !== jobId) return;
     const job = control.job;
     if (failed && job.safetyBackupId) {
