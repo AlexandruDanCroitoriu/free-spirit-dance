@@ -13,8 +13,19 @@ import TaskPanel from './task-panel';
 import StudentPanel from './student-panel';
 import OperationNotification from './operation-notification';
 
+const taskScopeStorageKey = 'fsd-task-board-scope';
+type BoardScope = 'school' | 'personal';
+
+function storedBoardScope(): BoardScope {
+  try {
+    const value = window.localStorage.getItem(taskScopeStorageKey);
+    if (value === 'school' || value === 'personal') return value;
+  } catch { /* Default to School when browser storage is unavailable. */ }
+  return 'school';
+}
+
 export default function TaskBoard() {
-  const [boardScope, setBoardScope] = useState<'school' | 'personal'>('school');
+  const [boardScope, setBoardScope] = useState<BoardScope>('school');
   const [board, setBoard] = useState<Board | null>(null);
   const [filters, setFilters] = useState(() => readTaskFilters(new URLSearchParams()));
   const [today, setToday] = useState(schoolToday);
@@ -35,7 +46,11 @@ export default function TaskBoard() {
     try {
       const storage = await taskRequest<{ readOnly?: boolean }>('/api/production-database');
       const data = await taskRequest<Board>('/api/tasks');
-      if (sequence === loadSequence.current) { setReadOnly(!!storage.readOnly); setBoard(data); setBoardScope(new URL(window.location.href).searchParams.get('scope') === 'personal' ? 'personal' : data.selectedBoardScope); setToday(data.today); }
+      if (sequence === loadSequence.current) {
+        const url = new URL(window.location.href);
+        if (url.searchParams.delete('scope')) window.history.replaceState(null, '', url);
+        setReadOnly(!!storage.readOnly); setBoard(data); setBoardScope(storedBoardScope()); setToday(data.today);
+      }
     }
     catch (reason) { if (sequence === loadSequence.current) setError(reason instanceof Error ? reason.message : 'Could not load tasks.'); }
     finally { if (sequence === loadSequence.current) setLoading(false); }
@@ -59,7 +74,7 @@ export default function TaskBoard() {
   }, []);
   useEffect(() => { setHeaderTarget(document.getElementById('task-page-header-actions')); }, []);
   useEffect(() => {
-    const restore = () => { const params = new URLSearchParams(window.location.search); setFilters(readTaskFilters(params)); setBoardScope(params.get('scope') === 'personal' ? 'personal' : 'school'); };
+    const restore = () => { setFilters(readTaskFilters(new URLSearchParams(window.location.search))); };
     restore(); window.addEventListener('popstate', restore);
     const timer = window.setInterval(() => setToday(schoolToday()), 60_000);
     return () => { window.removeEventListener('popstate', restore); window.clearInterval(timer); };
@@ -132,12 +147,12 @@ export default function TaskBoard() {
   const activeBoard = board?.boards.find(item => item.scope === boardScope);
   const lists = board?.lists.filter(list => list.boardId === activeBoard?.id) ?? [];
   const visible = board?.tasks.filter(task => (task.listId === null || lists.some(list => list.id === task.listId)) && matchesTask(task, { ...filters, status: 'all' }, today)) ?? [];
-  async function chooseBoard(scope: 'school' | 'personal') {
+  function chooseBoard(scope: BoardScope) {
     if (scope === boardScope || loading || moving || dragging || readOnly || !!error) return;
-    const previous = boardScope; setBoardScope(scope);
-    const url = new URL(window.location.href); url.searchParams.delete('board'); url.searchParams.set('scope', scope); window.history.pushState(null, '', url);
-    try { setBoard(await taskRequest<Board>('/api/tasks/preferences', 'PATCH', { selectedBoardScope: scope })); }
-    catch (reason) { setBoardScope(previous); setError(reason instanceof Error ? reason.message : 'Could not save board preference.'); }
+    setBoardScope(scope);
+    try { window.localStorage.setItem(taskScopeStorageKey, scope); } catch { /* The selected scope remains active for this visit. */ }
+    const url = new URL(window.location.href);
+    if (url.searchParams.delete('scope')) window.history.replaceState(null, '', url);
   }
   async function createList(name: string, requestKey: string) {
     if (!board || busy.current || readOnly || loading) throw new Error('Wait for the current operation to finish.');
@@ -175,7 +190,7 @@ export default function TaskBoard() {
   const disabled = loading || moving || readOnly || !!error;
   const pageHeader = <div className="flex w-max items-center gap-1 font-sans text-sm">
     <div role="group" aria-label="Board scope" className="inline-flex rounded-lg bg-stone-100 p-1">
-      {(['school', 'personal'] as const).map(scope => <button key={scope} type="button" aria-pressed={boardScope === scope} disabled={disabled || dragging} onClick={() => void chooseBoard(scope)} className={`min-h-10 rounded-md px-3 font-semibold transition-colors disabled:opacity-50 ${boardScope === scope ? 'bg-slate-800 text-white shadow-sm' : 'hover:bg-white'}`}>{scope === 'school' ? 'School' : 'Personal'}</button>)}
+      {(['school', 'personal'] as const).map(scope => <button key={scope} type="button" aria-pressed={boardScope === scope} disabled={disabled || dragging} onClick={() => chooseBoard(scope)} className={`min-h-10 rounded-md px-3 font-semibold transition-colors disabled:opacity-50 ${boardScope === scope ? 'bg-slate-800 text-white shadow-sm' : 'hover:bg-white'}`}>{scope === 'school' ? 'School' : 'Personal'}</button>)}
     </div>
     <TaskSettings label="Board settings" color={activeBoard?.color} disabled={disabled || dragging} onColor={color => changeColor({target: 'board', scope: boardScope, color})} />
     <button type="button" aria-label="Refresh tasks" title="Refresh tasks" disabled={loading || moving || dragging} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-stone-100 disabled:opacity-50" onClick={() => void load()}>

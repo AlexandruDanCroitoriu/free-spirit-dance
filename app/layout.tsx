@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import AppShell from "./components/app-shell";
 import globalStyles from "./globals.css?inline";
 
@@ -17,11 +18,12 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const initialDesktopSidebarOpen = (await cookies()).get("fsd-desktop-sidebar-open")?.value !== "false";
   return (
     <html className="scroll-smooth" lang="en">
       <head><style dangerouslySetInnerHTML={{ __html: globalStyles }} /></head>
-      <body className="min-w-80 bg-stone-50 font-serif text-slate-800"><AppShell>{children}</AppShell></body>
+      <body className="min-w-80 bg-stone-50 font-serif text-slate-800"><AppShell initialDesktopSidebarOpen={initialDesktopSidebarOpen}>{children}</AppShell></body>
     </html>
   );
 }
