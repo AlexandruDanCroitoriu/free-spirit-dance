@@ -56,7 +56,9 @@
     "db:migrate:production": "python3 scripts/migrate-databases.py production",
     "db:migrate:all": "python3 scripts/migrate-databases.py all",
     "historical:sync": "python3 scripts/sync-historical-catalog.py",
-    "historical:batch": "python3 scripts/batch-historical-import.py"
+    "historical:batch": "python3 scripts/batch-historical-import.py",
+    "test:browser": "node scripts/test.mjs --browser",
+    "verify:release": "npm run check && npm run test:browser && npm run build"
   },
   "engines": {
     "node": ">=24.0.0"

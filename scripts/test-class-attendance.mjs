@@ -1,3 +1,4 @@
+import { moduleUrl } from './lib/test-module-url.mjs';
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
@@ -30,10 +31,7 @@ const db = {
   },
 };
 globalThis.activityTestEnv = { DB: db };
-function moduleUrl(source) {
-  const js = stripTypeScriptTypes(source);
-  return "data:text/javascript;base64," + Buffer.from(js).toString("base64");
-}
+
 
 const activityUrl=moduleUrl(readFileSync('app/lib/student-activity.ts','utf8'));
 const classUrl=moduleUrl(readFileSync('app/lib/class-attendance.ts','utf8'));
@@ -89,7 +87,7 @@ for (const classDate of ['2026-09-09','2026-09-16']) assert.equal((await get({cl
 const {parseCourse}=await import(moduleUrl(readFileSync('app/lib/courses.ts','utf8')));
 const validCourse={name:'Zouk',startDate:'2026-09-09',endDate:'2026-09-16',schedules:[{day:'Wednesday',startTime:'18:30',endTime:'19:30',rentCostMinor:0}]};
 assert.equal(typeof parseCourse(validCourse),'object');
-for(const dates of [{startDate:'2026-02-30'},{endDate:'2026-09-08'},{startDate:''}]) assert.equal(typeof parseCourse({...validCourse,...dates}),'string');
+for(const dates of [{startDate:'2026-02-30'},{endDate:'2026-09-08'}]) assert.equal(typeof parseCourse({...validCourse,...dates}),'string');
 sqlite.exec("INSERT INTO administrator_permissions (email,can_dashboard,can_students,can_courses) VALUES ('both@example.test',1,1,0),('dashboard@example.test',1,0,0),('students@example.test',0,1,0),('courses@example.test',0,0,1)");
 const {default:worker}=await import(moduleUrl(readFileSync('worker.ts','utf8').replace(/^import \{ backupManagement.*$/m, 'const localBackupBridgeAuthorized = () => false; const backupManagement = async () => null; const backupsConfigured = () => false; const launchJob = async () => {}; const productionRequest = async (request, env, run) => run(request, env);').replace(/^import \{ localProductionBackupManagement.*$/m, 'const localProductionBackupManagement = async () => null;').replace(/^export \{ (ProductionBackup|LocalBackup).*$/gm, '').replace('import { withStorage } from "./app/lib/storage";', 'const withStorage = (_env, callback) => callback();')
   .replace('import { copyBindings, listCopies } from "./app/lib/local-copies";', stripTypeScriptTypes(readFileSync('app/lib/local-copies.ts', 'utf8')).replaceAll('export ', '')).replace('import vinextHandler from "vinext/server/fetch-handler";','const vinextHandler={fetch:()=>new Response("allowed")};')));
@@ -99,6 +97,8 @@ for(const method of ['GET','POST']) for(const email of [null,'dashboard@example.
 }
 assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 console.log('PASS: roster grouping, assigned/other/inactive attendance, schedule validation, atomic bulk save, retries, overlapping submissions, distinct class times, balances and page-only access.');
+
+for (const startDate of ["", null, undefined]) assert.equal(parseCourse({...validCourse, startDate}).startDate, null);
 
 for (const endDate of ["", null, undefined]) assert.equal(parseCourse({...validCourse, endDate}).endDate, null);
 

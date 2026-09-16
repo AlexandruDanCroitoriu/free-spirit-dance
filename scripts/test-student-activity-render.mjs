@@ -25,6 +25,7 @@ try {
     const fixture = source.replace('useState<Activity | null>(null)', `useState<Activity | null>(${JSON.stringify(data)})`)
       .replace('useState<"payment" | null>(null)', `useState<"payment" | null>(${JSON.stringify(mode)})`)
       .replace('useState<PaymentPreset[]>([])', 'useState<PaymentPreset[]>([{id:1,name:"Four classes",amountMinor:20050,allocations:[{courseId:1,courseName:"Zouk",allowance:4}]}])')
+      .replace('useState<ActivityLogColumns>({ recordedBy: false, schoolTransfer: false })', 'useState<ActivityLogColumns>({ recordedBy: true, schoolTransfer: false })')
       .replace('[loading, setLoading] = useState(true)', '[loading, setLoading] = useState(false)');
     const outfile = resolve(directory, `${mode ?? 'logs'}-${canRecordFuturePayments}.mjs`);
     await build({stdin:{contents:fixture,resolveDir:resolve('app/components'),loader:'tsx'},outfile,bundle:true,format:'esm',platform:'node',jsx:'automatic',external:['react','react/jsx-runtime']});
@@ -43,7 +44,7 @@ try {
     assert.doesNotMatch(cancelledRow, /<button|Covered by payment/);
     assert.ok(missedRow, 'a missed activity row renders');
     assert.match(missedRow, /1 missed/);
-    assert.match(missedRow, /10\/09\/2026/);
+    assert.match(missedRow, /10 sept 2026/);
     assert.match(missedRow, /Automatic/);
     assert.match(missedRow, /Covered by payment #1/);
     assert.doesNotMatch(missedRow, /<button/);

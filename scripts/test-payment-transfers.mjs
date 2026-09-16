@@ -1,3 +1,4 @@
+import { moduleUrl } from './lib/test-module-url.mjs';
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
@@ -30,17 +31,14 @@ const db = {
   },
 };
 globalThis.activityTestEnv = { DB: db };
-function moduleUrl(source) {
-  const js = stripTypeScriptTypes(source);
-  return "data:text/javascript;base64," + Buffer.from(js).toString("base64");
-}
+
 
 
 const helper=moduleUrl(readFileSync('app/lib/student-activity.ts','utf8'));
 const api=await import(moduleUrl(readFileSync('app/api/students/[id]/activity/route.ts','utf8').replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/,'const env = globalThis.activityTestEnv;').replace('"../../../../lib/student-activity"',JSON.stringify(helper))));
 sqlite.exec("INSERT INTO students (first_name,last_name,email) VALUES ('A','Student','a@test'),('B','Student','b@test'); INSERT INTO courses (name) VALUES ('Zouk'),('Basics')");
 const ctx=(id=1)=>({params:Promise.resolve({id:String(id)})});
-sqlite.exec("INSERT INTO admin_profiles (email, name) VALUES ('admin@test', ''); INSERT INTO administrator_payment_methods (email, method) VALUES ('admin@test', 'Cash')");
+sqlite.exec("INSERT INTO admin_profiles (email, name) VALUES ('admin@test', '')");
 const body={kind:'payment',requestKey:'payment-edit-test-1234',notes:'Original',paidOn:'2026-01-01',amount:'280',receivedMethod:'Cash',allocations:[{courseId:1,allowance:4}]};
 const req=(method,data)=>new Request('https://school.test/api/students/1/activity',{method,headers:{'Content-Type':'application/json','cf-access-authenticated-user-email':'admin@test'},body:JSON.stringify(data)});
 assert.equal((await api.POST(req('POST',body),ctx())).status,201);

@@ -15,7 +15,7 @@ try {
   const {default:Panel}=await import(pathToFileURL(outfile).href);
   const html=renderToString(createElement(Panel,{id:1,onClose(){},onUpdate(){},onDelete(){}}));
   assert.match(html,/<dialog[^>]+aria-label="Test Student"/);
-  assert.match(html,/right-0 left-auto/);assert.match(html,/Close student panel/);
+  assert.match(html,/inset-0[^"]*md:left-auto/);assert.match(html,/Close student panel/);
   assert.equal((html.match(/role="tab"/g)??[]).length,2);
   assert.match(html,new RegExp(`id="student-tab-${tab}" role="tab" aria-selected="true"`));
   assert.match(html,new RegExp(`id="student-panel-${tab}" role="tabpanel" aria-labelledby="student-tab-${tab}">`));

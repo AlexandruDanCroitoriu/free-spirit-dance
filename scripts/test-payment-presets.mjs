@@ -1,3 +1,4 @@
+import { moduleUrl } from './lib/test-module-url.mjs';
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
@@ -30,10 +31,7 @@ const db = {
   },
 };
 globalThis.presetTestEnv = { DB: db };
-function moduleUrl(source) {
-  const js = stripTypeScriptTypes(source);
-  return "data:text/javascript;base64," + Buffer.from(js).toString("base64");
-}
+
 
 const activityUrl = moduleUrl(readFileSync('app/lib/student-activity.ts','utf8'));
 const helperUrl = moduleUrl(readFileSync('app/lib/payment-presets.ts','utf8').replace('"./student-activity"',JSON.stringify(activityUrl)));
@@ -64,7 +62,7 @@ const list=await (await collection.GET()).json();assert.equal(list.presets.lengt
 assert.equal((await item.PATCH(request({...input,allocations:[{courseId:999,allowance:1}]}),context(preset.id))).status,409);
 assert.deepEqual((await (await collection.GET()).json()).presets.find(item => item.id === preset.id),preset,'Invalid changes must roll back');
 const draft=helper.presetDraft(preset);assert.equal(draft.amount,'200.50');assert.deepEqual(draft.allocations,{'1':'4','2':'2'});
-sqlite.exec("INSERT INTO admin_profiles (email, name) VALUES ('admin@example.test', ''); INSERT INTO administrator_payment_methods (email, method) VALUES ('admin@example.test', 'Cash')");
+sqlite.exec("INSERT INTO admin_profiles (email, name) VALUES ('admin@example.test', '')");
 const payment={kind:'payment',requestKey:'preset-payment-test-123',notes:'',paidOn:'2026-09-09',amount:draft.amount,receivedMethod:'Cash',allocations:Object.entries(draft.allocations).map(([id,n])=>({courseId:Number(id),allowance:Number(n)}))};
 assert.equal((await activity.POST(request(payment),context(1))).status,201);
 const originalPayment=sqlite.prepare('SELECT * FROM student_payments').all();const originalAllowances=sqlite.prepare('SELECT * FROM payment_course_allowances').all();

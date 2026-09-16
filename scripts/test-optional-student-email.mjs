@@ -1,3 +1,4 @@
+import { moduleUrl } from './lib/test-module-url.mjs';
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
@@ -30,10 +31,7 @@ const db = {
   },
 };
 globalThis.activityTestEnv = { DB: db };
-function moduleUrl(source) {
-  const js = stripTypeScriptTypes(source);
-  return "data:text/javascript;base64," + Buffer.from(js).toString("base64");
-}
+
 
 
 const api=await import(moduleUrl(readFileSync('app/api/students/route.ts','utf8').replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/,'const env = globalThis.activityTestEnv;')));

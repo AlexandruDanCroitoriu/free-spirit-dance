@@ -9,7 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 const directory = await mkdtemp(resolve('.wrangler/task-ui-test-'));
 try {
   const outfile = resolve(directory, 'fixture.mjs');
-  await build({ stdin: { contents: `export * from './app/lib/task-filters'; export * from './app/lib/task-move'; export * from './app/lib/tasks'; export * from './app/lib/tasks-client'; export {default as Card} from './app/components/task-card'; export {default as Filters} from './app/components/task-filters'; export {default as Panel} from './app/components/task-panel'; export {default as DragBoard} from './app/components/task-drag-board';`, resolveDir: resolve('.'), loader: 'tsx' }, outfile, bundle: true, format: 'esm', platform: 'node', jsx: 'automatic', external: ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client'] });
+  await build({ stdin: { contents: `export * from './app/lib/task-filters'; export * from './app/lib/task-move'; export * from './app/lib/tasks'; export * from './app/lib/tasks-client'; export {default as Card} from './app/components/task-card'; export {default as Filters} from './app/components/task-filters'; export {default as Panel} from './app/components/task-panel'; export {default as DragBoard} from './app/components/task-drag-board';`, resolveDir: resolve('.'), loader: 'tsx' }, outfile, bundle: true, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', external: ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client'] });
   const { readTaskFilters, writeTaskFilters, matchesTask, schoolToday, taskRequest, TaskRequestError, taskMoveFromOrder, Card, Filters, Panel, DragBoard } = await import(pathToFileURL(outfile).href);
   const lists = [{id:1,boardId:1,title:'Inbox',sortOrder:0},{id:2,boardId:1,title:'Planning',sortOrder:1}], boards = [{id:1,name:'School',scope:'school'}];
   const order = { '1': ['a', 'b', 'c'], '2': [], '3': ['d'] };
@@ -21,12 +21,12 @@ try {
   assert.deepEqual(taskMoveFromOrder('a', order, { ...order, '1': ['b', 'c'], '2': ['a'] }), { key: 'a', listId: 2, position: 'bottom' });
   assert.deepEqual(taskMoveFromOrder('a', { '1': ['a'], '3': ['d'] }, { '1': [], '3': ['d', 'a'] }), { key: 'a', listId: 3, position: 'after', targetKey: 'd' }); // Relative to visible cards, never a replacement for hidden rows.
   const defaults = readTaskFilters(new URLSearchParams());
-  assert.deepEqual(defaults, { view: 'all', due: 'all', studentId: null });
+  assert.deepEqual(defaults, { status: 'all', view: 'all', due: 'all', studentId: null });
   assert.deepEqual(readTaskFilters(new URLSearchParams('view=bad&due=bad&status=bad&studentId=-1')), defaults);
-  const selected = { view: 'manual', due: '7', studentId: 3 };
+  const selected = { status: 'all', view: 'manual', due: '7', studentId: 3 };
   assert.deepEqual(readTaskFilters(writeTaskFilters(selected)), selected);
   assert.equal(writeTaskFilters(defaults, new URLSearchParams('view=manual&studentId=3&unrelated=kept')).toString(), 'unrelated=kept');
-  const task = { key: 'manual:1', listId: 1, source: 'manual', category: 'manual', title: '<Task title>', description: 'Task notes', dueDate: null, students: [{ id: 3, name: 'Test Student', picture: '/api/student-images/test' }], sortOrder: 0, canDelete: true, createdBy: '', updatedBy: '', createdAt: '', updatedAt: '' };
+  const task = { key: 'manual:1', status: 'in_progress', courses: [], administratorEmails: [], assignedTo: null, listId: 1, source: 'manual', category: 'manual', title: '<Task title>', description: 'Task notes', dueDate: null, students: [{ id: 3, name: 'Test Student', picture: '/api/student-images/test' }], sortOrder: 0, canDelete: true, createdBy: '', updatedBy: '', createdAt: '', updatedAt: '' };
   const match = (changes = {}, filter = {}, today = '2026-12-28') => matchesTask({ ...task, ...changes }, { ...defaults, ...filter }, today);
   assert.equal(match(), true);
   for (const due of ['overdue', 'today', '7', '30']) assert.equal(match({}, { due }), false);
@@ -53,23 +53,20 @@ try {
   const panel = renderToStaticMarkup(createElement(Panel, { task, board: { lists, boards, tasks: [task], revision: 1, today: '2026-09-15' }, studentId: null, onClose() {}, onSaved() {} }));
   assert.match(panel, /<dialog[^>]*aria-labelledby="task-editor-title"/);
   assert.match(panel, /maxLength="200"/);
-  assert.match(panel, /type="checkbox"[^>]*checked/); // Preserve link before student list loads.
-  assert.doesNotMatch(panel, />Status|Find student|<option[^>]*>Test Student/);
-  assert.match(panel, /Search students/);
+  assert.match(panel, /Students \(1\)/); // Preserve links before student choices load.
+  assert.match(panel, /aria-label="Task status"/);
+  assert.match(panel, /aria-haspopup="dialog"/);
   assert.match(panel, /Delete task/);
-  assert.match(panel, /Task list/);
-  assert.match(panel, /Move up/);
-  assert.match(panel, /Move down/);
   const dragBoard = renderToStaticMarkup(createElement(DragBoard, { board: { lists, boards, tasks: [task], revision: 1, today: '2026-09-15' }, columns: lists, students: [], onAdd() {}, async onAddList() {}, async onSave() {}, async onRemoveList() {}, visible: [task], today: '2026-09-15', disabled: false, onDragging() {}, onEdit() {}, onStudent() {}, async onMove() {} }));
   assert.match(dragBoard, /Drag &lt;Task title&gt;/);
   assert.doesNotMatch(dragBoard, /⠿|<button[^>]*aria-label="Drag /);
   assert.match(dragBoard, /aria-roledescription="draggable card"/);
   assert.match(dragBoard, /overflow-x-auto/);
-  assert.match(dragBoard, /Add another list/);
+  assert.match(dragBoard, /Add list/);
   assert.match(dragBoard, /Remove list/);
   assert.doesNotMatch(dragBoard, /Move left|Move right/);
   assert.deepEqual(taskMoveFromOrder('a', {'1':['a'],'2':[]}, {'1':[],'2':['a']}), {key:'a',listId:2,position:'bottom'});
-  assert.match(dragBoard, /Add Inbox card/);
+  assert.match(dragBoard, /Inbox/);
   assert.deepEqual(taskMoveFromOrder('a', {'1':['a'],inbox:[]}, {'1':[],inbox:['a']}), {key:'a',listId:null,position:'bottom'});
   const originalFetch = globalThis.fetch;
   try {

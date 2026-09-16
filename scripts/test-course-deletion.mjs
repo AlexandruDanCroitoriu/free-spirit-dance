@@ -44,7 +44,8 @@ sqlite.exec("INSERT INTO courses (name) VALUES ('Zouk'); INSERT INTO course_sche
 sqlite.exec("INSERT INTO classes (course_id,class_date,start_time) VALUES (1,'2026-09-07','18:00'), (1,'2026-09-08','18:00')");
 let data=await (await api.GET(request,context)).json();
 assert.equal(data.relationships.find(r=>r.table==='course_schedule').count,1);
-assert.equal(data.relationships.length,6);
+assert.equal(data.relationships.length,7);
+assert.equal(data.relationships.find(r=>r.table==='task_courses').count,0);
 assert.equal(data.relationships.find(r=>r.table==='classes').count,2);
 sqlite.exec("INSERT INTO students (first_name,last_name,email) VALUES ('Test','Student','test@example.test'); INSERT INTO student_courses VALUES (1,1)");
 assert.equal((await api.DELETE(request,context)).status,409);

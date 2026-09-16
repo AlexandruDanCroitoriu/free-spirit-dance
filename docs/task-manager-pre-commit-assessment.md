@@ -17,4 +17,3 @@ The same `disabled` flag controls mutations and student links. Consequently, adm
 **Location:** `scripts/test-task-ui-browser.mjs:166`.
 
 The first browser run timed out waiting for touch-drag activation; an unchanged retry passed. This does not establish a product defect, but the touch acceptance test is not reliably green. The failure needs investigation before treating mobile drag behavior as fully verified.
-

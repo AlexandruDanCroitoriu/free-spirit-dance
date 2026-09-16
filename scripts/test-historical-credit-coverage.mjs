@@ -16,5 +16,6 @@ assert.equal(balance.excessAttendance, 0);
 const ordinary = courseCreditBalance(course, [], occurrences, payment, attendance, new Date('2024-02-01'));
 assert.equal(ordinary.missedClasses, 2, 'Ordinary calendar attendance still consumes scheduled classes');
 const sameDay = courseCreditBalance(course, [], occurrences, payment, [], new Date('2024-02-01'), undefined, undefined, undefined, ['2024-01-02T20:00']);
-assert.equal(sameDay.missedClasses, 1, 'Explicit historical absence on payment date consumes a credit');
+assert.equal(sameDay.missedClasses, 0, 'A historical absence alone does not start a package without attendance');
+assert.equal(sameDay.remainingAllowance, 3, 'An unstarted package retains its allowance');
 console.log('PASS: Historical blanks preserve credits, explicit absences consume them, ordinary coverage is unchanged.');
