@@ -55,6 +55,17 @@ export function prefixedImages(bucket: R2Bucket, prefix: string): R2Bucket {
     return prefix + value;
   };
   return new Proxy(bucket, { get(target, property) {
+    if (property === "list") return async (options?: R2ListOptions) => {
+      const result = await target.list({ ...options, prefix: prefix + (options?.prefix ?? ''),
+        ...(options?.startAfter ? { startAfter: key(options.startAfter) } : {}) });
+      return { ...result, objects: result.objects.filter(object => object.key.startsWith(prefix)).map(object => ({
+        key: object.key.slice(prefix.length), size: object.size, uploaded: object.uploaded,
+        httpMetadata: object.httpMetadata, customMetadata: object.customMetadata,
+        version: object.version, etag: object.etag, httpEtag: object.httpEtag,
+        checksums: object.checksums, storageClass: object.storageClass,
+        writeHttpMetadata: object.writeHttpMetadata.bind(object),
+      })), delimitedPrefixes: result.delimitedPrefixes.filter(value => value.startsWith(prefix)).map(value => value.slice(prefix.length)) };
+    };
     if (property === "get") return (name: string, options?: R2GetOptions) => target.get(key(name), options);
     if (property === "head") return (name: string) => target.head(key(name));
     if (property === "put") return (name: string, value: Parameters<R2Bucket["put"]>[1], options?: R2PutOptions) => target.put(key(name), value, options);

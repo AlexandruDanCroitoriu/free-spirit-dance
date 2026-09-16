@@ -21,16 +21,26 @@ try {
   const fixture = `
     import React from 'react'; import {createRoot} from 'react-dom/client';
     import TaskBoard from './app/components/task-board';
+    import StudentTasks from './app/components/student-tasks';
     const student={id:1,firstName:'Test',lastName:'Student',email:'',phone:'',birthDate:null,facebookUrl:'',instagramUrl:'',picture:null,active:true};
     const make=(id,title,listId=1)=>({key:'manual:'+id,title,source:'manual',category:'manual',listId,description:'',dueDate:null,students:[],sortOrder:id,canDelete:true,createdBy:'',createdAt:'',updatedBy:'',updatedAt:''});
     window.fixture={inboxColor:'default',tasks:[make(10,'First'),make(2,'Second'),make(3,'Completed',3)],revision:1,boards:[{id:1,name:'School',scope:'school'}],lists:[{id:1,boardId:1,title:'This Week',sortOrder:0},{id:2,boardId:1,title:'Planning',sortOrder:1},{id:3,boardId:1,title:'Finished',sortOrder:2}],views:[{key:'all',title:'All tasks'},{key:'manual',title:'Manual tasks'}],today:'2026-09-15',failSave:false,loseCreate:false};
     window.fixture.tasks[0].sortOrder=0;window.fixture.tasks[1].sortOrder=0;
     window.fixture.tasks[2].students=[{id:1,name:'Test Student',picture:'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}];
+    if (location.pathname === '/student-linked') sessionStorage.setItem('linked-fixture', 'true');
+    if (sessionStorage.getItem('linked-fixture')) {
+      window.fixture.boards.push({id:2,name:'Personal',scope:'personal'});
+      window.fixture.lists.push({id:4,boardId:2,title:'Private list',sortOrder:0});
+      window.fixture.tasks=[make(1,'School linked'),make(2,'Personal linked',4),make(3,'Inbox linked',null),make(4,'Done linked')];
+      window.fixture.tasks.forEach(task=>{task.status=task.key==='manual:4'?'done':'in_progress';task.students=[{id:1,name:'Test Student',picture:null}];});
+    }
     let nextId=4; const creates=new Map();window.moveRequests=[];window.refreshRequests=0;window.listMoves=[];
     window.fetch=async(url,options={})=>{
       const state=window.fixture, method=options.method||'GET', body=JSON.parse(options.body||'{}');
       const json=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json'}});
       if(url==='/api/production-database')return json({readOnly:!!state.readOnly});
+      if(url==='/api/tasks'&&method==='GET')window.refreshRequests++;
+      if(url==='/api/tasks/administrators')return json([]);
       if(url==='/api/access-permissions')return json({tasks:true,students:true});
       if(url==='/api/students')return json([student,{...student,id:2,firstName:'Another',picture:window.fixture.tasks[2].students[0].picture}]);
       if(url==='/api/students/1/activity')return json({courses:[],payments:[],logs:[],summary:{attendanceCount:0,paidAllowance:0,excessAttendance:0}});
@@ -95,7 +105,7 @@ try {
       Object.assign(task,body);if('studentIds' in body)task.students=body.studentIds.map(id=>({id,name:id===1?'Test Student':'Another Student',picture:null}));
       return json({task,revision:state.revision});
     };
-    createRoot(document.getElementById('root')).render(<TaskBoard/>);
+    createRoot(document.getElementById('root')).render(location.pathname === '/student-linked' ? <StudentTasks studentId={1}/> : <TaskBoard/>);
   `;
   const bundle = await build({ stdin: { contents: fixture, resolveDir: resolve('.'), loader: 'tsx' }, bundle: true, write: false, format: 'iife', platform: 'browser', jsx: 'automatic' });
   const css = await postcss([tailwind()]).process(await readFile('app/globals.css', 'utf8'), { from: resolve('app/globals.css') });
@@ -122,6 +132,12 @@ try {
   const input = async (selector, value) => { await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(Object.getPrototypeOf(e),'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event(e.tagName==='SELECT'?'change':'input',{bubbles:true}))})()`); };
   const point = selector => evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
   const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+  const refreshBoard = async () => {
+    const before = await evaluate('window.refreshRequests');
+    await evaluate(`(()=>{const retry=[...document.querySelectorAll('[role="alert"] button')].find(button=>button.textContent==='Refresh');if(retry)retry.click();else window.dispatchEvent(new Event('focus'))})()`);
+    await waitFor(`window.refreshRequests>${before}&&!document.querySelector('[aria-busy=true]')`);
+    await pause(50);
+  };
   const key = async (name, code, keyCode) => { await call('Input.dispatchKeyEvent', { type: 'keyDown', key: name, code, windowsVirtualKeyCode: keyCode, ...(name === 'Enter' ? { text: '\r' } : {}) }); await call('Input.dispatchKeyEvent', { type: 'keyUp', key: name, code, windowsVirtualKeyCode: keyCode }); };
   const drag = async (from, to, cancel = false, hold = false) => {
     const start = await point(from), end = await point(to);
@@ -139,6 +155,34 @@ try {
     await pause(360);
   };
   await call('Emulation.setDeviceMetricsOverride', { width: 1400, height: 1000, deviceScaleFactor: 1, mobile: false });
+  await call('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/student-linked` });
+  await waitFor(`document.querySelectorAll('[aria-label="Linked tasks"] li').length===3`);
+  assert.equal(await evaluate(`document.querySelector('[aria-label="Linked tasks"]').textContent.includes('Done linked')`),false);
+  assert.equal(await evaluate(`document.querySelector('[aria-label="Linked tasks"]').textContent.includes('Remove link')`),false);
+  await evaluate(`localStorage.setItem('fsd-task-board-scope','school');localStorage.setItem('fsd-task-list-statuses',JSON.stringify({'personal:4':['in_progress']}));document.querySelector('a[href="/tasks?highlight=manual%3A2"]').click()`);
+  await waitFor(`document.getElementById('task-manual:2')?.classList.contains('task-card-highlight')`);
+  assert.equal(await evaluate(`document.querySelector('[aria-label="Board scope"] [aria-pressed="true"]').textContent`),'Personal');
+  assert.equal(await evaluate(`!!document.querySelector('dialog')`),false);
+  assert.equal(await evaluate(`document.activeElement.textContent`),'Personal linked');
+  await evaluate(`localStorage.setItem('tasks-inbox-size',JSON.stringify({width:0,height:0}))`);
+  await call('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await call('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/tasks?highlight=manual%3A3` });
+  await waitFor(`document.getElementById('task-manual:3')?.classList.contains('task-card-highlight')`);
+  assert.ok(await evaluate(`document.getElementById('task-inbox').getBoundingClientRect().height`)>100);
+  assert.equal(await evaluate(`document.activeElement.textContent`),'Inbox linked');
+  await call('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await evaluate(`localStorage.setItem('fsd-task-list-statuses',JSON.stringify({'school:1':['in_progress']}))`);
+  await call('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/tasks?highlight=manual%3A1&studentId=999` });
+  await waitFor(`document.getElementById('task-manual:1')?.classList.contains('task-card-highlight')`);
+  assert.equal(await evaluate(`document.querySelector('[aria-label="Board scope"] [aria-pressed="true"]').textContent`),'School');
+  assert.equal(await evaluate(`getComputedStyle(document.getElementById('task-manual:1')).animationName`),'none');
+  assert.equal(await evaluate(`document.activeElement.textContent`),'School linked');
+  assert.deepEqual(exceptions,[]);
+  console.log('PASS: student links show only in-progress tasks without unlink actions; School, Personal and collapsed mobile Inbox destinations reveal and highlight the card despite filters, with reduced-motion support.');
+  await call('Emulation.setEmulatedMedia', { features: [] });
+  await evaluate(`sessionStorage.removeItem('linked-fixture');localStorage.clear()`);
+  await call('Emulation.setDeviceMetricsOverride', { width: 1400, height: 1000, deviceScaleFactor: 1, mobile: false });
+  if (!process.argv.includes('--linked-tasks-only')) {
   await call('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/tasks` });
   await waitFor(`document.querySelectorAll('article').length===3`);
   assert.equal(await evaluate(`document.querySelector('article').getAttribute('aria-label')`), 'First'); // Preserve server order on equal imported positions.
@@ -168,7 +212,7 @@ try {
   assert.equal(await evaluate(`document.querySelector('article').getAttribute('aria-label')`), 'Second');
   assert.deepEqual(await evaluate(`window.moveRequests[0]`), { key: 'manual:10', listId: 1, position: 'after', targetKey: 'manual:2', revision: 1 });
   assert.equal(await evaluate(`!!document.querySelector('dialog')`), false);
-  await click('Refresh tasks'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
+  await refreshBoard();
   assert.equal(await evaluate(`document.querySelector('article').getAttribute('aria-label')`), 'Second');
   await drag('[aria-label="Drag First"]', '[aria-labelledby="column-2"] > div',false,true);
   await waitFor(`window.fixture.tasks.find(t=>t.title==='First').listId===2&&!document.querySelector('[aria-busy=true]')`);
@@ -190,12 +234,12 @@ try {
   await waitFor(`document.querySelector('[role=alert]')?.textContent.includes('Save failed')`);
   assert.equal(await evaluate(`!!document.querySelector('[aria-labelledby="column-3"] [aria-label="Drag First"]')`), true);
   assert.equal(await evaluate(`JSON.stringify(window.fixture.tasks)`), saved);
-  await click('Refresh tasks'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
+  await refreshBoard();
   await evaluate(`window.fixture.failMove=409`);
   await drag('[aria-label="Drag First"]', '[aria-labelledby="column-2"] > div');
   await waitFor(`document.querySelector('[role=alert]')?.textContent.includes('Board changed')`);
   assert.equal(await evaluate(`!!document.querySelector('[aria-labelledby="column-3"] [aria-label="Drag First"]')`), true);
-  await click('Refresh tasks'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
+  await refreshBoard();
   // Keyboard drag can be canceled; screen-reader instructions remain attached.
   await evaluate(`document.querySelector('[aria-label="Drag Second"]').focus()`);
   await key('Enter', 'Enter', 13); await waitFor(`document.querySelector('[data-dragging=true]')`);
@@ -237,7 +281,7 @@ try {
   await click('Private follow up'); await waitFor(`document.querySelector('dialog')?.open`);
   await input('[aria-label="Task list"]','2'); await click('Save task'); await waitFor(`!document.querySelector('dialog')`);
   await waitFor(`document.querySelector('[aria-labelledby="column-2"] article[aria-label="Private follow up"]')&&!document.querySelector('[aria-busy=true]')`);
-  await click('Refresh tasks'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
+  await refreshBoard();
   await click('Private follow up'); await waitFor(`document.querySelector('dialog')?.open`);
   await input('[aria-label="Task list"]','inbox'); await click('Save task'); await waitFor(`!document.querySelector('dialog')`);
   await waitFor(`document.querySelector('[aria-labelledby="column-inbox"] article')&&!document.querySelector('[aria-busy=true]')`);
@@ -280,7 +324,7 @@ try {
   await drag('[aria-label="Drag list This Week"]','[aria-label="Drag list Planning"]');
   await waitFor(`document.querySelector('[role=alert]')`);
   assert.deepEqual(await evaluate(`[...document.querySelectorAll('[aria-label="Task board"] > section')].map(e=>Number(e.getAttribute('aria-labelledby').slice(7)))`),listOrderBeforeFailure);
-  await click('Refresh tasks'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
+  await refreshBoard();
   await evaluate(`document.querySelector('[aria-label="Planning list settings"]').click()`);
   assert.equal(await evaluate(`document.body.textContent.includes('Move left')||document.body.textContent.includes('Move right')`),false);
   await click('Remove list'); await click('Remove list');
@@ -317,7 +361,7 @@ try {
   await paint('School board','Ocean'); await paint('Inbox','Plum'); await paint('This Week list','Gold');
   assert.equal(await evaluate(`window.fixture.boards[0].color`),'ocean');
   assert.equal(await evaluate(`window.fixture.inboxColor`),'plum');
-  await click('Refresh tasks'); await waitFor(`!document.querySelector('[aria-busy=true]')`);
+  await refreshBoard();
   assert.equal(await evaluate(`document.querySelector('[aria-labelledby="column-1"]').style.background`),'rgb(206, 144, 50)');
   // The reference geometry: tall Inbox, aligned shared header, horizontal lists.
   assert.equal(await evaluate(`(()=>{const inbox=document.querySelector('[aria-labelledby="column-inbox"]').getBoundingClientRect(), shared=document.querySelector('[aria-label="School board"]').getBoundingClientRect();return Math.abs(inbox.top-shared.top)<2&&shared.left>inbox.right&&inbox.height>800})()`),true);
@@ -371,6 +415,7 @@ try {
   assert.equal(await evaluate(`window.fixture.tasks.filter(t=>t.title==='Lost-response draft').length`),1);
   assert.deepEqual(exceptions,[]);
   console.log('PASS: desktop/mobile reference layout, Inbox/list creation, private/shared moves, mouse/touch/keyboard drag, rollback, compact cards/editor/delete, explicit ordering, School/Personal boards and lists, and header controls.');
+  }
   await call('Browser.close');
 } finally {
   clearTimeout(timeout); socket?.close(); chrome?.kill(); server?.close();

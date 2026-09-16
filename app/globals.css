@@ -191,3 +191,66 @@ body.task-page-active {
     border-radius: 0;
   }
 }
+
+/* Recessed board switch with a raised active segment. */
+.task-scope-toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid #39353e;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #16141b, #28252c);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 70%), inset 0 -1px 0 rgb(255 255 255 / 15%), 0 2px 3px rgb(0 0 0 / 24%);
+}
+.task-scope-option {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #d6d0dc;
+  font-size: 12px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 55%);
+  cursor: pointer;
+  transition: background 160ms, box-shadow 160ms, color 160ms;
+}
+.task-scope-option:hover:not(:disabled):not([aria-pressed="true"]) {
+  background: rgb(255 255 255 / 7%);
+  color: white;
+}
+.task-scope-option[aria-pressed="true"] {
+  border-color: #db65d6;
+  background: linear-gradient(160deg, #d447ce, #ae27ac 70%, #90208f);
+  color: white;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 35%), inset 0 -2px 2px rgb(74 0 75 / 30%), 0 2px 4px rgb(0 0 0 / 55%), 0 0 9px rgb(218 65 205 / 25%);
+}
+.task-scope-option:active:not(:disabled) {
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 35%);
+}
+.task-scope-option:focus-visible {
+  outline: 2px solid #f5bcf1;
+  outline-offset: 2px;
+}
+.task-scope-option:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-scope-option { transition: none; }
+}
+
+/* Locate a task opened from a student's linked tasks. */
+.task-card-highlight {
+  outline: 3px solid #65a30d;
+  outline-offset: 2px;
+  box-shadow: 0 0 18px 5px rgb(132 204 22 / 55%);
+  animation: task-card-glow 1.5s ease-in-out infinite alternate;
+}
+@keyframes task-card-glow {
+  to { box-shadow: 0 0 24px 8px rgb(132 204 22 / 80%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-card-highlight { animation: none; }
+}

@@ -67,7 +67,8 @@ function SortableCard({ task, index, columnId, disabled, children }: {
   </div>;
 }
 
-export default function TaskDragBoard({ board, columns, visible, today, disabled, onDragging, onStudent, onMove, onEdit, onCreate, onAddList, header, onColor, onListMove, onRemoveList, boardScope = 'school' }: {
+export default function TaskDragBoard({ board, columns, visible, today, disabled, onDragging, onStudent, onMove, onEdit, onCreate, onAddList, header, onColor, onListMove, onRemoveList, boardScope = 'school', highlightedTask = null }: {
+  highlightedTask?: string | null;
   onColor: (change: TaskColorChange) => Promise<void>; onListMove: (change: TaskListMove) => Promise<void>; onRemoveList: (listId: number) => Promise<void>;
   board: TaskBoard; columns: TaskList[]; visible: BoardTask[]; today: string; disabled: boolean;
   onDragging: (dragging: boolean) => void; onStudent: (id: number) => void; onMove: (change: TaskMove) => Promise<void>; onEdit: (task: BoardTask) => void;
@@ -83,7 +84,7 @@ export default function TaskDragBoard({ board, columns, visible, today, disabled
     } catch { /* Use both statuses when preferences are unavailable. */ }
   }, []);
   const statusKey = (id: string) => id === 'inbox' ? 'inbox' : `${boardScope}:${id}`;
-  const filteredVisible = visible.filter(task => task.listId === null || !hiddenStatuses[statusKey(String(task.listId))]?.includes(task.status ?? 'in_progress'));
+  const filteredVisible = visible.filter(task => task.key === highlightedTask || task.listId === null || !hiddenStatuses[statusKey(String(task.listId))]?.includes(task.status ?? 'in_progress'));
   function toggleStatus(id: string, status: string) {
     const key = statusKey(id), current = hiddenStatuses[key] ?? [];
     const next = { ...hiddenStatuses, [key]: current.includes(status) ? current.filter(value => value !== status) : [...current, status] };
@@ -150,6 +151,25 @@ export default function TaskDragBoard({ board, columns, visible, today, disabled
     } catch {}
   }, []);
   useEffect(() => { try { localStorage.setItem('tasks-inbox-size', JSON.stringify({ width: inboxWidth, height: inboxHeight })); } catch {} }, [inboxWidth, inboxHeight]);
+  useEffect(() => {
+    if (!highlightedTask || disabled) return;
+    const task = board.tasks.find(item => item.key === highlightedTask);
+    if (task?.listId === null) { setInboxHeight(height => Math.max(height, 260)); setInboxWidth(width => Math.max(width, 348)); }
+    let frame = 0, timer = 0;
+    let card: HTMLElement | null = null;
+    frame = window.requestAnimationFrame(() => {
+      frame = window.requestAnimationFrame(() => {
+        card = document.getElementById(`task-${highlightedTask}`);
+        if (!card) return;
+        card.classList.add('task-card-highlight');
+        card.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center', inline: 'center' });
+        card.querySelector<HTMLButtonElement>('[data-task-open]')?.focus({ preventScroll: true });
+        timer = window.setTimeout(() => card?.classList.remove('task-card-highlight'), 6000);
+      });
+    });
+    return () => { window.cancelAnimationFrame(frame); window.clearTimeout(timer); card?.classList.remove('task-card-highlight'); };
+  }, [highlightedTask, boardScope, disabled]);
+
   function resizeInbox(event: ReactPointerEvent<HTMLButtonElement>) {
     if (window.matchMedia('(min-width: 768px)').matches) return;
     event.preventDefault();

@@ -16,23 +16,27 @@ export default function LocalDatabaseManager() {
   const [catalogCopyToConfirm, setCatalogCopyToConfirm] = useState<LocalCopy | null>(null);
   const [productionUploadToConfirm, setProductionUploadToConfirm] = useState<string | null>(null);
   const [copyDeletionToConfirm, setCopyDeletionToConfirm] = useState<LocalCopy | null>(null);
-  const renameTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
+  const refreshVersion = useRef(0);
+  const renameRequests = useRef(new Map<string, Promise<void>>());
   const savedDatabases = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let stopped = false;
-    const refresh = () => { void fetch("/api/development-storage", { cache: "no-store" }).then(readJson<{ available: boolean; selected: string; copies: LocalCopy[] }>).then(data => { if (!stopped && data.available) { setSelected(data.selected); setCopies(data.copies); } }).catch(() => {}); };
+    const refresh = () => { const version = ++refreshVersion.current; void fetch("/api/development-storage", { cache: "no-store" }).then(readJson<{ available: boolean; selected: string; copies: LocalCopy[] }>).then(data => { if (!stopped && version === refreshVersion.current && data.available) { setSelected(data.selected); setCopies(data.copies); } }).catch(() => {}); };
     refresh();
     window.addEventListener('local-databases-updated', refresh);
     return () => { stopped = true; window.removeEventListener('local-databases-updated', refresh); };
   }, []);
-  useEffect(() => () => { renameTimers.current.forEach(clearTimeout); }, []);
   useEffect(() => {
     const closeSettingsOutside = (event: PointerEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
       const clickedSettings = target.closest("details");
       savedDatabases.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((settings) => {
-        if (settings !== clickedSettings && !settings.contains(target)) settings.open = false;
+        if (settings !== clickedSettings && !settings.contains(target)) {
+          if (document.activeElement instanceof HTMLInputElement && settings.contains(document.activeElement)) document.activeElement.blur();
+          settings.open = false;
+        }
       });
     };
     window.addEventListener("pointerdown", closeSettingsOutside);
@@ -54,20 +58,26 @@ export default function LocalDatabaseManager() {
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Copy failed."); }
     finally { setBusy(false); }
   }
-  async function rename(id: string, name: string) {
-    if (!name.trim()) return;
-    setError("");
-    try {
-      await request("/api/development-copy-production", "PATCH", { id, name });
-      window.dispatchEvent(new Event("local-databases-updated"));
-      try { localStorage.setItem("fsd-copy-names-changed", String(Date.now())); } catch {}
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Rename failed."); }
-  }
-  function renameOnChange(id: string, name: string) {
-    setCopies((current) => current.map((copy) => copy.id === id ? { ...copy, name } : copy));
-    const previous = renameTimers.current.get(id);
-    if (previous) clearTimeout(previous);
-    renameTimers.current.set(id, setTimeout(() => { renameTimers.current.delete(id); void rename(id, name); }, 350));
+  function rename(id: string, name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) { setError("Enter a database name of 1–80 characters."); return; }
+    const pending = renameRequests.current.get(id);
+    if (!pending && copies.find(copy => copy.id === id)?.name === trimmed) return;
+    // Serialize saves for each name without blocking other fields or buttons.
+    const save = (pending ?? Promise.resolve()).then(async () => {
+      setError(""); setMessage("");
+      ++refreshVersion.current;
+      try {
+        await request("/api/development-copy-production", "PATCH", { id, name: trimmed });
+        ++refreshVersion.current;
+        setCopies(current => current.map(copy => copy.id === id ? { ...copy, name: trimmed } : copy));
+        setNameDrafts(current => current[id] === name ? { ...current, [id]: trimmed } : current);
+        window.dispatchEvent(new Event("local-databases-updated"));
+        try { localStorage.setItem("fsd-copy-names-changed", String(Date.now())); } catch {}
+        setMessage("Database name saved.");
+      } catch (reason) { setError(reason instanceof Error ? reason.message : "Rename failed."); }
+    }).finally(() => { if (renameRequests.current.get(id) === save) renameRequests.current.delete(id); });
+    renameRequests.current.set(id, save);
   }
   async function copyToCatalog(copy: LocalCopy) {
     setCatalogCopyToConfirm(null);
@@ -130,9 +140,9 @@ export default function LocalDatabaseManager() {
       <div ref={savedDatabases} aria-label="Saved local databases" className="relative rounded-xl border border-slate-200 bg-white">
         <div className="hidden grid-cols-[minmax(0,1fr)_11rem_auto] gap-4 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid"><span>Database</span><span>Created</span><span>Actions</span></div>
         <article className="relative grid gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_11rem_auto] sm:items-center sm:gap-4"><div className="min-w-0"><p className="m-0 break-words font-semibold text-slate-900">Catalog</p><p className="mb-0 mt-1 text-xs text-slate-500">Historical import · Built in</p></div><div>{selected === "catalog" && <span className="rounded-full bg-lime-100 px-2 py-0.5 text-xs font-medium text-lime-800">Current database</span>}</div><details className="sm:justify-self-end"><summary className={settingsButton}>Settings</summary><div className="mt-3 rounded-lg bg-white p-3 sm:absolute sm:right-4 sm:z-10 sm:w-72 sm:border sm:border-slate-200 sm:shadow-lg"><p className="m-0 text-xs leading-relaxed text-slate-500">{selected === "catalog" ? "This is the database currently selected in the sidebar." : "Select Catalog in the sidebar to manage it here."}</p>{selected === "catalog" && <button type="button" className="mt-3 w-full rounded-lg bg-red-700 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:cursor-not-allowed disabled:opacity-50" disabled={busy} onClick={() => void upload()}>Upload to production</button>}</div></details></article>
-        {copies.map(copy => <article key={copy.id} className="relative grid gap-3 border-b border-slate-100 px-4 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_11rem_auto] sm:items-center sm:gap-4"><div className="min-w-0"><p className="m-0 break-words font-semibold text-slate-900">{copy.name}</p>{selected === copy.id && <span className="mt-1 inline-block rounded-full bg-lime-100 px-2 py-0.5 text-xs font-medium text-lime-800 sm:hidden">Current database</span>}</div><div className="text-xs text-slate-500">{new Date(copy.createdAt).toLocaleDateString()}</div><details className="sm:justify-self-end"><summary className={settingsButton}>Settings</summary><div className="mt-3 space-y-3 rounded-lg bg-slate-50 p-3 sm:absolute sm:right-4 sm:z-10 sm:w-80 sm:border sm:border-slate-200 sm:shadow-lg"><label htmlFor={`local-copy-${copy.id}`} className="block text-xs font-medium text-slate-600">Database name<input id={`local-copy-${copy.id}`} aria-describedby="local-copy-autosave" maxLength={80} disabled={busy} value={copy.name} onChange={event => renameOnChange(copy.id, event.target.value)} className="mt-1.5 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-lime-600 focus:ring-2 focus:ring-lime-100 disabled:opacity-50" /></label><div className="flex flex-wrap gap-2"><button type="button" className={secondaryButton} disabled={busy} onClick={() => setCatalogCopyToConfirm(copy)}>Copy to Catalog</button>{selected === copy.id && <button type="button" className="rounded-lg bg-red-700 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:cursor-not-allowed disabled:opacity-50" disabled={busy} onClick={() => void upload()}>Upload to production</button>}<button type="button" className="rounded-lg px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:cursor-not-allowed disabled:opacity-50" disabled={busy} onClick={() => void deleteCopy(copy)}>Delete</button></div>{selected !== copy.id && <p className="m-0 text-xs text-slate-500">Select this database in the sidebar to upload it to production.</p>}</div></details></article>)}
+        {copies.map(copy => <article key={copy.id} className="relative grid gap-3 border-b border-slate-100 px-4 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_11rem_auto] sm:items-center sm:gap-4"><div className="min-w-0"><p className="m-0 break-words font-semibold text-slate-900">{copy.name}</p>{selected === copy.id && <span className="mt-1 inline-block rounded-full bg-lime-100 px-2 py-0.5 text-xs font-medium text-lime-800 sm:hidden">Current database</span>}</div><div className="text-xs text-slate-500">{new Date(copy.createdAt).toLocaleDateString()}</div><details className="sm:justify-self-end"><summary className={settingsButton}>Settings</summary><div className="mt-3 space-y-3 rounded-lg bg-slate-50 p-3 sm:absolute sm:right-4 sm:z-10 sm:w-80 sm:border sm:border-slate-200 sm:shadow-lg"><label htmlFor={`local-copy-${copy.id}`} className="block text-xs font-medium text-slate-600">Database name<input id={`local-copy-${copy.id}`} aria-describedby="local-copy-name-help" maxLength={80} disabled={busy} value={nameDrafts[copy.id] ?? copy.name} onBlur={event => rename(copy.id, event.currentTarget.value)} onChange={event => { const name = event.target.value; setNameDrafts(current => ({ ...current, [copy.id]: name })); }} className="mt-1.5 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-lime-600 focus:ring-2 focus:ring-lime-100 disabled:opacity-50" /></label><div className="flex flex-wrap gap-2"><button type="button" className={secondaryButton} disabled={busy} onClick={() => setCatalogCopyToConfirm(copy)}>Copy to Catalog</button>{selected === copy.id && <button type="button" className="rounded-lg bg-red-700 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:cursor-not-allowed disabled:opacity-50" disabled={busy} onClick={() => void upload()}>Upload to production</button>}<button type="button" className="rounded-lg px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:cursor-not-allowed disabled:opacity-50" disabled={busy} onClick={() => void deleteCopy(copy)}>Delete</button></div>{selected !== copy.id && <p className="m-0 text-xs text-slate-500">Select this database in the sidebar to upload it to production.</p>}</div></details></article>)}
       </div>
-      <p id="local-copy-autosave" className="mb-0 mt-3 text-xs text-slate-500">Copy names save automatically as you type.</p>
+      <p id="local-copy-name-help" className="mb-0 mt-3 text-xs text-slate-500">Database names save automatically when you leave the name field.</p>
     </section>
     {catalogCopyToConfirm && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" role="presentation">
       <section role="alertdialog" aria-modal="true" aria-labelledby="replace-catalog-title" aria-describedby="replace-catalog-description" className="w-full max-w-md rounded-xl border border-amber-300 bg-white p-5 shadow-2xl">

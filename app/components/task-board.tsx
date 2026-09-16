@@ -25,6 +25,7 @@ function storedBoardScope(): BoardScope {
 }
 
 export default function TaskBoard() {
+  const [highlightedTask, setHighlightedTask] = useState<string | null>(null);
   const [boardScope, setBoardScope] = useState<BoardScope>('school');
   const [board, setBoard] = useState<Board | null>(null);
   const [filters, setFilters] = useState(() => readTaskFilters(new URLSearchParams()));
@@ -48,7 +49,7 @@ export default function TaskBoard() {
       const data = await taskRequest<Board>('/api/tasks');
       if (sequence === loadSequence.current) {
         const url = new URL(window.location.href);
-        if (url.searchParams.delete('scope')) window.history.replaceState(null, '', url);
+        if (url.searchParams.has('scope')) { url.searchParams.delete('scope'); window.history.replaceState(null, '', url); }
         setReadOnly(!!storage.readOnly); setBoard(data); setBoardScope(storedBoardScope()); setToday(data.today);
       }
     }
@@ -59,12 +60,19 @@ export default function TaskBoard() {
   useEffect(() => {
     if (!board || loading) return;
     const url = new URL(window.location.href);
-    const key = url.searchParams.get('task');
+    const highlight = url.searchParams.get('highlight');
+    const key = highlight ?? url.searchParams.get('task');
     if (!key) return;
     url.searchParams.delete('task');
+    url.searchParams.delete('highlight');
     window.history.replaceState(null, '', url);
     const task = board.tasks.find(item => item.key === key);
-    if (task) setEditor({ task });
+    if (task && highlight) {
+      const list = board.lists.find(item => item.id === task.listId);
+      const scope = board.boards.find(item => item.id === list?.boardId)?.scope ?? 'personal';
+      setBoardScope(scope); setHighlightedTask(task.key);
+      try { window.localStorage.setItem(taskScopeStorageKey, scope); } catch { /* The destination still opens without storage. */ }
+    } else if (task) setEditor({ task });
     else setNotice('This task is no longer available.');
   }, [board, loading]);
   useEffect(() => {
@@ -146,13 +154,13 @@ export default function TaskBoard() {
   }
   const activeBoard = board?.boards.find(item => item.scope === boardScope);
   const lists = board?.lists.filter(list => list.boardId === activeBoard?.id) ?? [];
-  const visible = board?.tasks.filter(task => (task.listId === null || lists.some(list => list.id === task.listId)) && matchesTask(task, { ...filters, status: 'all' }, today)) ?? [];
+  const visible = board?.tasks.filter(task => (task.listId === null || lists.some(list => list.id === task.listId)) && (task.key === highlightedTask || matchesTask(task, { ...filters, status: 'all' }, today))) ?? [];
   function chooseBoard(scope: BoardScope) {
     if (scope === boardScope || loading || moving || dragging || readOnly || !!error) return;
-    setBoardScope(scope);
+    setBoardScope(scope); setHighlightedTask(null);
     try { window.localStorage.setItem(taskScopeStorageKey, scope); } catch { /* The selected scope remains active for this visit. */ }
     const url = new URL(window.location.href);
-    if (url.searchParams.delete('scope')) window.history.replaceState(null, '', url);
+    if (url.searchParams.has('scope')) { url.searchParams.delete('scope'); window.history.replaceState(null, '', url); }
   }
   async function createList(name: string, requestKey: string) {
     if (!board || busy.current || readOnly || loading) throw new Error('Wait for the current operation to finish.');
@@ -189,20 +197,17 @@ export default function TaskBoard() {
   }
   const disabled = loading || moving || readOnly || !!error;
   const pageHeader = <div className="flex w-max items-center gap-1 font-sans text-sm">
-    <div role="group" aria-label="Board scope" className="inline-flex rounded-lg bg-stone-100 p-1">
-      {(['school', 'personal'] as const).map(scope => <button key={scope} type="button" aria-pressed={boardScope === scope} disabled={disabled || dragging} onClick={() => chooseBoard(scope)} className={`min-h-10 rounded-md px-3 font-semibold transition-colors disabled:opacity-50 ${boardScope === scope ? 'bg-slate-800 text-white shadow-sm' : 'hover:bg-white'}`}>{scope === 'school' ? 'School' : 'Personal'}</button>)}
+    <div role="group" aria-label="Board scope" className="task-scope-toggle">
+      {(['school', 'personal'] as const).map(scope => <button key={scope} type="button" aria-pressed={boardScope === scope} disabled={disabled || dragging} onClick={() => chooseBoard(scope)} className="task-scope-option">{scope === 'school' ? 'School' : 'Personal'}</button>)}
     </div>
     <TaskSettings label="Board settings" color={activeBoard?.color} disabled={disabled || dragging} onColor={color => changeColor({target: 'board', scope: boardScope, color})} />
-    <button type="button" aria-label="Refresh tasks" title="Refresh tasks" disabled={loading || moving || dragging} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-stone-100 disabled:opacity-50" onClick={() => void load()}>
-      <svg aria-hidden="true" className="h-5 w-5 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0 2 5.3M20 4v7h-7" /></svg><span className="sr-only">Refresh</span>
-    </button>
   </div>;
   return <main style={{ background: taskBackground(activeBoard?.color, '#e7e5e4') }} className="min-h-0 min-w-0 flex-1 overflow-hidden !p-0 text-slate-800">
     {error && <p role="alert" className="m-2 rounded-lg bg-red-50 p-3 font-sans text-sm text-red-700">{error}<button className="ml-2 min-h-11 underline" disabled={loading || moving} onClick={() => void load()}>Refresh</button></p>}
     {loading && <p role="status" className="px-4 font-sans text-sm">Loading tasks…</p>}
     {headerTarget && createPortal(pageHeader, headerTarget)}
     <p id="task-board-summary" tabIndex={-1} role="status" className="sr-only">{visible.length} tasks shown. Inbox and Personal are private. School is shared.</p>
-    {board && <TaskDragBoard onColor={changeColor} onListMove={moveList} onRemoveList={removeList} boardScope={boardScope} board={board} columns={lists} onCreate={createCard} onAddList={createList} visible={visible} today={today} disabled={disabled} onDragging={setDragging} onStudent={setStudentId} onMove={move} onEdit={task => setEditor({ task })} />}
+    {board && <TaskDragBoard highlightedTask={highlightedTask} onColor={changeColor} onListMove={moveList} onRemoveList={removeList} boardScope={boardScope} board={board} columns={lists} onCreate={createCard} onAddList={createList} visible={visible} today={today} disabled={disabled} onDragging={setDragging} onStudent={setStudentId} onMove={move} onEdit={task => setEditor({ task })} />}
     {editor && board && <TaskPanel listId={editor.listId} task={editor.task} board={board} studentId={filters.studentId} onClose={() => { setEditor(null); void load(); }} onSaved={async message => { setNotice(message); await load(); setEditor(null); }} />}
     {studentId !== null && <StudentPanel id={studentId} onClose={() => { setStudentId(null); void load(); }} onUpdate={() => void load()} onDelete={() => { setStudentId(null); void load(); }} />}
     <OperationNotification message={notice} onDismiss={() => setNotice('')} />

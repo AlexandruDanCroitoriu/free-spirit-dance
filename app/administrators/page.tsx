@@ -1,6 +1,7 @@
 "use client";
 
 import ProductionBackups from "../components/production-backups";
+import MediaLibrary from "../components/media-library";
 import LocalDatabaseManager from "../components/local-database-manager";
 import { readJson } from "../lib/http";
 import { downloadWorkbook, readWorkbook } from "../lib/xlsx-export";
@@ -11,7 +12,8 @@ import ConfirmationDialog from "../components/confirmation-dialog";
 type Administrator = { email: string; name: string; picture: string | null; dashboard: boolean; students: boolean; courses: boolean; practiceParties: boolean; qrCodes: boolean; tasks: boolean };
 type ApiError = { error?: string };
 type ExportTable = { name: string; columns: string[]; rows: Record<string, unknown>[] };
-const administratorTabs = [["administrators", "Administrators"], ["backups", "Database backups"], ["transfer", "Data transfer & danger zone"]] as const;
+const administratorTabs = [["administrators", "Administrators"], ["media", "Media files"], ["backups", "Database backups"], ["transfer", "Data transfer & danger zone"]] as const;
+const administratorTabStorageKey = "fsd-administrators-tab";
 const permissionFields = [["dashboard", "Dashboard"], ["students", "Students"], ["courses", "Courses"], ["practiceParties", "Practice Parties"], ["qrCodes", "QR Codes"], ["tasks", "Tasks"]] as const;
 
 export default function AdministratorsPage() {
@@ -38,6 +40,20 @@ function AdministratorsContent() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [confirmation, setConfirmation] = useState<{ kind: "administrator"; administrator: Administrator } | { kind: "clear" } | { kind: "import"; file: File } | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(administratorTabStorageKey);
+      const tab = administratorTabs.find(([value]) => value === saved);
+      if (tab) setActiveTab(tab[0]);
+    } catch { /* Use the default tab when browser storage is unavailable. */ }
+  }, []);
+
+  function selectTab(tab: (typeof administratorTabs)[number][0]) {
+    setActiveTab(tab);
+    try { window.localStorage.setItem(administratorTabStorageKey, tab); }
+    catch { /* Keep the selection for this visit when storage is unavailable. */ }
+  }
 
   useEffect(() => {
     fetch("/api/administrators").then(async (response) => {
@@ -184,13 +200,13 @@ function AdministratorsContent() {
         aria-selected={activeTab === tab}
         aria-controls={`administrator-panel-${tab}`}
         tabIndex={activeTab === tab ? 0 : -1}
-        onClick={() => setActiveTab(tab)}
+        onClick={() => selectTab(tab)}
         onKeyDown={(event) => {
           if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
           event.preventDefault();
           const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? administratorTabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + administratorTabs.length) % administratorTabs.length;
           const next = administratorTabs[nextIndex][0];
-          setActiveTab(next);
+          selectTab(next);
           document.getElementById(`administrator-tab-${next}`)?.focus();
         }}
         className={`-mb-px shrink-0 border-0 border-b-2 bg-transparent px-1 py-3 font-sans text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-lime-600 ${activeTab === tab ? "border-slate-800 text-slate-800" : "border-transparent text-slate-500 hover:text-slate-800"}`}
@@ -209,46 +225,53 @@ function AdministratorsContent() {
         </div>
         {!loading && <span className="rounded-full border border-stone-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600">{administrators.length} administrator{administrators.length === 1 ? "" : "s"}</span>}
       </div>
-      {loading ? <p className="rounded-2xl border border-stone-200 bg-white p-8 text-center text-sm text-slate-500" role="status">Loading administrators...</p> : administrators.length === 0 ? <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-8 text-center"><h3 className="m-0 font-sans text-base font-semibold text-slate-800">No administrators yet</h3><p className="mb-0 mt-2 text-sm leading-6 text-slate-500">Administrators added in Cloudflare appear here after their first visit.</p></div> : <div className="space-y-4">
-        {administrators.map((administrator) => <article key={administrator.email} className="min-w-0 rounded-2xl border border-stone-200 bg-white shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4 p-4 sm:px-6 sm:py-5">
+      {loading ? <p className="rounded-2xl border border-stone-200 bg-white p-8 text-center text-sm text-slate-500" role="status">Loading administrators...</p> : administrators.length === 0 ? <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-8 text-center"><h3 className="m-0 font-sans text-base font-semibold text-slate-800">No administrators yet</h3><p className="mb-0 mt-2 text-sm leading-6 text-slate-500">Administrators added in Cloudflare appear here after their first visit.</p></div> : <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-4">
+        {administrators.map((administrator) => <article key={administrator.email} className="flex min-w-0 flex-col rounded-xl border border-stone-200 bg-white p-4">
+          <div className="mb-4">
             <div className="flex min-w-0 max-w-full items-center gap-3">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-100 text-base font-semibold text-lime-900 ring-1 ring-black/5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-100 text-sm font-semibold text-lime-900 ring-1 ring-black/5">
                 {administrator.picture ? <img alt="" className="h-full w-full object-cover" src={administrator.picture} /> : (administrator.name || administrator.email).charAt(0).toUpperCase()}
               </span>
               <div className="min-w-0">
-                <h3 className="m-0 break-words font-sans text-base font-semibold text-slate-900">{administrator.name || "Profile not set up"}</h3>
-                <p className="mb-0 mt-1 break-all text-sm text-slate-500">{administrator.email}</p>
+                <h3 className="m-0 break-words font-sans text-sm font-semibold text-slate-900">{administrator.name || "Profile not set up"}</h3>
+                <p className="mb-0 mt-0.5 break-all text-xs text-slate-500">{administrator.email}</p>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+
+          </div>
+          <fieldset className="m-0 mb-4 min-w-0 border-0 p-0">
+            <legend className="sr-only">Area access for {administrator.name || administrator.email}</legend>
+            <div className="flex flex-wrap gap-2">
+              {permissionFields.map(([field, label]) => <button key={field}
+                aria-label={`${label} access for ${administrator.email}`}
+                aria-pressed={administrator[field]}
+                className={`inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-600 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 ${administrator[field] ? "border-lime-300 bg-lime-100 text-lime-950 hover:bg-lime-200" : "border-stone-200 bg-stone-50 text-slate-500 hover:bg-stone-100"}`}
+                disabled={savingEmail === administrator.email} type="button"
+                onClick={() => void setPermission(administrator, field, !administrator[field])}
+              >
+                {administrator[field] && <svg aria-hidden="true" className="h-3 w-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 8 3 3 7-7" /></svg>}
+                {label}
+              </button>)}
+            </div>
+            <p className="mb-0 mt-2 text-xs text-slate-500" role="status">{savingEmail === administrator.email ? "Saving changes..." : `${permissionFields.filter(([field]) => administrator[field]).length}/${permissionFields.length} enabled`}</p>
+          </fieldset>
+            <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-stone-100 pt-3">
               <button aria-label={`Edit profile for ${administrator.email}`} className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-600" type="button" onClick={() => openProfile(administrator)}>{administrator.name ? "Edit profile" : "Set up profile"}</button>
               <button aria-label={`Delete ${administrator.email}`} className="rounded-lg px-3 py-2 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:cursor-not-allowed disabled:opacity-50" disabled={savingEmail === administrator.email} type="button" onClick={() => deleteAdministrator(administrator)}>Delete</button>
             </div>
-          </div>
-          <fieldset className="m-0 min-w-0 border-0 border-t border-solid border-stone-100 p-4 sm:px-6 sm:py-5">
-            <legend className="sr-only">Area access for {administrator.name || administrator.email}</legend>
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <span className="font-semibold text-slate-600">Area access</span>
-              <span className="text-slate-500" role="status">{savingEmail === administrator.email ? "Saving changes..." : `${permissionFields.filter(([field]) => administrator[field]).length} of ${permissionFields.length} enabled`}</span>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {permissionFields.map(([field, label]) => <label key={field} className={`flex min-h-12 min-w-0 items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors ${savingEmail === administrator.email ? "cursor-wait opacity-60" : "cursor-pointer"} ${administrator[field] ? "border-lime-200 bg-lime-50/70 text-lime-950 hover:bg-lime-50" : "border-stone-200 bg-stone-50/50 text-slate-600 hover:bg-stone-100"}`}>
-                <span className="font-medium">{label}</span>
-                <input aria-label={`${label} access for ${administrator.email}`} checked={administrator[field]} className="h-4 w-4 shrink-0 cursor-pointer accent-lime-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-700 disabled:cursor-wait" disabled={savingEmail === administrator.email} type="checkbox" onChange={(event) => void setPermission(administrator, field, event.target.checked)} />
-              </label>)}
-            </div>
-          </fieldset>
         </article>)}
       </div>}
       {!loading && administrators.length > 0 && <p className="mb-0 mt-5 text-xs leading-5 text-slate-500">New administrators appear here after being added in Cloudflare and visiting the app.</p>}
     </section>
     </div>
+    <div id="administrator-panel-media" role="tabpanel" aria-labelledby="administrator-tab-media" hidden={activeTab !== "media"}>
+      {activeTab === "media" && <MediaLibrary />}
+    </div>
     <div id="administrator-panel-backups" role="tabpanel" aria-labelledby="administrator-tab-backups" hidden={activeTab !== "backups"}>
+      <LocalDatabaseManager />
       <ProductionBackups />
     </div>
     <div id="administrator-panel-transfer" role="tabpanel" aria-labelledby="administrator-tab-transfer" hidden={activeTab !== "transfer"}>
-    <LocalDatabaseManager />
     <section className="rounded-xl border border-lime-200 bg-lime-50 p-5"><h2 className="m-0 text-lg font-normal text-lime-950">Database transfer</h2><p className="mb-4 mt-1 max-w-2xl font-sans text-sm leading-6 text-lime-900">Download all application data as an Excel workbook, with one sheet for each database table. Importing only adds new school records and never deletes or updates existing data. For a new record with related rows, use a temporary ID such as new:student-1 in its ID cell and the matching foreign-key cells. Administrator profiles, permissions, and payment methods are always kept. When importing a production export into Local, student and QR-code images are copied into local storage.</p><div className="flex flex-wrap gap-3"><button className="rounded-md bg-lime-700 px-4 py-2.5 font-sans text-xs font-bold text-white hover:bg-lime-800 disabled:cursor-not-allowed disabled:opacity-50" disabled={exporting || importing} type="button" onClick={() => void exportData()}>{exporting ? "Preparing export..." : "Export database (.xlsx)"}</button><input accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importData(file); }} ref={importInput} type="file" /><button className="rounded-md border border-lime-700 bg-white px-4 py-2.5 font-sans text-xs font-bold text-lime-900 hover:bg-lime-100 disabled:cursor-not-allowed disabled:opacity-50" disabled={exporting || importing} type="button" onClick={() => importInput.current?.click()}>{importing ? "Importing..." : "Import database (.xlsx)"}</button></div></section>
     <section className="mt-6 rounded-xl border border-red-200 bg-red-50 p-5"><h2 className="m-0 text-lg font-normal text-red-900">Danger zone</h2><p className="mb-4 mt-1 max-w-2xl font-sans text-sm leading-6 text-red-800">Remove all student, course, payment, practice party, and QR-code data from the database currently in use. Administrators and their profile information are kept.</p><button className="rounded-md bg-red-700 px-4 py-2.5 font-sans text-xs font-bold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50" disabled={clearing} type="button" onClick={() => void clearData()}>{clearing ? "Removing data..." : "Remove all data except administrators"}</button></section>
     </div>
