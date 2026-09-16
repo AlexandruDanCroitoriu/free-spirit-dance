@@ -1,5 +1,6 @@
 """Synthetic-only tests for migration target safety and imported Catalog baselines."""
 import importlib.util
+from contextlib import nullcontext
 import sqlite3
 import sys
 from pathlib import Path
@@ -47,7 +48,7 @@ with patch.object(module.sys, 'argv', ['migrate-databases.py', 'all']), patch.ob
     except RuntimeError:
         pass
     run.assert_not_called()
-with patch.object(module.sys, 'argv', ['migrate-databases.py', 'all', '--list']), patch.object(module, 'sql', side_effect=registry_sql), patch.object(module, 'run') as run, patch.object(module, 'prepare_catalog') as repair:
+with patch.object(module.sys, 'argv', ['migrate-databases.py', 'all', '--list']), patch.object(module, 'sql', side_effect=registry_sql), patch.object(module, 'run') as run, patch.object(module, 'prepare_catalog') as repair, patch.object(module, 'production_session', return_value=nullcontext()):
     module.main()
     assert run.call_count == 4
     assert all(call.args[1] == ['migrations', 'list'] for call in run.call_args_list)

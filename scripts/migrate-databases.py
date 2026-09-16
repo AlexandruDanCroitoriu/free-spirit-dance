@@ -1,5 +1,7 @@
 """Migrate explicit app targets; never import or copy student records."""
 import argparse
+from contextlib import contextmanager
+import production_target
 import json
 import os
 from pathlib import Path
@@ -13,6 +15,24 @@ from datetime import datetime, timezone
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / 'wrangler.local.json'
 MIGRATIONS = sorted((ROOT / 'migrations').glob('*.sql'))
+REMOTE_CONFIG = None
+ACTIVE_TARGET = None
+
+
+@contextmanager
+def production_session(enabled):
+    global REMOTE_CONFIG, ACTIVE_TARGET
+    if not enabled:
+        yield
+        return
+    target = production_target.resolve(ROOT)
+    with production_target.configuration(ROOT, target) as config:
+        REMOTE_CONFIG, ACTIVE_TARGET = config, target
+        print(f"Verified active production: {target['database_name']} ({target['database_id']}), generation {target['generation']}", flush=True)
+        try:
+            yield
+        finally:
+            REMOTE_CONFIG, ACTIVE_TARGET = None, None
 
 
 def targets(scope):
@@ -43,17 +63,24 @@ def targets(scope):
 def command(target, operation, *args):
     name, remote = target
     return [str(ROOT / 'node_modules/.bin/wrangler'), 'd1', *operation, name,
-            '--remote' if remote else '--local', '--config', str(CONFIG), *args]
+            '--remote' if remote else '--local', '--config', str(REMOTE_CONFIG if remote and REMOTE_CONFIG else CONFIG), *args]
 
 
 def run(target, operation, *args, capture=False):
+    if target[1]:
+        if ACTIVE_TARGET is None or REMOTE_CONFIG is None:
+            raise RuntimeError('Active production has not been resolved; refusing to use the original binding by default.')
+        production_target.verify(ROOT, ACTIVE_TARGET)
     logs = ROOT / '.wrangler/migration-logs'
     logs.mkdir(parents=True, exist_ok=True)
     result = subprocess.run(command(target, operation, *args), cwd=ROOT,
         env={**os.environ, 'WRANGLER_LOG_PATH': str(logs), 'WRANGLER_SEND_METRICS': 'false'},
         stdin=subprocess.DEVNULL, capture_output=capture, text=True)
     if result.returncode:
-        raise RuntimeError(f'{target[0]} failed. Stopped before subsequent databases; see .wrangler/migration-logs. Earlier successful migrations remain applied.')
+        detail = 'No migrations were applied by this listing.' if operation == ['migrations', 'list'] else 'Earlier successful operations may remain applied.'
+        raise RuntimeError(f'{target[0]} failed. Stopped before subsequent databases; see .wrangler/migration-logs. {detail}')
+    if target[1]:
+        production_target.verify(ROOT, ACTIVE_TARGET)
     return json.loads(result.stdout) if capture else None
 
 
@@ -71,6 +98,8 @@ def production_plan(objects, applied):
     """Recognize the inspected pre-0052 application schema, not historical data."""
     baseline = '0051_payment_transfer_filter_order.sql'
     known = [path.name for path in MIGRATIONS]
+    if applied - set(known):
+        raise RuntimeError('Production has unknown migrations. Stop and review before applying anything.')
     present = [name in applied for name in known]
     gap = next((i for i, value in enumerate(present) if not value), len(present))
     # Current databases use Wrangler normally. Old ledgers require a full check.
@@ -198,24 +227,28 @@ def main():
     parser.add_argument('--list', action='store_true', help='List pending migrations only; do not repair history or apply anything.')
     args = parser.parse_args()
     selected = targets(args.scope)
-    plan = None
-    if any(remote for _, remote in selected) and not args.list:
-        if not sys.stdin.isatty():
-            raise RuntimeError('Production requires an interactive terminal. Run this command yourself and confirm the production target.')
-        plan = inspect_production()
-        if plan:
-            print('Production needs a verified application-schema baseline through 0051. A private backup will be saved; old data migrations will NOT be replayed.')
-        print('This will apply app migrations to the LIVE production database FS-Dance. Review pending migrations and a private backup first.')
-        if input('Type MIGRATE PRODUCTION to continue: ') != 'MIGRATE PRODUCTION':
-            raise RuntimeError('Cancelled; no databases were changed.')
-    for target in selected:
-        print(f"\n{target[0]} ({'LIVE production' if target[1] else 'local only'})", flush=True)
-        if target[0] == 'CATALOG_DB' and not args.list:
-            prepare_catalog(target)
-        if target[1] and plan and not args.list:
-            repair_production(plan)
-        run(target, ['migrations', 'list' if args.list else 'apply'])
-    print('\nMigration check complete.' if args.list else '\nAll selected databases are up to date.')
+    remote = any(is_remote for _, is_remote in selected)
+    if remote and not args.list and not sys.stdin.isatty():
+        raise RuntimeError('Production requires an interactive terminal and confirmation.')
+    with production_session(remote):
+        plan = None
+        if any(remote for _, remote in selected) and not args.list:
+            if not sys.stdin.isatty():
+                raise RuntimeError('Production requires an interactive terminal. Run this command yourself and confirm the production target.')
+            plan = inspect_production()
+            if plan:
+                print('Production needs a verified application-schema baseline through 0051. A private backup will be saved; old data migrations will NOT be replayed.')
+            print('This will apply app migrations to the verified LIVE production database shown above. Review pending migrations and a private backup first.')
+            if input('Type MIGRATE PRODUCTION to continue: ') != 'MIGRATE PRODUCTION':
+                raise RuntimeError('Cancelled; no databases were changed.')
+        for target in selected:
+            print(f"\n{target[0]} ({'LIVE production' if target[1] else 'local only'})", flush=True)
+            if target[0] == 'CATALOG_DB' and not args.list:
+                prepare_catalog(target)
+            if target[1] and plan and not args.list:
+                repair_production(plan)
+            run(target, ['migrations', 'list' if args.list else 'apply'])
+        print('\nMigration check complete.' if args.list else '\nAll selected databases are up to date.')
 
 
 if __name__ == '__main__':

@@ -53,6 +53,28 @@ Cloudflare Workers Builds handles deployment from the connected GitHub repositor
 
 The GitHub connection, production branch, Access applications, and secrets are configured remotely; local build success does not verify those settings. Pushing to the connected production branch triggers deployment.
 
+Release preparation has a dedicated Codex skill, `fsd-release`, and a versioned
+helper. Start with `python3 scripts/release-preflight.py inspect` after fetching
+remote refs. This reports local branch divergence and migration changes without
+accessing production; it is not a readiness approval.
+
+With authorization to copy private student data, create a production snapshot
+outside the repository, then rehearse the upgrade locally:
+
+```sh
+python3 scripts/release-preflight.py snapshot --directory /private/backups
+python3 scripts/release-preflight.py rehearse --snapshot /private/backups/fsd-release-.../production.sql
+```
+
+Replace the example paths with a private location and the returned snapshot path.
+Export is read-only but can briefly pause database queries. The helper keeps
+exports and signed download URLs in restricted local files. Rehearsal compares
+all existing records in memory and stops on data changes or unknown migration
+history. It does not migrate production, check R2 objects, prove old-app
+compatibility, or deploy. Verify the exact release with
+`TASK_UI_CHROME=/path/to/chromium npm run verify:release`; keep production
+migration and push/deployment authorization separate from preparation.
+
 Update the local Catalog and only your saved local production copies (no remote access):
 
 ```sh
@@ -69,6 +91,17 @@ this Catalog-specific repair never targets production. Copy selection reads the
 app's registry (`ready=1`), not the eight available storage slots.
 
 Review pending migrations before updating production:
+
+Production commands and release snapshots resolve the database currently serving
+the deployed app through its authenticated backup bridge. A restored backup
+promoted to production is a different D1 database from the original `DB` binding;
+the local development “Production” selector still uses that original binding.
+Do not infer the live migration target from that selector or the static config.
+The commands require the existing local Access service-token and backup-bridge
+credentials, reject read-only previews and maintenance/jobs, and stop if the
+active database or generation changes. They never silently fall back to the
+original database when status cannot be verified. Avoid switching databases or
+starting backup operations while a migration command is running.
 
 ```sh
 npm run db:migrate:production -- --list
