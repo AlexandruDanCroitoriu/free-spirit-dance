@@ -46,6 +46,7 @@ export default function TaskPanel({ task, board, studentId, listId, onClose, onS
   const [descriptionDraft, setDescriptionDraft] = useState(task?.description ?? '');
   // Retain the exact request after a lost response; POST retries are idempotent.
   const pendingCreate = useRef<(ManualTaskFields & { revision: number; requestKey: string; listId?: number | null }) | null>(null);
+  const pendingDuplicate = useRef<{ revision: number; requestKey: string } | null>(null);
   useEffect(() => {
     const element = dialog.current!;
     const focus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -135,6 +136,19 @@ export default function TaskPanel({ task, board, studentId, listId, onClose, onS
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not refresh tasks.'); }
     finally { busy.current = false; setSaving(false); }
   }
+  async function duplicate() {
+    if (!task || busy.current || conflict || missing) return;
+    busy.current = true; setSaving(true); setError('');
+    try {
+      pendingDuplicate.current ??= { revision, requestKey: crypto.randomUUID() };
+      await taskRequest(`/api/tasks/${encodeURIComponent(task.key)}`, 'POST', pendingDuplicate.current);
+      await onSaved('Task duplicated.');
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : 'Could not duplicate task.';
+      setError(message);
+      if (reason instanceof TaskRequestError && reason.status < 500) pendingDuplicate.current = null;
+    } finally { busy.current = false; setSaving(false); }
+  }
   const button = 'min-h-10 rounded-md border border-white/15 px-3 py-2 text-sm font-medium hover:bg-white/10 focus-visible:outline-blue-400 disabled:opacity-50';
   const mentions = descriptionLinks(descriptionOpen ? descriptionDraft : fields.description);
   const selectedStudents = [...new Set([...fields.studentIds, ...mentions.studentIds])];
@@ -173,7 +187,7 @@ export default function TaskPanel({ task, board, studentId, listId, onClose, onS
           {descriptionOpen ? <><TaskDescriptionEditor administrators={administratorChoices} courses={courseChoices} students={studentChoices} value={descriptionDraft} onChange={setDescriptionDraft} disabled={saving || uncertain || missing} /><div className="mt-2 flex gap-2"><button type="button" disabled={descriptionDraft.length > 10000} className={`${button} bg-blue-400 text-slate-950`} onClick={() => { setFields({ ...fields, description: descriptionDraft }); setDescriptionOpen(false); }}>Save description</button><button type="button" className={button} onClick={() => setDescriptionOpen(false)}>Cancel</button></div><p className="text-xs text-stone-400">Changes are saved with Save task.</p></> : <div role="button" tabIndex={saving || uncertain || missing ? -1 : 0} aria-label="Edit description" onClick={() => { if (saving || uncertain || missing) return; setDescriptionDraft(fields.description); setDescriptionOpen(true); }} onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); event.currentTarget.click(); } }} className="min-h-20 w-full cursor-text break-words rounded-md border border-white/30 px-3 py-3 text-left text-stone-300 hover:bg-white/5">{fields.description ? <TaskDescriptionEditor administrators={administratorChoices} readOnly value={fields.description} /> : 'Add a more detailed description…'}</div>}
         </section>
       </fieldset>
-      {deleting ? <div className="rounded-lg border border-red-400/40 bg-red-950/45 p-3 text-red-100"><p className="m-0">Permanently delete this task? This also removes its student relationship.</p><div className="mt-3 flex flex-wrap gap-2"><button autoFocus type="button" className={`${button} bg-white/10 text-stone-100 hover:bg-white/15`} disabled={saving} onClick={() => setDeleting(false)}>Keep task</button><button type="button" className={`${button} bg-red-600 text-white hover:bg-red-500`} disabled={saving || conflict || missing} onClick={() => void submit(true)}>Confirm delete</button></div></div> : <div className="flex flex-wrap justify-end gap-2">{task?.canDelete && <button type="button" className={`${button} mr-auto text-red-700`} disabled={saving || missing} onClick={() => setDeleting(true)}>Delete task</button>}<button type="button" className={button} disabled={saving} onClick={onClose}>Cancel</button><button className={`${button} bg-slate-800 text-white`} disabled={saving || conflict || missing || !fields.title.trim()}>{saving ? 'Saving…' : uncertain ? 'Retry save' : 'Save task'}</button></div>}
+      {deleting ? <div className="rounded-lg border border-red-400/40 bg-red-950/45 p-3 text-red-100"><p className="m-0">Permanently delete this task? This also removes its student relationship.</p><div className="mt-3 flex flex-wrap gap-2"><button autoFocus type="button" className={`${button} bg-white/10 text-stone-100 hover:bg-white/15`} disabled={saving} onClick={() => setDeleting(false)}>Keep task</button><button type="button" className={`${button} bg-red-600 text-white hover:bg-red-500`} disabled={saving || conflict || missing} onClick={() => void submit(true)}>Confirm delete</button></div></div> : <div className="flex flex-wrap justify-end gap-2">{task && <button type="button" className={`${button} mr-auto`} disabled={saving || conflict || missing} onClick={() => void duplicate()}>Duplicate task</button>}{task?.canDelete && <button type="button" className={`${button} text-red-700`} disabled={saving || missing} onClick={() => setDeleting(true)}>Delete task</button>}<button type="button" className={button} disabled={saving} onClick={onClose}>Cancel</button><button className={`${button} bg-slate-800 text-white`} disabled={saving || conflict || missing || !fields.title.trim()}>{saving ? 'Saving…' : uncertain ? 'Retry save' : 'Save task'}</button></div>}
     </form>
     {studentsOpen && <TaskStudentsDialog students={studentChoices} selected={selectedStudents} loading={studentsLoading} error={studentError} onChange={studentIds => setFields(previous => ({ ...previous, studentIds }))} onClose={() => setStudentsOpen(false)} />}
     {administratorsOpen && <TaskStudentsDialog kind="administrators" students={administratorChoices.map((admin, index) => ({ id: index + 1, name: admin.name, picture: admin.picture }))} selected={administratorChoices.flatMap((admin, index) => selectedAdministrators.includes(admin.email) ? [index + 1] : [])} loading={administratorsLoading} error={administratorError} onChange={ids => setFields(previous => ({ ...previous, administratorEmails: ids.map(id => administratorChoices[id - 1].email) }))} onClose={() => setAdministratorsOpen(false)} />}

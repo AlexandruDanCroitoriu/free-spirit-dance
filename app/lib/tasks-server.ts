@@ -188,6 +188,47 @@ export async function createTask(request: Request) {
   await deleteQueuedTaskImages();
   return taskJson({ task: serialize(result.rows.find(task => task.requestKey === input.requestKey)!), revision: result.revision }, 201);
 }
+export async function duplicateTask(request: Request, key: string) {
+  const email = await taskAccess(request), input = await taskInput(request, ['revision', 'requestKey']);
+  const expected = taskRevision(input.revision);
+  if (typeof input.requestKey !== 'string' || !/^[a-zA-Z0-9-]{16,80}$/.test(input.requestKey)) throw new TaskError('A valid duplication request key is required.');
+  const data = await readTaskSnapshot(email), source = findTask(data, key);
+  const payload = JSON.stringify({ source: key, email });
+  const previous = data.rows.find(task => task.requestKey === input.requestKey);
+  if (previous) {
+    if (previous.requestPayload !== payload) throw new TaskError('This duplication request was already used for a different task.', 409);
+    return taskJson({ task: serialize(previous), revision: data.revision });
+  }
+  requireRevision(expected, data.revision);
+  const fields: ManualTaskFields = { status: source.status, title: `${source.title} (duplicated)`, description: source.description, dueDate: source.dueDate, studentIds: source.students.map(student => student.id), courseIds: source.courses.map(course => course.id), administratorEmails: source.administratorEmails, assignedTo: source.assignedTo };
+  await validateAdministrators(fields, source);
+  const sourceId = manualTaskId(key), imageIds = descriptionImageIds(descriptionDocument(source.description));
+  const images = imageIds.length ? (await env.DB.prepare('SELECT id, object_key AS objectKey FROM task_images WHERE task_id = ? AND id IN (SELECT value FROM json_each(?))').bind(sourceId, JSON.stringify(imageIds)).all<{ id: string; objectKey: string }>()).results : [];
+  if (images.length !== imageIds.length) throw new TaskError('One or more task images are no longer available.');
+  const copies: { oldId: string; id: string; objectKey: string }[] = [];
+  try {
+    for (const image of images) {
+      const id = crypto.randomUUID(), objectKey = `task-images/${id}.jpg`, original = await env.STUDENT_IMAGES.get(image.objectKey);
+      if (!original?.body) throw new TaskError('One or more task images are no longer available.');
+      await env.STUDENT_IMAGES.put(objectKey, original.body, { httpMetadata: { contentType: 'image/jpeg', cacheControl: 'private, max-age=3600' } });
+      copies.push({ oldId: image.id, id, objectKey });
+    }
+    const description = copies.reduce((value, copy) => value.replaceAll(copy.oldId, copy.id), fields.description);
+    const now = new Date().toISOString();
+    const result = snapshot(await env.DB.batch([guard(expected), profile(email),
+      env.DB.prepare(`INSERT INTO manual_tasks (list_id, inbox_owner, title, description, due_date, sort_order, created_by, created_at, updated_by, updated_at, request_key, request_payload, administrator_emails, assigned_to, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .bind(source.listId, source.listId === null ? email : null, fields.title, description, fields.dueDate, appendPosition(data, source.listId), email, now, email, now, input.requestKey, payload, JSON.stringify(fields.administratorEmails), fields.assignedTo ?? null, fields.status),
+      env.DB.prepare('INSERT INTO task_students(task_id, student_id) SELECT t.id, student_id FROM manual_tasks t JOIN task_students source ON source.task_id = ? WHERE t.request_key = ?').bind(sourceId, input.requestKey),
+      env.DB.prepare('INSERT INTO task_courses(task_id, course_id) SELECT t.id, course_id FROM manual_tasks t JOIN task_courses source ON source.task_id = ? WHERE t.request_key = ?').bind(sourceId, input.requestKey),
+      ...copies.map(copy => env.DB.prepare('INSERT INTO task_images(id, task_id, owner_email, object_key, created_at) SELECT ?, id, ?, ?, ? FROM manual_tasks WHERE request_key = ?').bind(copy.id, email, copy.objectKey, now, input.requestKey)),
+      ...snapshotStatements(email)]));
+    return taskJson({ task: serialize(result.rows.find(task => task.requestKey === input.requestKey)!), revision: result.revision }, 201);
+  } catch (error) {
+    await Promise.all(copies.map(copy => env.STUDENT_IMAGES.delete(copy.objectKey).catch(() => undefined)));
+    throw error;
+  }
+}
 export async function updateTask(request: Request, key: string) {
   const email = await taskAccess(request), input = await taskInput(request, [...editable, 'listId', 'revision']);
   const data = await readTaskSnapshot(email), current = findTask(data, key), expected = taskRevision(input.revision);
