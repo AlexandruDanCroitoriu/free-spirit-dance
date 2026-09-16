@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       env.DB.prepare("SELECT course_id AS courseId, class_date AS classDate, start_time AS startTime, cancelled FROM classes").all<{ courseId: number; classDate: string; startTime: string; cancelled: number }>(),
       env.DB.prepare(`SELECT p.id AS paymentId, a.course_id AS courseId, a.course_name AS courseName, p.paid_on AS paidOn, a.allowance, p.notes, ${coverageThrough} AS coverageThrough FROM payment_course_allowances a JOIN student_payments p ON p.id = a.payment_id WHERE p.student_id = ? ORDER BY p.paid_on, p.id`).bind(studentId).all<{ paymentId: number; courseId: number; courseName: string; paidOn: string; allowance: number; notes: string | null; coverageThrough: string | null }>(),
       env.DB.prepare("SELECT course_id AS courseId, attended_at AS attendedAt, complimentary FROM attendance WHERE student_id = ?").bind(studentId).all<{ courseId: number; attendedAt: string; complimentary: number }>(),
-      readHistoricalAbsences(env.DB, studentId),
+      url.searchParams.get("useRecordedAbsences") === "false" ? undefined : readHistoricalAbsences(env.DB, studentId),
     ]);
     const coverage = new Map<number, { courseName: string; startsAt: string }[]>();
     const missed = new Map<string, CalendarEvent>();
