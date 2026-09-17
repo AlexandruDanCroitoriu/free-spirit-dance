@@ -7,6 +7,7 @@ type StudentCardProps = {
     id: number;
     firstName: string;
     lastName: string;
+    nickname?: string;
     phone: string;
     picture: string | null;
     active: boolean;
@@ -15,6 +16,7 @@ type StudentCardProps = {
 
 export default function StudentCard({ presentationOnly = false, student, onOpen, onOpenPhoto, courses }: StudentCardProps) {
   const fullName = `${student.firstName} ${student.lastName}`;
+  const displayedName = student.nickname ? `${fullName} (${student.nickname})` : fullName;
   const phoneDigits = student.phone.replace(/\D/g, "").replace(/^00/, "");
   const whatsappNumber = phoneDigits.startsWith("0") ? `40${phoneDigits.slice(1)}` : phoneDigits;
   const avatar = <span className={`flex items-center justify-center overflow-hidden bg-lime-200 font-sans font-bold text-slate-800 ${presentationOnly ? "h-24 w-24 rounded-full text-2xl" : "h-full w-full"}`}>{student.picture ? <img src={student.picture} alt="" className="h-full w-full object-cover" /> : `${student.firstName[0]}${student.lastName[0]}`}</span>;
@@ -22,7 +24,7 @@ export default function StudentCard({ presentationOnly = false, student, onOpen,
   return <article className={`relative min-h-20 items-center transition-colors ${presentationOnly ? "flex flex-wrap justify-center gap-x-4 gap-y-3" : "grid grid-cols-[3rem_minmax(0,1fr)_auto_auto] gap-x-2 gap-y-1 p-3 sm:flex sm:flex-nowrap sm:gap-x-4 sm:p-0 sm:pr-5 hover:bg-stone-50"}`}>
     {!presentationOnly && <button type="button" onClick={onOpen} aria-haspopup="dialog" aria-label={`View ${fullName}'s profile`} className="absolute inset-0 z-10 cursor-pointer border-0 bg-transparent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-lime-600" />}
     <div className={presentationOnly ? "flex w-full justify-center" : "col-start-1 row-start-1 row-span-2 h-12 w-12 shrink-0 overflow-hidden rounded-lg sm:h-20 sm:w-20 sm:rounded-none"}>{presentationOnly && student.picture && onOpenPhoto ? <button type="button" onClick={onOpenPhoto} aria-haspopup="dialog" aria-label={`View ${fullName}'s photo full screen`} className="cursor-zoom-in rounded-full border-0 bg-transparent p-0 focus:outline-none focus:ring-2 focus:ring-lime-600 focus:ring-offset-2">{avatar}</button> : avatar}</div>
-    <div className={presentationOnly ? "w-full min-w-0 text-center" : "col-start-2 row-start-1 min-w-0 sm:flex-1"}><h2 className={presentationOnly ? "m-0 break-words text-2xl font-normal" : "m-0 break-words text-base font-normal sm:truncate sm:text-lg"}>{fullName}</h2></div>
+    <div className={presentationOnly ? "w-full min-w-0 text-center" : "col-start-2 row-start-1 min-w-0 sm:flex-1"}><h2 className={presentationOnly ? "m-0 break-words text-2xl font-normal" : "m-0 break-words text-base font-normal sm:truncate sm:text-lg"}>{displayedName}</h2></div>
     {courses !== undefined && <div aria-label="Assigned courses" className="col-start-2 row-start-2 min-w-0 font-sans sm:w-44 sm:shrink-0 sm:py-3 lg:w-56">
       {courses.length ? <div className="flex flex-wrap gap-1">{courses.map((course) => <span key={course.id} className="max-w-full break-words rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-800">{course.name}</span>)}</div> : <span className="text-xs text-slate-400">No courses</span>}
     </div>}

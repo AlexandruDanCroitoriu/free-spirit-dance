@@ -6,7 +6,7 @@ const protectedTables = new Set(["admin_profiles", "administrator_permissions", 
 const tableNames = (Object.keys(tableColumns) as Array<keyof typeof tableColumns>).filter((name) => !protectedTables.has(name));
 const insertOrder = ["task_preferences", "task_boards", "task_lists", "students", "student_profile_log", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "class_change_log", "payment_presets", "payment_preset_courses", "student_payments", "payment_students", "payment_course_allowances", "free_events", "free_event_meetings", "practice_parties", "attendance", "free_missed_attendance", "practice_attendance", "manual_tasks", "task_courses", "task_students", "task_free_events", "task_free_meetings", "task_images"] as const;
 const legacyNullableColumns: Partial<Record<keyof typeof tableColumns, readonly string[]>> = {
-  students: ["picture", "birth_date"],
+  students: ["nickname", "picture", "birth_date"],
   qr_codes: ["image_path"],
   courses: ["start_date", "end_date", "class_cost_minor"],
   course_schedule: ["rent_cost_minor"],

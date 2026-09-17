@@ -2,7 +2,7 @@ import { env } from "../../lib/storage";
 import { schoolToday } from "../../lib/calendar-dates";
 import { studentLogActor } from "../../lib/student-profile-log";
 
-type StudentRow = { id: number; first_name: string; last_name: string; email: string; phone: string; birth_date: string | null; facebook_url: string; instagram_url: string; picture: string | null; active: number; course_ids?: string };
+type StudentRow = { id: number; first_name: string; last_name: string; nickname: string; email: string; phone: string; birth_date: string | null; facebook_url: string; instagram_url: string; picture: string | null; active: number; course_ids?: string };
 
 function json(data: unknown, init?: ResponseInit) { return Response.json(data, init); }
 
@@ -31,6 +31,7 @@ function validateStudent(input: unknown) {
   const student = input as Record<string, unknown>;
   if (typeof student.firstName !== "string" || !student.firstName.trim()) return "First name is required.";
   if (typeof student.lastName !== "string" || !student.lastName.trim()) return "Last name is required.";
+  if (typeof student.nickname !== "string") return "Nickname must be text.";
   if (typeof student.email !== "string" || (student.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(student.email.trim()))) return "Enter a valid email or leave it empty.";
   if (typeof student.phone !== "string") return "Phone must be text.";
   if (!validBirthDate(student.birthDate)) return "Enter a valid birth date that is not in the future, or leave it empty.";
@@ -42,13 +43,13 @@ function validateStudent(input: unknown) {
 }
 
 function serialize(row: StudentRow) {
-  return { id: row.id, firstName: row.first_name, lastName: row.last_name, email: row.email, phone: row.phone, birthDate: row.birth_date, facebookUrl: row.facebook_url, instagramUrl: row.instagram_url, picture: row.picture, active: row.active === 1, ...(row.course_ids !== undefined ? { courseIds: JSON.parse(row.course_ids) as number[] } : {}) };
+  return { id: row.id, firstName: row.first_name, lastName: row.last_name, nickname: row.nickname, email: row.email, phone: row.phone, birthDate: row.birth_date, facebookUrl: row.facebook_url, instagramUrl: row.instagram_url, picture: row.picture, active: row.active === 1, ...(row.course_ids !== undefined ? { courseIds: JSON.parse(row.course_ids) as number[] } : {}) };
 }
 
 export async function GET() {
   try {
     const db = env.DB;
-    const result = await db.prepare("SELECT id, first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active, (SELECT json_group_array(course_id) FROM student_courses WHERE student_id = students.id) AS course_ids FROM students ORDER BY id ASC").all<StudentRow>();
+    const result = await db.prepare("SELECT id, first_name, last_name, nickname, email, phone, birth_date, facebook_url, instagram_url, picture, active, (SELECT json_group_array(course_id) FROM student_courses WHERE student_id = students.id) AS course_ids FROM students ORDER BY id ASC").all<StudentRow>();
     return json(result.results.map(serialize));
   } catch (error) {
     console.error("Could not load students", error);
@@ -74,8 +75,8 @@ export async function POST(request: Request) {
       const message = emailExists && phoneExists ? "A student with this email and phone number already exists." : emailExists ? "A student with this email already exists." : "A student with this phone number already exists.";
       return json({ error: message }, { status: 409 });
     }
-    const insert = db.prepare("INSERT INTO students (first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active").bind(
-      (student.firstName as string).trim(), (student.lastName as string).trim(), email, phone, typeof student.birthDate === "string" && student.birthDate.trim() ? student.birthDate.trim() : null, (student.facebookUrl as string).trim(), (student.instagramUrl as string).trim(), typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active === false ? 0 : 1,
+    const insert = db.prepare("INSERT INTO students (first_name, last_name, nickname, email, phone, birth_date, facebook_url, instagram_url, picture, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, first_name, last_name, nickname, email, phone, birth_date, facebook_url, instagram_url, picture, active").bind(
+      (student.firstName as string).trim(), (student.lastName as string).trim(), (student.nickname as string).trim(), email, phone, typeof student.birthDate === "string" && student.birthDate.trim() ? student.birthDate.trim() : null, (student.facebookUrl as string).trim(), (student.instagramUrl as string).trim(), typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active === false ? 0 : 1,
     );
     // Keep creation and assignments atomic; materialize the student id before inserting course rows.
     const results = await db.batch<StudentRow>([

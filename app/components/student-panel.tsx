@@ -10,21 +10,22 @@ import StudentCourses from "./student-courses";
 import StudentCard from "./student-card";
 import StudentTasks from "./student-tasks";
 
-export type Student = { id: number; firstName: string; lastName: string; email: string; phone: string; birthDate: string | null; facebookUrl: string; instagramUrl: string; picture: string | null; active: boolean };
+export type Student = { id: number; firstName: string; lastName: string; nickname: string; email: string; phone: string; birthDate: string | null; facebookUrl: string; instagramUrl: string; picture: string | null; active: boolean };
 const studentTabs = [["logs", "Logs"], ["info", "Student info"], ["profile-history", "Profile history"]] as const;
 type Field = keyof Student;
-type EditableTextField = "firstName" | "lastName" | "email" | "phone" | "birthDate" | "facebookUrl" | "instagramUrl";
+type EditableTextField = "firstName" | "lastName" | "nickname" | "email" | "phone" | "birthDate" | "facebookUrl" | "instagramUrl";
 type Drafts = Record<EditableTextField, string>;
 const editableFields: Array<{ key: EditableTextField; label: string; type?: string }> = [
   { key: "firstName", label: "First name" },
   { key: "lastName", label: "Last name" },
+  { key: "nickname", label: "Nickname (optional)" },
   { key: "email", label: "Email (optional)", type: "email" },
   { key: "phone", label: "Phone" },
   { key: "birthDate", label: "Birth date (optional)", type: "date" },
   { key: "facebookUrl", label: "Facebook (optional)", type: "url" },
   { key: "instagramUrl", label: "Instagram (optional)", type: "url" },
 ];
-const emptyDrafts: Drafts = { firstName: "", lastName: "", email: "", phone: "", birthDate: "", facebookUrl: "", instagramUrl: "" };
+const emptyDrafts: Drafts = { firstName: "", lastName: "", nickname: "", email: "", phone: "", birthDate: "", facebookUrl: "", instagramUrl: "" };
 
 type StudentPanelProps = { id: number; onClose: () => void; onUpdate: (student: Student) => void; onDelete: (id: number) => void; editPaymentId?: number; targetPaymentId?: number; targetPaymentKind?: "payment" | "practice_attendance"; attendanceDate?: string };
 
@@ -63,7 +64,7 @@ function StudentPanelContent({ id, onClose, onUpdate, onDelete, editPaymentId, t
       const data = await readJson<Student & { error?: string }>(response);
       if (!response.ok) throw new Error(data.error ?? "Could not load student.");
       if (controller.signal.aborted) return;
-      studentRef.current = data; setStudent(data); setDrafts({ firstName: data.firstName, lastName: data.lastName, email: data.email, phone: data.phone, birthDate: data.birthDate ?? "", facebookUrl: data.facebookUrl, instagramUrl: data.instagramUrl }); setActiveDraft(String(data.active));
+      studentRef.current = data; setStudent(data); setDrafts({ firstName: data.firstName, lastName: data.lastName, nickname: data.nickname, email: data.email, phone: data.phone, birthDate: data.birthDate ?? "", facebookUrl: data.facebookUrl, instagramUrl: data.instagramUrl }); setActiveDraft(String(data.active));
     }).catch((reason) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load student."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();

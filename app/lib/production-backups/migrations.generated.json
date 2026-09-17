@@ -802,5 +802,11 @@
       "CREATE TABLE task_free_events (\n  task_id INTEGER NOT NULL REFERENCES manual_tasks(id) ON DELETE CASCADE,\n  event_id INTEGER NOT NULL REFERENCES free_events(id) ON DELETE RESTRICT,\n  PRIMARY KEY (task_id, event_id)\n);",
       "CREATE TABLE task_free_meetings (\n  task_id INTEGER NOT NULL REFERENCES manual_tasks(id) ON DELETE CASCADE,\n  meeting_id INTEGER NOT NULL REFERENCES free_event_meetings(id) ON DELETE RESTRICT,\n  PRIMARY KEY (task_id, meeting_id)\n);"
     ]
+  },
+  {
+    "name": "0076_student_nickname.sql",
+    "statements": [
+      "ALTER TABLE students ADD COLUMN nickname TEXT NOT NULL DEFAULT '';"
+    ]
   }
 ]

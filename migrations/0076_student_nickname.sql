@@ -1,0 +1,1 @@
+ALTER TABLE students ADD COLUMN nickname TEXT NOT NULL DEFAULT '';

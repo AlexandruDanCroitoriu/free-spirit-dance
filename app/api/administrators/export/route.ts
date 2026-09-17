@@ -39,7 +39,7 @@ export const tableColumns = {
   student_courses: ["student_id", "course_id"],
   student_profile_log: ["id", "student_id", "administrator_email", "action", "field", "old_value", "new_value", "created_at"],
   student_payments: ["id", "student_id", "paid_on", "amount_minor", "notes", "recorded_by", "recorded_at", "request_key", "request_payload", "given_to_school", "received_method", "student_count"],
-  students: ["id", "first_name", "last_name", "email", "phone", "picture", "active", "birth_date", "facebook_url", "instagram_url"],
+  students: ["id", "first_name", "last_name", "nickname", "email", "phone", "picture", "active", "birth_date", "facebook_url", "instagram_url"],
 } as const;
 
 type TableRow = Record<string, unknown>;
@@ -94,6 +94,12 @@ export function upgradeTaskTables(input: unknown): unknown {
   if (!result.some(table => table?.name === 'task_free_events')) result.push({name: 'task_free_events', columns: [...tableColumns.task_free_events], rows: []});
   if (!result.some(table => table?.name === 'task_free_meetings')) result.push({name: 'task_free_meetings', columns: [...tableColumns.task_free_meetings], rows: []});
   if (!result.some(table => table?.name === 'task_images')) result.push({name: 'task_images', columns: [...tableColumns.task_images], rows: []});
+  const students = result.find(table => table?.name === 'students');
+  const expectedStudents = tableColumns.students;
+  if (Array.isArray(students?.columns) && students.columns.length === expectedStudents.length - 1 && students.columns.every((column: unknown, index: number) => column === (index < 3 ? expectedStudents[index] : expectedStudents[index + 1])) && Array.isArray(students.rows)) {
+    students.columns = [...expectedStudents];
+    students.rows = students.rows.map((row: Record<string, unknown>) => ({ ...row, nickname: '' }));
+  }
   if (!result.some(table => table?.name === 'task_boards')) result.push({ name: 'task_boards', columns: [...tableColumns.task_boards], rows: [{ id: 1, name: 'School', owner_email: null, color: 'default', request_key: null, created_at: '1970-01-01T00:00:00Z' }] });
   if (!result.some(table => table?.name === 'task_lists')) result.push({ name: 'task_lists', columns: [...tableColumns.task_lists], rows: [{ id: 1, board_id: 1, name: 'Tasks', color: 'default', sort_order: 0, request_key: null, created_at: '1970-01-01T00:00:00Z' }] });
   const boards = result.find(table => table?.name === 'task_boards');

@@ -2,10 +2,10 @@ import { env } from "../../../lib/storage";
 import { schoolToday } from "../../../lib/calendar-dates";
 import { changedProfileFields, logValue, studentLogActor, type ProfileValues } from "../../../lib/student-profile-log";
 
-type StudentRow = { id: number; first_name: string; last_name: string; email: string; phone: string; birth_date: string | null; facebook_url: string; instagram_url: string; picture: string | null; active: number };
+type StudentRow = { id: number; first_name: string; last_name: string; nickname: string; email: string; phone: string; birth_date: string | null; facebook_url: string; instagram_url: string; picture: string | null; active: number };
 
 function serialize(row: StudentRow) {
-  return { id: row.id, firstName: row.first_name, lastName: row.last_name, email: row.email, phone: row.phone, birthDate: row.birth_date, facebookUrl: row.facebook_url, instagramUrl: row.instagram_url, picture: row.picture, active: row.active === 1 };
+  return { id: row.id, firstName: row.first_name, lastName: row.last_name, nickname: row.nickname, email: row.email, phone: row.phone, birthDate: row.birth_date, facebookUrl: row.facebook_url, instagramUrl: row.instagram_url, picture: row.picture, active: row.active === 1 };
 }
 
 function isPhoneConstraintError(error: unknown) {
@@ -39,7 +39,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   if (!Number.isInteger(id) || id < 1) return Response.json({ error: "Invalid student id." }, { status: 400 });
   try {
     const db = env.DB;
-    const result = await db.prepare("SELECT id, first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active FROM students WHERE id = ?").bind(id).first<StudentRow>();
+    const result = await db.prepare("SELECT id, first_name, last_name, nickname, email, phone, birth_date, facebook_url, instagram_url, picture, active FROM students WHERE id = ?").bind(id).first<StudentRow>();
     if (!result) return Response.json({ error: "Student not found." }, { status: 404 });
     return Response.json(serialize(result));
   } catch (error) {
@@ -58,6 +58,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const student = input as Record<string, unknown>;
   if (typeof student.firstName !== "string" || !student.firstName.trim()) return Response.json({ error: "First name is required." }, { status: 400 });
   if (typeof student.lastName !== "string" || !student.lastName.trim()) return Response.json({ error: "Last name is required." }, { status: 400 });
+  if (typeof student.nickname !== "string") return Response.json({ error: "Nickname must be text." }, { status: 400 });
   if (typeof student.email !== "string" || (student.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(student.email.trim()))) return Response.json({ error: "Enter a valid email or leave it empty." }, { status: 400 });
   if (typeof student.phone !== "string" || typeof student.active !== "boolean") return Response.json({ error: "Phone and active state are required." }, { status: 400 });
   if (!validBirthDate(student.birthDate)) return Response.json({ error: "Enter a valid birth date that is not in the future, or leave it empty." }, { status: 400 });
@@ -65,7 +66,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (student.picture !== null && typeof student.picture !== "string") return Response.json({ error: "Picture must be a URL or empty." }, { status: 400 });
   try {
     const db = env.DB;
-    const existing = await db.prepare("SELECT first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active FROM students WHERE id = ?").bind(id).first<ProfileValues>();
+    const existing = await db.prepare("SELECT first_name, last_name, nickname, email, phone, birth_date, facebook_url, instagram_url, picture, active FROM students WHERE id = ?").bind(id).first<ProfileValues>();
     if (!existing) return Response.json({ error: "Student not found." }, { status: 404 });
     const phone = student.phone.trim();
     const facebookUrl = (student.facebookUrl as string).trim();
@@ -74,15 +75,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       const duplicatePhone = await db.prepare("SELECT id FROM students WHERE id <> ? AND trim(phone) = ? LIMIT 1").bind(id, phone).first<{ id: number }>();
       if (duplicatePhone) return Response.json({ error: "A student with this phone number already exists." }, { status: 409 });
     }
-    const next: ProfileValues = { first_name: student.firstName.trim(), last_name: student.lastName.trim(), email: student.email.trim(), phone,
+    const next: ProfileValues = { first_name: student.firstName.trim(), last_name: student.lastName.trim(), nickname: student.nickname.trim(), email: student.email.trim(), phone,
       birth_date: typeof student.birthDate === "string" && student.birthDate.trim() ? student.birthDate.trim() : null,
       facebook_url: facebookUrl, instagram_url: instagramUrl,
       picture: typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, active: student.active ? 1 : 0 };
     const changed = changedProfileFields(existing, next);
     if (!changed.length) return Response.json(serialize({ ...existing, id }));
     const now = new Date().toISOString();
-    const statements = [db.prepare("UPDATE students SET first_name = ?, last_name = ?, email = ?, phone = ?, birth_date = ?, facebook_url = ?, instagram_url = ?, picture = ?, active = ? WHERE id = ? RETURNING id, first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active").bind(
-      next.first_name, next.last_name, next.email, next.phone, next.birth_date, next.facebook_url, next.instagram_url, next.picture, next.active, id,
+    const statements = [db.prepare("UPDATE students SET first_name = ?, last_name = ?, nickname = ?, email = ?, phone = ?, birth_date = ?, facebook_url = ?, instagram_url = ?, picture = ?, active = ? WHERE id = ? RETURNING id, first_name, last_name, nickname, email, phone, birth_date, facebook_url, instagram_url, picture, active").bind(
+      next.first_name, next.last_name, next.nickname, next.email, next.phone, next.birth_date, next.facebook_url, next.instagram_url, next.picture, next.active, id,
     ), ...changed.map(field => db.prepare("INSERT INTO student_profile_log (student_id, administrator_email, action, field, old_value, new_value, created_at) VALUES (?, ?, 'changed', ?, ?, ?, ?)").bind(id, actor, field, logValue(field, existing[field]), logValue(field, next[field]), now))];
     const [updated] = await db.batch<StudentRow>(statements);
     const result = updated.results[0];

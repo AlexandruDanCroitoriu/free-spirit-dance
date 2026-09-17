@@ -5,13 +5,13 @@ export function studentLogActor(request: Request) {
 }
 
 export const profileFields = {
-  first_name: "First name", last_name: "Last name", email: "Email", phone: "Phone",
+  first_name: "First name", last_name: "Last name", nickname: "Nickname", email: "Email", phone: "Phone",
   birth_date: "Birth date", facebook_url: "Facebook", instagram_url: "Instagram",
   picture: "Profile photo", active: "Status",
 } as const;
 
 export type ProfileField = keyof typeof profileFields;
-export type ProfileValues = { first_name: string; last_name: string; email: string; phone: string; birth_date: string | null; facebook_url: string; instagram_url: string; picture: string | null; active: number };
+export type ProfileValues = { first_name: string; last_name: string; nickname: string; email: string; phone: string; birth_date: string | null; facebook_url: string; instagram_url: string; picture: string | null; active: number };
 
 export function changedProfileFields(before: ProfileValues, after: ProfileValues) {
   return (Object.keys(profileFields) as ProfileField[]).filter(field => before[field] !== after[field]);
