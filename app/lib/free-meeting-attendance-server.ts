@@ -62,7 +62,6 @@ export async function saveMeetingAttendance(request: Request, eventId: number, i
   for (const raw of body.donations) {
     const value = raw as Record<string, unknown> | null, studentId = positiveId(value?.studentId);
     if (donations.has(studentId) || (!added.has(studentId) && !existing.has(studentId)) || removed.some(row => row.student_id === studentId)) throw new EventError('Donations require an attending student.');
-    if (!current.accepts_donations) throw new EventError('This meeting does not accept donations.');
     if (existing.get(studentId)?.donation_given_to_school) throw new EventError('Undo the school transfer before changing this donation.', 409);
     const amount = parseAmount(value?.amount);
     const blank = typeof value?.amount === 'string' && value.amount.trim() === '';
