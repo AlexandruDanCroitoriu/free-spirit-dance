@@ -795,5 +795,12 @@
       "ALTER TABLE administrator_permissions ADD COLUMN can_free_events INTEGER NOT NULL DEFAULT 0\n  CHECK (can_free_events IN (0, 1));",
       "-- Free Events previously shared the Practice Parties permission. Preserve that\n-- access when upgrading existing administrator records.\nUPDATE administrator_permissions SET can_free_events = can_practice_parties;"
     ]
+  },
+  {
+    "name": "0075_task_event_links.sql",
+    "statements": [
+      "CREATE TABLE task_free_events (\n  task_id INTEGER NOT NULL REFERENCES manual_tasks(id) ON DELETE CASCADE,\n  event_id INTEGER NOT NULL REFERENCES free_events(id) ON DELETE RESTRICT,\n  PRIMARY KEY (task_id, event_id)\n);",
+      "CREATE TABLE task_free_meetings (\n  task_id INTEGER NOT NULL REFERENCES manual_tasks(id) ON DELETE CASCADE,\n  meeting_id INTEGER NOT NULL REFERENCES free_event_meetings(id) ON DELETE RESTRICT,\n  PRIMARY KEY (task_id, meeting_id)\n);"
+    ]
   }
 ]

@@ -1,7 +1,7 @@
 import type { JSONContent } from '@tiptap/react';
 
 const prefix = 'fsd-rich-text-v1:';
-const nodeTypes = new Set(['doc', 'paragraph', 'text', 'heading', 'bulletList', 'orderedList', 'listItem', 'blockquote', 'codeBlock', 'hardBreak', 'horizontalRule', 'studentMention', 'courseMention', 'administratorMention', 'taskImage']);
+const nodeTypes = new Set(['doc', 'paragraph', 'text', 'heading', 'bulletList', 'orderedList', 'listItem', 'blockquote', 'codeBlock', 'hardBreak', 'horizontalRule', 'studentMention', 'courseMention', 'administratorMention', 'eventMention', 'meetingMention', 'taskImage']);
 const markTypes = new Set(['bold', 'italic', 'underline', 'strike', 'code', 'link']);
 function validNode(node: JSONContent, depth = 0): boolean {
   return !!node && depth < 40 && nodeTypes.has(node.type ?? '')
@@ -27,7 +27,7 @@ export function serializeDescription(document: JSONContent, empty: boolean) {
 }
 
 export function descriptionLinks(value: string) {
-  const studentIds = new Set<number>(), courseIds = new Set<number>();
+  const studentIds = new Set<number>(), courseIds = new Set<number>(), eventIds = new Set<number>(), meetingIds = new Set<number>();
   const administratorEmails = new Set<string>();
   function visit(node: JSONContent) {
     const id = node.attrs?.id;
@@ -35,9 +35,11 @@ export function descriptionLinks(value: string) {
     if (Number.isSafeInteger(id) && id > 0) {
       if (node.type === 'studentMention') studentIds.add(id);
       if (node.type === 'courseMention') courseIds.add(id);
+      if (node.type === 'eventMention') eventIds.add(id);
+      if (node.type === 'meetingMention') meetingIds.add(id);
     }
     node.content?.forEach(visit);
   }
   visit(descriptionDocument(value));
-  return { studentIds: [...studentIds], courseIds: [...courseIds], administratorEmails: [...administratorEmails] };
+  return { studentIds: [...studentIds], courseIds: [...courseIds], eventIds: [...eventIds], meetingIds: [...meetingIds], administratorEmails: [...administratorEmails] };
 }

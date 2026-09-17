@@ -10,6 +10,8 @@ export const tableColumns = {
   task_board_state: ["id", "revision"],
   task_students: ["task_id", "student_id"],
   task_courses: ["task_id", "course_id"],
+  task_free_events: ["task_id", "event_id"],
+  task_free_meetings: ["task_id", "meeting_id"],
   task_images: ["id", "task_id", "owner_email", "object_key", "created_at", "expires_at"],
   manual_tasks: ["id", "title", "description", "due_date", "sort_order", "created_by", "created_at", "updated_by", "updated_at", "request_key", "request_payload", "list_id", "inbox_owner", "administrator_emails", "assigned_to", "status"],
   admin_profiles: ["email", "name", "picture"],
@@ -17,6 +19,11 @@ export const tableColumns = {
   administrator_permissions: ["email", "can_dashboard", "can_students", "can_courses", "can_qr_codes", "can_practice_parties", "can_free_events", "can_tasks"],
   attendance: ["id", "student_id", "course_id", "course_name", "attended_at", "recorded_by", "recorded_at", "notes", "request_key", "request_payload", "class_id", "complimentary", "complimentary_by", "complimentary_at"],
   free_missed_attendance: ["id", "student_id", "class_id", "granted_by", "granted_at", "notes"],
+  free_events: ["id", "name", "starts_on", "ends_on", "image_path", "revision", "created_by", "created_at", "updated_at"],
+  free_event_meetings: ["id", "event_id", "name", "starts_at", "starts_utc", "duration_minutes", "space_rent_minor", "accepts_donations", "cancelled", "revision", "created_by", "created_at", "updated_at"],
+  free_event_attendance: ["id", "meeting_id", "student_id", "recorded_by", "recorded_at", "donation_amount_minor", "donation_received_method", "donation_given_to_school"],
+  free_event_change_log: ["id", "event_id", "administrator_email", "action", "before_json", "after_json", "created_at"],
+  free_meeting_change_log: ["id", "meeting_id", "administrator_email", "action", "before_json", "after_json", "created_at"],
   classes: ["id", "course_id", "class_date", "start_time", "end_time", "cancelled", "cancelled_by", "cancelled_at", "rent_cost_minor", "rent_paid", "location", "created_by"],
   class_change_log: ["id", "class_id", "administrator_email", "action", "field", "old_value", "new_value", "student_name", "created_at"],
   course_schedule: ["id", "course_id", "day_of_week", "start_time", "end_time", "rent_cost_minor"],
@@ -84,6 +91,8 @@ export function upgradeTaskTables(input: unknown): unknown {
     result.push({ name: 'task_students', columns: [...tableColumns.task_students], rows });
   }
   if (!result.some(table => table?.name === 'task_courses')) result.push({name: 'task_courses', columns: [...tableColumns.task_courses], rows: []});
+  if (!result.some(table => table?.name === 'task_free_events')) result.push({name: 'task_free_events', columns: [...tableColumns.task_free_events], rows: []});
+  if (!result.some(table => table?.name === 'task_free_meetings')) result.push({name: 'task_free_meetings', columns: [...tableColumns.task_free_meetings], rows: []});
   if (!result.some(table => table?.name === 'task_images')) result.push({name: 'task_images', columns: [...tableColumns.task_images], rows: []});
   if (!result.some(table => table?.name === 'task_boards')) result.push({ name: 'task_boards', columns: [...tableColumns.task_boards], rows: [{ id: 1, name: 'School', owner_email: null, color: 'default', request_key: null, created_at: '1970-01-01T00:00:00Z' }] });
   if (!result.some(table => table?.name === 'task_lists')) result.push({ name: 'task_lists', columns: [...tableColumns.task_lists], rows: [{ id: 1, board_id: 1, name: 'Tasks', color: 'default', sort_order: 0, request_key: null, created_at: '1970-01-01T00:00:00Z' }] });

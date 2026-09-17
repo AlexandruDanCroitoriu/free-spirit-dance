@@ -38,6 +38,22 @@ export const TaskAdministratorMention = Node.create({
   },
 });
 
+function eventMention(name: 'eventMention' | 'meetingMention', label: 'Event' | 'Meeting') {
+  const attribute = `data-${name.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`)}`;
+  return Node.create({
+    name, group: 'inline', inline: true, atom: true,
+    addAttributes() { return { id: { default: null }, name: { default: '' }, picture: { default: null } }; },
+    parseHTML() { return [{ tag: `span[${attribute}]`, getAttrs: element => ({ id: Number(element.getAttribute(attribute)), name: element.getAttribute(`${attribute}-name`) ?? element.textContent, picture: element.querySelector('img')?.getAttribute('src') ?? null }) }]; },
+    renderText({ node }) { return String(node.attrs.name); },
+    renderHTML({ node }) {
+      const picture = typeof node.attrs.picture === 'string' && /^\/(?!\/)/.test(node.attrs.picture) ? node.attrs.picture : null;
+      return ['span', { [attribute]: String(node.attrs.id), [`${attribute}-name`]: String(node.attrs.name), class: `task-student-mention task-${name}`, contenteditable: 'false' }, picture ? ['img', { src: picture, alt: '', loading: 'lazy' }] : ['span', { 'aria-hidden': 'true' }, label === 'Event' ? '◆' : '◷'], ['span', {}, String(node.attrs.name || label)]];
+    },
+  });
+}
+export const TaskEventMention = eventMention('eventMention', 'Event');
+export const TaskMeetingMention = eventMention('meetingMention', 'Meeting');
+
 export const TaskImage = Node.create({
   name: 'taskImage', group: 'block', atom: true, draggable: true,
   addAttributes() { return { id: { default: '' }, width: { default: 100 } }; },

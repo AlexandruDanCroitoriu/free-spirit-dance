@@ -69,8 +69,7 @@ function sameDate(first: Date, second: Date) {
 }
 
 function displayTime(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-  return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(new Date(2000, 0, 1, hours, minutes));
+  return time.slice(0, 5);
 }
 
 function studentEventLabel(event: StudentCalendarEvent) {

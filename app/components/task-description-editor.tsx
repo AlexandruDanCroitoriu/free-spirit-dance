@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useId, type ReactNode } f
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { descriptionDocument, serializeDescription } from '../lib/task-description';
-import { TaskStudentMention, TaskCourseMention, TaskAdministratorMention } from './task-student-mention';
+import { TaskStudentMention, TaskCourseMention, TaskAdministratorMention, TaskEventMention, TaskMeetingMention } from './task-student-mention';
 import { TaskImage } from './task-student-mention';
 import type { TaskStudent } from '../lib/tasks';
 import { compressImage } from '../lib/profile-image';
@@ -40,11 +40,11 @@ function MentionPopup({ editor, position, children, id, onPointerDown }: { edito
       element.hidePopover();
     };
   }, [editor, position]);
-  return <div ref={popup} popover="manual" role="listbox" aria-label="Student, course and administrator mentions" id={id} onPointerDownCapture={onPointerDown} className="fixed m-0 overflow-y-auto rounded-lg border border-white/20 bg-[#292a2c] p-1 font-sans text-sm text-stone-100 shadow-xl">{children}</div>;
+  return <div ref={popup} popover="manual" role="listbox" aria-label="Task link suggestions" id={id} onPointerDownCapture={onPointerDown} className="fixed m-0 overflow-y-auto rounded-lg border border-white/20 bg-[#292a2c] p-1 font-sans text-sm text-stone-100 shadow-xl">{children}</div>;
 }
 
-export default function TaskDescriptionEditor({ value, onChange, disabled = false, readOnly = false, students = [], courses = [], administrators = [] }: {
-  value: string; onChange?: (value: string) => void; disabled?: boolean; readOnly?: boolean; students?: TaskStudent[]; courses?: { id: number; name: string }[]; administrators?: { email: string; name: string; picture: string | null }[];
+export default function TaskDescriptionEditor({ value, onChange, disabled = false, readOnly = false, students = [], courses = [], administrators = [], events = [], meetings = [] }: {
+  value: string; onChange?: (value: string) => void; disabled?: boolean; readOnly?: boolean; students?: TaskStudent[]; courses?: { id: number; name: string }[]; administrators?: { email: string; name: string; picture: string | null }[]; events?: { id: number; name: string; imagePath?: string | null }[]; meetings?: { id: number; eventId: number; name: string; eventName: string }[];
 }) {
   const [dismissedQuery, setDismissedQuery] = useState('');
   const [activeSuggestion, setActiveSuggestion] = useState(0);
@@ -53,7 +53,7 @@ export default function TaskDescriptionEditor({ value, onChange, disabled = fals
   const [imageError, setImageError] = useState('');
   const suggestionId = useId();
   const editor = useEditor({
-    extensions: [StarterKit.configure({ link: { openOnClick: false, autolink: false } }), TaskStudentMention, TaskCourseMention, TaskAdministratorMention, TaskImage],
+    extensions: [StarterKit.configure({ link: { openOnClick: false, autolink: false } }), TaskStudentMention, TaskCourseMention, TaskAdministratorMention, TaskEventMention, TaskMeetingMention, TaskImage],
     immediatelyRender: false,
     shouldRerenderOnTransaction: true,
     content: descriptionDocument(value),
@@ -98,8 +98,8 @@ export default function TaskDescriptionEditor({ value, onChange, disabled = fals
   const before = selection.$from.parent.textBetween(0, selection.$from.parentOffset, '\n', '\ufffc');
   const normalize = (text: string) => text.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase();
   // Only a slash command at a word boundary opens mention suggestions.
-  type MentionChoice = { id: string | number; name: string; picture: string | null; kind: 'studentMention' | 'courseMention' | 'administratorMention' };
-  const choices: MentionChoice[] = [...students.map(student => ({ ...student, kind: 'studentMention' as const })), ...courses.map(course => ({ ...course, picture: null, kind: 'courseMention' as const })), ...administrators.map(admin => ({ ...admin, id: admin.email, kind: 'administratorMention' as const }))];
+  type MentionChoice = { id: string | number; name: string; picture: string | null; kind: 'studentMention' | 'courseMention' | 'administratorMention' | 'eventMention' | 'meetingMention' };
+  const choices: MentionChoice[] = [...students.map(student => ({ ...student, kind: 'studentMention' as const })), ...courses.map(course => ({ ...course, picture: null, kind: 'courseMention' as const })), ...administrators.map(admin => ({ ...admin, id: admin.email, kind: 'administratorMention' as const })), ...events.map(event => ({ ...event, picture: event.imagePath ?? null, kind: 'eventMention' as const })), ...meetings.map(meeting => ({ id: meeting.id, name: `${meeting.eventName} — ${meeting.name}`, picture: events.find(event => event.id === meeting.eventId)?.imagePath ?? null, kind: 'meetingMention' as const }))];
   let query = '', matches: MentionChoice[] = [];
   if (!disabled && (editor.isFocused || popupInteraction) && selection.empty && !editor.isActive('codeBlock') && !editor.isActive('link')) {
     const command = before.match(/(?:^|\s)(\/[^\/\n\ufffc]+)$/u)?.[1];
@@ -177,7 +177,7 @@ export default function TaskDescriptionEditor({ value, onChange, disabled = fals
       {suggestions.length > 0 && <MentionPopup editor={editor} position={selection.from} id={suggestionId} onPointerDown={() => setPopupInteraction(true)}>
         {suggestions.map((student, index) => <button key={`${student.kind}:${student.id}`} type="button" role="option" aria-selected={index === active} onPointerDown={event => event.preventDefault()} onClick={() => insertStudent(student)} className={`flex min-h-11 w-full items-center gap-2 rounded-md p-2 text-left ${index === active ? 'bg-green-800 text-green-50' : 'hover:bg-white/10'}`}>
           <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-200 text-xs text-slate-900">{student.picture ? <img src={student.picture} alt="" className="h-full w-full object-cover" /> : student.name.split(/\s+/).map(part => part[0]).slice(0, 2).join('')}</span>{student.name}
-          <span className="ml-auto text-xs opacity-70">{student.kind === 'administratorMention' ? 'Administrator' : student.kind === 'courseMention' ? 'Course' : 'Student'}</span>
+          <span className="ml-auto text-xs opacity-70">{student.kind === 'administratorMention' ? 'Administrator' : student.kind === 'courseMention' ? 'Course' : student.kind === 'eventMention' ? 'Event' : student.kind === 'meetingMention' ? 'Meeting' : 'Student'}</span>
         </button>)}
       </MentionPopup>}
     </div>

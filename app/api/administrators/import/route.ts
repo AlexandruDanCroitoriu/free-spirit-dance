@@ -4,7 +4,7 @@ import { tableColumns, upgradeTaskTables } from "../export/route";
 const ownerEmail = "croitoriu.alexandru.code@gmail.com";
 const protectedTables = new Set(["admin_profiles", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "task_board_state"]);
 const tableNames = (Object.keys(tableColumns) as Array<keyof typeof tableColumns>).filter((name) => !protectedTables.has(name));
-const insertOrder = ["task_preferences", "task_boards", "task_lists", "students", "student_profile_log", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "class_change_log", "payment_presets", "payment_preset_courses", "student_payments", "payment_students", "payment_course_allowances", "practice_parties", "attendance", "free_missed_attendance", "practice_attendance", "manual_tasks", "task_courses", "task_students", "task_images"] as const;
+const insertOrder = ["task_preferences", "task_boards", "task_lists", "students", "student_profile_log", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "class_change_log", "payment_presets", "payment_preset_courses", "student_payments", "payment_students", "payment_course_allowances", "free_events", "free_event_meetings", "practice_parties", "attendance", "free_missed_attendance", "practice_attendance", "manual_tasks", "task_courses", "task_students", "task_free_events", "task_free_meetings", "task_images"] as const;
 const legacyNullableColumns: Partial<Record<keyof typeof tableColumns, readonly string[]>> = {
   students: ["picture", "birth_date"],
   qr_codes: ["image_path"],
@@ -23,12 +23,14 @@ type DatabaseValue = string | number | null;
 type ImportRow = Record<string, DatabaseValue>;
 type GeneratedId = { id: number };
 type ImportEnv = CloudflareEnv & { PRODUCTION_IMAGES?: R2Bucket };
-const generatedIdTables = new Set(["task_boards", "task_lists", "students", "student_profile_log", "qr_codes", "courses", "classes", "class_change_log", "payment_presets", "student_payments", "practice_parties", "attendance", "free_missed_attendance", "practice_attendance", "manual_tasks", "task_courses", "task_students"]);
+const generatedIdTables = new Set(["task_boards", "task_lists", "students", "student_profile_log", "qr_codes", "courses", "classes", "class_change_log", "payment_presets", "student_payments", "practice_parties", "attendance", "free_missed_attendance", "practice_attendance", "manual_tasks", "task_courses", "task_students", "task_free_events", "task_free_meetings"]);
 const foreignKeys: Partial<Record<keyof typeof tableColumns, Record<string, keyof typeof tableColumns>>> = {
   task_lists: { board_id: "task_boards" },
   manual_tasks: { list_id: "task_lists" },
   task_courses: { task_id: "manual_tasks", course_id: "courses" },
   task_students: { task_id: "manual_tasks", student_id: "students" },
+  task_free_events: { task_id: "manual_tasks", event_id: "free_events" },
+  task_free_meetings: { task_id: "manual_tasks", meeting_id: "free_event_meetings" },
   task_images: { task_id: "manual_tasks" },
   course_schedule: { course_id: "courses" },
   student_courses: { student_id: "students", course_id: "courses" },

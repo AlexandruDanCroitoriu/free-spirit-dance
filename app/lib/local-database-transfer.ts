@@ -2,8 +2,8 @@ import { tableColumns, upgradeTaskTables, type ExportTable } from "../api/admini
 const tableNames = Object.keys(tableColumns) as Array<keyof typeof tableColumns>;
 const legacyEventDeleteOrder = ["event_refunds", "event_payment_handovers", "event_attendance", "event_session_changes", "event_cash_settlements", "event_requests", "event_sessions", "events"] as const;
 const catalogAuxiliaryDeleteOrder = ["group_sheet_audit", "catalog_v2_audit", "catalog_v2_runs", "group_sheet_runs", "practica_2026_audit", "practica_2026_runs", "_fsd_catalog_import", "history_import_notes", "history_issues", "history_payment_periods", "history_source_cells", "history_unmapped_classes"] as const;
-export const deleteOrder = ["task_preferences", "task_images", "task_courses", "task_students", "manual_tasks", "task_lists", "task_boards", "payment_transfer_filters", "payment_preset_courses", "payment_students", "payment_course_allowances", "free_missed_attendance", "attendance", "practice_attendance", "student_payments", "student_profile_log", "student_courses", "course_schedule", "class_change_log", "classes", "payment_presets", "practice_parties", "courses", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
-const insertOrder = ["admin_profiles", "task_preferences", "task_boards", "task_lists", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "students", "student_profile_log", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "class_change_log", "payment_presets", "payment_preset_courses", "student_payments", "payment_students", "payment_course_allowances", "practice_parties", "attendance", "free_missed_attendance", "practice_attendance", "manual_tasks", "task_courses", "task_students", "task_images"] as const;
+export const deleteOrder = ["task_preferences", "task_images", "task_free_meetings", "task_free_events", "task_courses", "task_students", "manual_tasks", "task_lists", "task_boards", "payment_transfer_filters", "payment_preset_courses", "payment_students", "payment_course_allowances", "free_missed_attendance", "attendance", "free_event_change_log", "free_meeting_change_log", "free_event_attendance", "free_event_meetings", "free_events", "practice_attendance", "student_payments", "student_profile_log", "student_courses", "course_schedule", "class_change_log", "classes", "payment_presets", "practice_parties", "courses", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
+const insertOrder = ["admin_profiles", "task_preferences", "task_boards", "task_lists", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "students", "student_profile_log", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "class_change_log", "payment_presets", "payment_preset_courses", "student_payments", "payment_students", "payment_course_allowances", "free_events", "free_event_meetings", "free_event_attendance", "free_event_change_log", "free_meeting_change_log", "practice_parties", "attendance", "free_missed_attendance", "practice_attendance", "manual_tasks", "task_courses", "task_students", "task_free_events", "task_free_meetings", "task_images"] as const;
 type DatabaseValue = string | number | null;
 
 function sqlValue(value: DatabaseValue) {
@@ -49,6 +49,15 @@ function imageKey(path: unknown) {
   } catch { return null; }
 }
 
+function freeEventImageKey(path: unknown) {
+  const prefix = "/api/free-event-images/";
+  if (typeof path !== "string" || !path.startsWith(prefix)) return null;
+  try {
+    const key = decodeURIComponent(path.slice(prefix.length));
+    return /^free-event-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$/.test(key) ? key : null;
+  } catch { return null; }
+}
+
 export async function copyImages(source: R2Bucket, target: R2Bucket, tables: ExportTable[]) {
   const table = new Map(tables.map((item) => [item.name, item.rows]));
   const keys = new Set([
@@ -56,6 +65,7 @@ export async function copyImages(source: R2Bucket, target: R2Bucket, tables: Exp
     ...(table.get("admin_profiles") ?? []).map((row) => imageKey(row.picture)),
     ...(table.get("qr_codes") ?? []).map((row) => typeof row.image_path === "string" && row.image_path.startsWith("qr-") ? row.image_path : null),
     ...(table.get("task_images") ?? []).map((row) => typeof row.object_key === "string" && row.object_key.startsWith("task-images/") ? row.object_key : null),
+    ...(table.get("free_events") ?? []).map((row) => freeEventImageKey(row.image_path)),
   ].filter((key): key is string => key !== null));
   let copied = 0;
   let missing = 0;

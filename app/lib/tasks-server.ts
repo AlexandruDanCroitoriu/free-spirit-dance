@@ -6,9 +6,10 @@ import { env } from './storage';
 import { TaskError, manualTaskFields, manualTaskId, schoolToday, taskRevision, type BoardTask, type ManualTaskFields, type TaskBoard, type TaskList, type NamedTaskBoard } from './tasks';
 
 const ownerEmail = 'croitoriu.alexandru.code@gmail.com';
-type TaskRow = ManualTaskFields & { id: number; listId: number | null; inboxOwner: string | null; studentsJson: string; coursesJson: string; sortOrder: number; createdBy: string; createdAt: string; updatedBy: string; updatedAt: string; requestKey: string; requestPayload: string };
+type TaskRow = ManualTaskFields & { id: number; listId: number | null; inboxOwner: string | null; studentsJson: string; coursesJson: string; eventsJson: string; meetingsJson: string; sortOrder: number; createdBy: string; createdAt: string; updatedBy: string; updatedAt: string; requestKey: string; requestPayload: string };
 const columns = `t.id, t.status, t.list_id AS listId, t.inbox_owner AS inboxOwner, t.title, t.description, t.due_date AS dueDate, (SELECT json_group_array(json_object('id', s.id, 'name', trim(s.first_name || ' ' || s.last_name), 'picture', s.picture)) FROM task_students ts JOIN students s ON s.id = ts.student_id WHERE ts.task_id = t.id ORDER BY s.id) AS studentsJson, (SELECT json_group_array(json_object('id', c.id, 'name', c.name)) FROM task_courses tc JOIN courses c ON c.id = tc.course_id WHERE tc.task_id = t.id) AS coursesJson, t.sort_order AS sortOrder,
   t.created_by AS createdBy, t.created_at AS createdAt, t.updated_by AS updatedBy, t.updated_at AS updatedAt,
+  (SELECT json_group_array(json_object('id', e.id, 'name', e.name)) FROM task_free_events te JOIN free_events e ON e.id = te.event_id WHERE te.task_id = t.id) AS eventsJson, (SELECT json_group_array(json_object('id', m.id, 'eventId', e.id, 'name', m.name, 'eventName', e.name)) FROM task_free_meetings tm JOIN free_event_meetings m ON m.id = tm.meeting_id JOIN free_events e ON e.id = m.event_id WHERE tm.task_id = t.id) AS meetingsJson,
   t.request_key AS requestKey, t.request_payload AS requestPayload, t.administrator_emails AS administratorEmailsJson, t.assigned_to AS assignedTo`;
 
 export const taskJson = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -17,6 +18,7 @@ export async function taskHandler(work: () => Promise<Response>) {
   catch (error) {
     if (error instanceof TaskError) return taskJson({ error: error.message }, error.status);
     const message = String(error);
+    if (/no such table: (task_free_events|task_free_meetings)/.test(message)) return taskJson({ error: 'Task event links are not set up. Apply migration 0075.' }, 503);
     if (/no such table: task_courses/.test(message)) return taskJson({ error: 'Task course links are not set up. Apply migration 0063.' }, 503);
     if (/no such table: task_images/.test(message)) return taskJson({ error: 'Task images are not set up. Apply migration 0065.' }, 503);
     if (/no such table: task_students/.test(message)) return taskJson({ error: 'Task student links are not set up. Apply migration 0060.' }, 503);
@@ -74,7 +76,7 @@ export async function taskInput(request: Request, allowed: string[]): Promise<Re
 
 function serialize(row: TaskRow): BoardTask {
   return { key: `manual:${row.id}`, status: row.status ?? 'in_progress', listId: row.listId, source: 'manual', category: 'manual', title: row.title, description: row.description,
-    dueDate: row.dueDate, students: JSON.parse(row.studentsJson), courses: JSON.parse(row.coursesJson),
+    dueDate: row.dueDate, students: JSON.parse(row.studentsJson), courses: JSON.parse(row.coursesJson), events: JSON.parse(row.eventsJson), meetings: JSON.parse(row.meetingsJson),
     sortOrder: row.sortOrder, canDelete: true, administratorEmails: JSON.parse((row as TaskRow & { administratorEmailsJson: string }).administratorEmailsJson ?? '[]'), assignedTo: row.assignedTo ?? null,
     createdBy: row.createdBy, createdAt: row.createdAt, updatedBy: row.updatedBy, updatedAt: row.updatedAt };
 }
@@ -123,10 +125,18 @@ export async function getTasks(request: Request, key?: string) {
   }
   return taskJson(result);
 }
-const editable = ['status', 'title', 'description', 'dueDate', 'studentIds', 'courseIds', 'administratorEmails', 'assignedTo'];
+const editable = ['status', 'title', 'description', 'dueDate', 'studentIds', 'courseIds', 'eventIds', 'meetingIds', 'administratorEmails', 'assignedTo'];
 export async function taskAdministrators(request: Request) {
   await taskAccess(request);
   return taskJson(await administratorChoices());
+}
+export async function taskEventChoices(request: Request) {
+  await taskAccess(request);
+  const [events, meetings] = await env.DB.batch([
+    env.DB.prepare('SELECT id, name, image_path AS imagePath FROM free_events ORDER BY name COLLATE NOCASE, id'),
+    env.DB.prepare('SELECT m.id, m.event_id AS eventId, m.name, e.name AS eventName FROM free_event_meetings m JOIN free_events e ON e.id = m.event_id ORDER BY e.name COLLATE NOCASE, m.starts_at, m.id'),
+  ]);
+  return taskJson({ events: events.results, meetings: meetings.results });
 }
 export async function assignedTaskNotifications(request: Request) {
   const email = await taskAccess(request);
@@ -184,6 +194,8 @@ export async function createTask(request: Request) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(listId, listId === null ? email : null, fields.title, fields.description, fields.dueDate, appendPosition(data, listId), email, now, email, now, input.requestKey, payload, JSON.stringify(fields.administratorEmails), fields.assignedTo ?? null, fields.status),
     env.DB.prepare('INSERT INTO task_students(task_id, student_id) SELECT t.id, value FROM manual_tasks t, json_each(?) WHERE t.request_key = ?').bind(JSON.stringify(fields.studentIds), input.requestKey),
     env.DB.prepare('INSERT INTO task_courses(task_id, course_id) SELECT t.id, value FROM manual_tasks t, json_each(?) WHERE t.request_key = ?').bind(JSON.stringify(fields.courseIds), input.requestKey),
+    env.DB.prepare('INSERT INTO task_free_events(task_id, event_id) SELECT t.id, value FROM manual_tasks t, json_each(?) WHERE t.request_key = ?').bind(JSON.stringify(fields.eventIds), input.requestKey),
+    env.DB.prepare('INSERT INTO task_free_meetings(task_id, meeting_id) SELECT t.id, value FROM manual_tasks t, json_each(?) WHERE t.request_key = ?').bind(JSON.stringify(fields.meetingIds), input.requestKey),
     ...createdTaskImageStatements(input.requestKey, imageIds), ...snapshotStatements(email)]));
   await deleteQueuedTaskImages();
   return taskJson({ task: serialize(result.rows.find(task => task.requestKey === input.requestKey)!), revision: result.revision }, 201);
@@ -200,7 +212,7 @@ export async function duplicateTask(request: Request, key: string) {
     return taskJson({ task: serialize(previous), revision: data.revision });
   }
   requireRevision(expected, data.revision);
-  const fields: ManualTaskFields = { status: source.status, title: `${source.title} (duplicated)`, description: source.description, dueDate: source.dueDate, studentIds: source.students.map(student => student.id), courseIds: source.courses.map(course => course.id), administratorEmails: source.administratorEmails, assignedTo: source.assignedTo };
+  const fields: ManualTaskFields = { status: source.status, title: `${source.title} (duplicated)`, description: source.description, dueDate: source.dueDate, studentIds: source.students.map(student => student.id), courseIds: source.courses.map(course => course.id), eventIds: source.events.map(event => event.id), meetingIds: source.meetings.map(meeting => meeting.id), administratorEmails: source.administratorEmails, assignedTo: source.assignedTo };
   await validateAdministrators(fields, source);
   const sourceId = manualTaskId(key), imageIds = descriptionImageIds(descriptionDocument(source.description));
   const images = imageIds.length ? (await env.DB.prepare('SELECT id, object_key AS objectKey FROM task_images WHERE task_id = ? AND id IN (SELECT value FROM json_each(?))').bind(sourceId, JSON.stringify(imageIds)).all<{ id: string; objectKey: string }>()).results : [];
@@ -221,6 +233,8 @@ export async function duplicateTask(request: Request, key: string) {
         .bind(source.listId, source.listId === null ? email : null, fields.title, description, fields.dueDate, appendPosition(data, source.listId), email, now, email, now, input.requestKey, payload, JSON.stringify(fields.administratorEmails), fields.assignedTo ?? null, fields.status),
       env.DB.prepare('INSERT INTO task_students(task_id, student_id) SELECT t.id, student_id FROM manual_tasks t JOIN task_students source ON source.task_id = ? WHERE t.request_key = ?').bind(sourceId, input.requestKey),
       env.DB.prepare('INSERT INTO task_courses(task_id, course_id) SELECT t.id, course_id FROM manual_tasks t JOIN task_courses source ON source.task_id = ? WHERE t.request_key = ?').bind(sourceId, input.requestKey),
+      env.DB.prepare('INSERT INTO task_free_events(task_id, event_id) SELECT t.id, event_id FROM manual_tasks t JOIN task_free_events source ON source.task_id = ? WHERE t.request_key = ?').bind(sourceId, input.requestKey),
+      env.DB.prepare('INSERT INTO task_free_meetings(task_id, meeting_id) SELECT t.id, meeting_id FROM manual_tasks t JOIN task_free_meetings source ON source.task_id = ? WHERE t.request_key = ?').bind(sourceId, input.requestKey),
       ...copies.map(copy => env.DB.prepare('INSERT INTO task_images(id, task_id, owner_email, object_key, created_at) SELECT ?, id, ?, ?, ? FROM manual_tasks WHERE request_key = ?').bind(copy.id, email, copy.objectKey, now, input.requestKey)),
       ...snapshotStatements(email)]));
     return taskJson({ task: serialize(result.rows.find(task => task.requestKey === input.requestKey)!), revision: result.revision }, 201);
@@ -236,7 +250,7 @@ export async function updateTask(request: Request, key: string) {
   if (!editable.some(field => Object.hasOwn(input, field)) && input.listId === undefined) throw new TaskError('Choose a task field to update.');
   const listId = input.listId === undefined ? current.listId : validList(data, input.listId);
   const position = listId === current.listId ? current.sortOrder : appendPosition(data, listId);
-  const fields = manualTaskFields(input, { status: current.status, title: current.title, description: current.description, dueDate: current.dueDate, studentIds: current.students.map(student => student.id), courseIds: current.courses.map(course => course.id), administratorEmails: current.administratorEmails, assignedTo: current.assignedTo });
+  const fields = manualTaskFields(input, { status: current.status, title: current.title, description: current.description, dueDate: current.dueDate, studentIds: current.students.map(student => student.id), courseIds: current.courses.map(course => course.id), eventIds: current.events.map(event => event.id), meetingIds: current.meetings.map(meeting => meeting.id), administratorEmails: current.administratorEmails, assignedTo: current.assignedTo });
   await validateAdministrators(fields, current);
   const imageIds = await validateTaskImages(fields.description, email, manualTaskId(key));
   const result = snapshot(await env.DB.batch([guard(expected), profile(email),
@@ -246,6 +260,10 @@ export async function updateTask(request: Request, key: string) {
     env.DB.prepare('INSERT INTO task_students(task_id, student_id) SELECT ?, value FROM json_each(?)').bind(manualTaskId(key), JSON.stringify(fields.studentIds)),
     env.DB.prepare('DELETE FROM task_courses WHERE task_id = ?').bind(manualTaskId(key)),
     env.DB.prepare('INSERT INTO task_courses(task_id, course_id) SELECT ?, value FROM json_each(?)').bind(manualTaskId(key), JSON.stringify(fields.courseIds)),
+    env.DB.prepare('DELETE FROM task_free_events WHERE task_id = ?').bind(manualTaskId(key)),
+    env.DB.prepare('INSERT INTO task_free_events(task_id, event_id) SELECT ?, value FROM json_each(?)').bind(manualTaskId(key), JSON.stringify(fields.eventIds)),
+    env.DB.prepare('DELETE FROM task_free_meetings WHERE task_id = ?').bind(manualTaskId(key)),
+    env.DB.prepare('INSERT INTO task_free_meetings(task_id, meeting_id) SELECT ?, value FROM json_each(?)').bind(manualTaskId(key), JSON.stringify(fields.meetingIds)),
     ...taskImageStatements(manualTaskId(key), imageIds), ...snapshotStatements(email)]));
   await deleteQueuedTaskImages();
   return taskJson({ task: findTask(result, key), revision: result.revision });

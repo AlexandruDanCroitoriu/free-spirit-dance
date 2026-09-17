@@ -1,6 +1,8 @@
 import type { TaskColor } from './task-colors';
 import { descriptionLinks } from './task-description';
 export type TaskStudent = { id: number; name: string; picture: string | null };
+export type TaskEvent = { id: number; name: string; imagePath?: string | null };
+export type TaskMeeting = { id: number; eventId: number; name: string; eventName: string };
 
 export type BoardTask = {
   status: 'in_progress' | 'done';
@@ -13,6 +15,8 @@ export type BoardTask = {
   dueDate: string | null;
   students: TaskStudent[];
   courses: { id: number; name: string }[];
+  events: TaskEvent[];
+  meetings: TaskMeeting[];
   sortOrder: number;
   canDelete: boolean;
   createdBy: string;
@@ -25,7 +29,7 @@ export type BoardTask = {
 export type NamedTaskBoard = { id: number; name: string; scope: 'school' | 'personal'; color: TaskColor };
 export type TaskList = { id: number; boardId: number; title: string; sortOrder: number; color: TaskColor };
 export type TaskBoard = { inboxColor: TaskColor; selectedBoardScope: 'school' | 'personal'; tasks: BoardTask[]; boards: NamedTaskBoard[]; lists: TaskList[]; revision: number; today: string; views?: { key: string; title: string }[] };
-export type ManualTaskFields = { status?: 'in_progress' | 'done'; title: string; description: string; dueDate: string | null; studentIds: number[]; courseIds: number[]; administratorEmails?: string[]; assignedTo?: string | null };
+export type ManualTaskFields = { status?: 'in_progress' | 'done'; title: string; description: string; dueDate: string | null; studentIds: number[]; courseIds: number[]; eventIds?: number[]; meetingIds?: number[]; administratorEmails?: string[]; assignedTo?: string | null };
 
 // A move depends only on its card and the source/destination lists. Private
 // activity elsewhere must not invalidate this view of their order.
@@ -69,11 +73,13 @@ function dueDate(value: unknown): string | null {
 }
 
 export function manualTaskFields(input: Record<string, unknown>, previous?: ManualTaskFields): ManualTaskFields {
-  const merged = { description: '', dueDate: null, studentIds: [], courseIds: [], ...previous, ...input };
+  const merged = { description: '', dueDate: null, studentIds: [], courseIds: [], eventIds: [], meetingIds: [], ...previous, ...input };
   const status = input.status === undefined ? previous?.status ?? 'in_progress' : input.status;
   if (status !== 'in_progress' && status !== 'done') throw new TaskError('Choose In progress or Done.');
   if (!Array.isArray(merged.studentIds) || merged.studentIds.length > 500 || merged.studentIds.some(id => typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1)) throw new TaskError('Choose valid students (up to 500 per task).');
   if (!Array.isArray(merged.courseIds) || merged.courseIds.length > 500 || merged.courseIds.some(id => typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1)) throw new TaskError('Choose valid courses (up to 500 per task).');
+  if (!Array.isArray(merged.eventIds) || merged.eventIds.length > 500 || merged.eventIds.some(id => typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1)) throw new TaskError('Choose valid events (up to 500 per task).');
+  if (!Array.isArray(merged.meetingIds) || merged.meetingIds.length > 500 || merged.meetingIds.some(id => typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1)) throw new TaskError('Choose valid meetings (up to 500 per task).');
   const description = taskText(merged.description, 10000), links = descriptionLinks(description);
   const emails = input.administratorEmails ?? previous?.administratorEmails ?? [];
   const assignedTo = input.assignedTo === undefined ? previous?.assignedTo ?? null : input.assignedTo;
@@ -82,7 +88,9 @@ export function manualTaskFields(input: Record<string, unknown>, previous?: Manu
   const administratorEmails = [...new Set([...emails, ...links.administratorEmails].map(email => email.trim().toLowerCase()))].sort();
   const studentIds = [...new Set([...(merged.studentIds as number[]), ...links.studentIds])].sort((a, b) => a - b);
   const courseIds = [...new Set([...(merged.courseIds as number[]), ...links.courseIds])].sort((a, b) => a - b);
-  return { status, title: taskText(merged.title, 200, true), description, dueDate: dueDate(merged.dueDate), studentIds, courseIds, administratorEmails, assignedTo: assignedTo?.trim().toLowerCase() ?? null };
+  const eventIds = [...new Set([...(merged.eventIds as number[]), ...links.eventIds])].sort((a, b) => a - b);
+  const meetingIds = [...new Set([...(merged.meetingIds as number[]), ...links.meetingIds])].sort((a, b) => a - b);
+  return { status, title: taskText(merged.title, 200, true), description, dueDate: dueDate(merged.dueDate), studentIds, courseIds, eventIds, meetingIds, administratorEmails, assignedTo: assignedTo?.trim().toLowerCase() ?? null };
 }
 
 export { schoolToday } from './calendar-dates';

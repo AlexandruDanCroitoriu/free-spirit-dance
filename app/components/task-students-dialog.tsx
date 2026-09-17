@@ -6,7 +6,7 @@ import TaskStudentSelect from './task-student-select';
 
 export default function TaskStudentsDialog({ students, selected, loading, error, onChange, onClose, kind = 'students' }: {
   students: TaskStudent[]; selected: number[]; loading: boolean; error: string;
-onChange: (ids: number[]) => void; onClose: () => void; kind?: 'students' | 'courses' | 'administrators';
+onChange: (ids: number[]) => void; onClose: () => void; kind?: 'students' | 'courses' | 'administrators' | 'events and meetings';
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {

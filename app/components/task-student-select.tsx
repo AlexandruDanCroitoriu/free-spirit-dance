@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { TaskStudent } from '../lib/tasks';
 
 export default function TaskStudentSelect({ students, selected, onChange, expanded = false, dark = false, kind = 'students' }: {
-students: TaskStudent[]; selected: number[]; onChange: (ids: number[]) => void; expanded?: boolean; dark?: boolean; kind?: 'students' | 'courses' | 'administrators';
+students: TaskStudent[]; selected: number[]; onChange: (ids: number[]) => void; expanded?: boolean; dark?: boolean; kind?: 'students' | 'courses' | 'administrators' | 'events and meetings';
 }) {
   const [search, setSearch] = useState('');
   const choices = students.filter(student => student.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
