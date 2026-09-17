@@ -1,13 +1,12 @@
 import { productionImages } from "../../../lib/production-backups/production-storage";
 import { env } from "../../../lib/storage";
 import { copyBindings, listCopies } from "../../../lib/local-copies";
+import { copyImages, deleteOrder, insertOrder } from "../../../lib/local-database-transfer";
 import { tableColumns, upgradeTaskTables, type ExportTable } from "../export/route";
 
 const ownerEmail = "croitoriu.alexandru.code@gmail.com";
 const tableNames = Object.keys(tableColumns) as Array<keyof typeof tableColumns>;
 const legacyEventDeleteOrder = ["event_refunds", "event_payment_handovers", "event_attendance", "event_session_changes", "event_cash_settlements", "event_requests", "event_sessions", "events"] as const;
-const deleteOrder = ["task_preferences", "task_images", "task_courses", "task_students", "manual_tasks", "task_lists", "task_boards", "payment_transfer_filters", "payment_preset_courses", "payment_students", "payment_course_allowances", "attendance", "practice_attendance", "student_payments", "student_profile_log", "student_courses", "course_schedule", "class_change_log", "classes", "payment_presets", "practice_parties", "courses", "students", "qr_codes", "administrator_payment_methods", "administrator_permissions", "admin_profiles"] as const;
-const insertOrder = ["admin_profiles", "task_preferences", "task_boards", "task_lists", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "students", "student_profile_log", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "class_change_log", "payment_presets", "payment_preset_courses", "student_payments", "payment_students", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance", "manual_tasks", "task_courses", "task_students", "task_images"] as const;
 type DatabaseValue = string | number | null;
 type DevelopmentBindings = CloudflareEnv & Partial<LocalDevelopmentBindings>;
 
@@ -74,33 +73,6 @@ function insertStatements(name: keyof typeof tableColumns, rows: Record<string, 
   return statements;
 }
 
-function imageKey(path: DatabaseValue) {
-  const prefix = "/api/student-images/";
-  if (typeof path !== "string" || !path.startsWith(prefix)) return null;
-  try {
-    const key = decodeURIComponent(path.slice(prefix.length));
-    return /^(student-|admin-)/.test(key) ? key : null;
-  } catch { return null; }
-}
-
-async function copyLocalImages(tables: Map<keyof typeof tableColumns, Record<string, DatabaseValue>[]>, sourceImages: R2Bucket, targetImages: R2Bucket) {
-  const keys = new Set([
-    ...tables.get("students")!.map((row) => imageKey(row.picture)),
-    ...tables.get("admin_profiles")!.map((row) => imageKey(row.picture)),
-    ...tables.get("qr_codes")!.map((row) => typeof row.image_path === "string" && row.image_path.startsWith("qr-") ? row.image_path : null),
-    ...(tables.get("task_images") ?? []).map((row) => typeof row.object_key === "string" && row.object_key.startsWith("task-images/") ? row.object_key : null),
-  ].filter((key): key is string => key !== null));
-  let copied = 0;
-  let missing = 0;
-  for (const key of keys) {
-    const image = await sourceImages.get(key);
-    if (!image) { missing++; continue; }
-    await targetImages.put(key, image.body, { httpMetadata: image.httpMetadata });
-    copied++;
-  }
-  return { copied, missing };
-}
-
 export async function POST(request: Request) {
   const bindings = env as DevelopmentBindings;
   // CATALOG_IMAGES exists only in the local development Worker. This makes the
@@ -118,7 +90,7 @@ export async function POST(request: Request) {
     // Copy existing local images first. Historical Catalog snapshots can retain
     // image references whose local bucket objects are unavailable; those must
     // not prevent the requested SQL replacement.
-    const images = await copyLocalImages(tables, sourceImages, await productionImages(bindings.PRODUCTION_DB, bindings.PRODUCTION_IMAGES));
+    const images = await copyImages(sourceImages, await productionImages(bindings.PRODUCTION_DB, bindings.PRODUCTION_IMAGES), tableNames.map((name) => ({ name, columns: [...tableColumns[name]], rows: tables.get(name)! })));
     // D1 batches are transactions. This avoids raw BEGIN/COMMIT statements,
     // which the local D1 runtime intentionally rejects.
     const existing = await bindings.PRODUCTION_DB.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${legacyEventDeleteOrder.map(() => "?").join(", ")})`).bind(...legacyEventDeleteOrder).all<{ name: string }>();

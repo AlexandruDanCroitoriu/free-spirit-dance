@@ -66,8 +66,11 @@ for (const db of [production, first, second]) assert.deepEqual(db.sqlite.prepare
 console.log('PASS: copies preserve previous edits and production, isolate images, validate names and enforce owner/origin checks.');
 
 globalThis.copyTestEnv.CATALOG_IMAGES = bucket();
-const uploader = await import(moduleUrl(readFileSync('app/api/administrators/replace-production/route.ts', 'utf8').replace(/"(?:\.\.\/)+lib\/production-backups\/production-storage"/, JSON.stringify(productionStorage)).replace('import { env } from "../../../lib/storage";', 'const env = globalThis.copyTestEnv;').replace('"../../../lib/local-copies"', JSON.stringify(helper)).replace('"../export/route"', JSON.stringify(exporter))));
+const uploader = await import(moduleUrl(readFileSync('app/api/administrators/replace-production/route.ts', 'utf8').replace(/"(?:\.\.\/)+lib\/production-backups\/production-storage"/, JSON.stringify(productionStorage)).replace('import { env } from "../../../lib/storage";', 'const env = globalThis.copyTestEnv;').replace('"../../../lib/local-copies"', JSON.stringify(helper)).replace('"../../../lib/local-database-transfer"', JSON.stringify(transfer)).replace('"../export/route"', JSON.stringify(exporter))));
 const { tableColumns } = await import(exporter);
+first.sqlite.exec("INSERT INTO free_events (name,starts_on,ends_on,image_path,revision,created_by,created_at,updated_at) VALUES ('Source event','2026-09-20','2026-09-20','/api/free-event-images/free-event-11111111-1111-4111-8111-111111111111.jpg',0,'owner@example.test','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z')");
+await firstImages.put('free-event-11111111-1111-4111-8111-111111111111.jpg', 'source-event-image');
+production.sqlite.exec("INSERT INTO free_events (name,starts_on,ends_on,revision,created_by,created_at,updated_at) VALUES ('Old event','2026-09-10','2026-09-10',0,'owner@example.test','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z'); INSERT INTO free_event_meetings (event_id,name,starts_at,starts_utc,duration_minutes,space_rent_minor,accepts_donations,cancelled,revision,created_by,created_at,updated_at) VALUES (1,'Old meeting','2026-09-10T19:00:00','2026-09-10T16:00:00.000Z',60,0,0,0,0,'owner@example.test','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z'); INSERT INTO free_event_attendance (meeting_id,student_id,recorded_by,recorded_at,donation_received_method,donation_given_to_school) VALUES (1,1,'owner@example.test','2026-09-01T00:00:00.000Z','',0); INSERT INTO task_free_events (task_id,event_id) VALUES (1,1)");
 const tables = Object.entries(tableColumns).map(([name, columns]) => ({ name, columns, rows: first.sqlite.prepare(`SELECT ${columns.join(',')} FROM ${name}`).all() }));
 const uploadRequest = new Request(origin + '/api/administrators/replace-production', { method: 'POST', headers: { Origin: origin, 'cf-access-authenticated-user-email': 'croitoriu.alexandru.code@gmail.com' }, body: JSON.stringify({ source: 'working', tables }) });
 assert.equal((await uploader.POST(uploadRequest)).status, 200);
@@ -78,6 +81,8 @@ assert.deepEqual(production.sqlite.prepare('SELECT email,method FROM administrat
 assert.deepEqual(production.sqlite.prepare('SELECT administrator_email,collector_email,collector_emails,from_date,to_date,payment_types FROM payment_transfer_filters').all(), first.sqlite.prepare('SELECT administrator_email,collector_email,collector_emails,from_date,to_date,payment_types FROM payment_transfer_filters').all());
 assert.deepEqual(production.sqlite.prepare('SELECT * FROM manual_tasks').all(), first.sqlite.prepare('SELECT * FROM manual_tasks').all());
 assert.deepEqual(production.sqlite.prepare('SELECT * FROM task_students').all(), first.sqlite.prepare('SELECT * FROM task_students').all());
+assert.equal(production.sqlite.prepare('SELECT name FROM free_events').get().name, 'Source event');
+assert.equal(productionImages.items.get('free-event-11111111-1111-4111-8111-111111111111.jpg'), 'source-event-image');
 console.log('PASS: explicit upload uses the selected copy images and targets production only.');
 assert.equal((await api.DELETE(request('DELETE', { id: 'catalog' }))).status, 400);
 assert.equal((await api.DELETE(request('DELETE', { id: 'working' }, 'other@example.test'))).status, 403);
