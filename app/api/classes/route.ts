@@ -14,7 +14,11 @@ export async function POST(request: Request) {
   try {
     const course = await env.DB.prepare("SELECT id FROM courses WHERE id = ?").bind(slot.courseId).first();
     if (!course) return json({ error: "This course no longer exists. Reload the calendar." }, 404);
-    await env.DB.prepare("INSERT INTO classes (course_id, class_date, start_time, end_time, rent_cost_minor) VALUES (?, ?, ?, ?, ?) ON CONFLICT (course_id, class_date, start_time) DO NOTHING").bind(slot.courseId, slot.classDate, slot.startTime, input.endTime, rent).run();
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO admin_profiles (email, name) VALUES (?, '') ON CONFLICT(email) DO NOTHING").bind(email.toLowerCase()),
+      env.DB.prepare("INSERT INTO classes (course_id, class_date, start_time, end_time, rent_cost_minor, created_by) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (course_id, class_date, start_time) DO NOTHING").bind(slot.courseId, slot.classDate, slot.startTime, input.endTime, rent, email.toLowerCase()),
+      env.DB.prepare("INSERT INTO class_change_log (class_id, administrator_email, action, created_at) SELECT id, ?, 'created', ? FROM classes WHERE course_id = ? AND class_date = ? AND start_time = ? AND changes() > 0").bind(email.toLowerCase(), new Date().toISOString(), slot.courseId, slot.classDate, slot.startTime),
+    ]);
     const saved = await env.DB.prepare("SELECT id, end_time AS endTime, rent_cost_minor AS rentCostMinor, cancelled FROM classes WHERE course_id = ? AND class_date = ? AND start_time = ?").bind(slot.courseId, slot.classDate, slot.startTime).first<{ id: number; endTime: string; rentCostMinor: number; cancelled: number }>();
     if (!saved || saved.cancelled || saved.endTime !== input.endTime || saved.rentCostMinor !== rent) return json({ error: "A class already exists at this time. Reload the calendar to view it." }, 409);
     return json({ id: saved.id });

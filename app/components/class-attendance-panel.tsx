@@ -10,6 +10,7 @@ import {
 import { formatLogDate } from "../lib/student-activity";
 import StudentPanel, { type Student } from "./student-panel";
 import TimeSelector from "./time-selector";
+import ClassChangeLog from "./class-change-log";
 import { confirmAction } from "../lib/confirmation";
 const button =
   "rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold disabled:opacity-50";
@@ -36,7 +37,7 @@ export default function ClassAttendancePanel({
   onClose: () => void;
 }) {
   const [slot, setSlot] = useState(initialSlot);
-  const [tab, setTab] = useState<"attendance" | "details">("attendance");
+  const [tab, setTab] = useState<"attendance" | "details" | "history">("attendance");
   const [details, setDetails] = useState({ courseId: initialSlot.courseId, classDate: initialSlot.classDate, startTime: initialSlot.startTime, endTime: "", rent: "0", rentPaid: false });
   const dialog = useRef<HTMLDialogElement>(null);
   const saving = useRef(false);
@@ -47,7 +48,8 @@ export default function ClassAttendancePanel({
   const [selected, setSelected] = useState<number[]>([]);
   const [complimentary, setComplimentary] = useState<number[]>([]);
   const [complimentaryChanges, setComplimentaryChanges] = useState<Record<number, boolean>>({});
-  const changeCount = selected.length + Object.keys(complimentaryChanges).length;
+  const [freeMissedChanges, setFreeMissedChanges] = useState<Record<number, boolean>>({});
+  const changeCount = selected.length + Object.keys(complimentaryChanges).length + Object.keys(freeMissedChanges).length;
   const [complimentaryReason, setComplimentaryReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -80,7 +82,7 @@ export default function ClassAttendancePanel({
         if (!controller.signal.aborted) {
           setData(result);
           setDetails({ courseId: slot.courseId, classDate: slot.classDate, startTime: slot.startTime, endTime: result.endTime ?? "", rent: String(result.rentCostMinor / 100), rentPaid: result.rentPaid });
-          setSelected([]); setComplimentary([]); setComplimentaryChanges({}); setComplimentaryReason("");
+          setSelected([]); setComplimentary([]); setComplimentaryChanges({}); setFreeMissedChanges({}); setComplimentaryReason("");
         }
       })
       .catch((reason) => {
@@ -110,6 +112,7 @@ export default function ClassAttendancePanel({
     setNotice("");
     setComplimentary((ids) => ids.filter((value) => value !== id));
     setComplimentaryChanges((current) => { const next = { ...current }; delete next[id]; return next; });
+    setFreeMissedChanges((current) => { const next = { ...current }; delete next[id]; return next; });
     setSelected((ids) =>
       ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id],
     );
@@ -120,7 +123,7 @@ export default function ClassAttendancePanel({
     saving.current = true; setBusy(true); setError("");
     try {
       await readResponse(await fetch("/api/class-attendance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...slot, cancelled: !data.cancelled }) }));
-      setSelected([]); setComplimentary([]); setComplimentaryChanges({}); setComplimentaryReason(""); setRetry((value) => value + 1);
+      setSelected([]); setComplimentary([]); setComplimentaryChanges({}); setFreeMissedChanges({}); setComplimentaryReason(""); setRetry((value) => value + 1);
       window.dispatchEvent(new Event("calendar-updated"));
       setNotice(data.cancelled ? "Class restored." : "Class cancelled.");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update class."); }
@@ -170,7 +173,7 @@ export default function ClassAttendancePanel({
         await fetch("/api/class-attendance", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...slot, studentIds: ids, removeStudentIds: removedIds, complimentaryStudentIds: complimentary.filter((id) => ids.includes(id)), complimentaryReason, complimentaryChanges: Object.entries(complimentaryChanges).map(([studentId, complimentary]) => ({ studentId: Number(studentId), complimentary })) }),
+          body: JSON.stringify({ ...slot, studentIds: ids, removeStudentIds: removedIds, complimentaryStudentIds: complimentary.filter((id) => ids.includes(id)), complimentaryReason, complimentaryChanges: Object.entries(complimentaryChanges).map(([studentId, complimentary]) => ({ studentId: Number(studentId), complimentary })), freeMissedChanges: Object.entries(freeMissedChanges).map(([studentId, free]) => ({ studentId: Number(studentId), free })) }),
         }),
       );
       setData((current) =>
@@ -180,12 +183,15 @@ export default function ClassAttendancePanel({
               students: current.students.map((student) =>
                 ids.includes(student.id)
                   ? { ...student, attended: 1, complimentary: complimentary.includes(student.id) ? 1 : 0 }
-                  : removedIds.includes(student.id) ? { ...student, attended: 0, complimentary: 0 } : student.id in complimentaryChanges ? { ...student, complimentary: complimentaryChanges[student.id] ? 1 : 0 } : student,
+                  : removedIds.includes(student.id) ? { ...student, attended: 0, complimentary: 0 }
+                  : student.id in complimentaryChanges ? { ...student, complimentary: complimentaryChanges[student.id] ? 1 : 0 }
+                  : student.id in freeMissedChanges ? { ...student, freeMissed: freeMissedChanges[student.id] ? 1 : 0 } : student,
               ),
             }
           : current,
       );
-      setSelected([]); setComplimentary([]); setComplimentaryChanges({}); setComplimentaryReason("");
+      setSelected([]); setComplimentary([]); setComplimentaryChanges({}); setFreeMissedChanges({}); setComplimentaryReason("");
+      setRetry((value) => value + 1);
       window.dispatchEvent(new Event("student-activity-updated"));
       setNotice(`Attendance saved: ${result.recorded} added, ${result.removed} removed; complimentary changes saved.`);
     } catch (reason) {
@@ -221,6 +227,13 @@ export default function ClassAttendancePanel({
           });
           else setComplimentary((ids) => ids.includes(student.id) ? ids.filter((id) => id !== student.id) : [...ids, student.id]);
         }}
+        freeMissed={freeMissedChanges[student.id] ?? (student.freeMissed === 1)}
+        onFreeMissedToggle={!student.attended && !selected.includes(student.id) ? () => setFreeMissedChanges((current) => {
+          const next = { ...current };
+          const value = !(current[student.id] ?? (student.freeMissed === 1));
+          if (value === (student.freeMissed === 1)) delete next[student.id]; else next[student.id] = value;
+          return next;
+        }) : undefined}
       />
     );
   }
@@ -242,9 +255,10 @@ export default function ClassAttendancePanel({
     >
       <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-stone-200 bg-white p-5">
         <div>
-          <h2 id="class-attendance-title" className="m-0 text-xl font-normal">
-            {data?.courseName ?? courseName}
-          </h2>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 id="class-attendance-title" className="m-0 text-xl font-normal">{data?.courseName ?? courseName}</h2>
+            {data?.createdBy && <span className="font-sans text-xs text-slate-500" title={data.createdBy}>Created by {data.creatorName?.trim() || data.createdBy}</span>}
+          </div>
           <p className="mb-0 mt-2 font-sans text-sm text-slate-500">
             {formatLogDate(slot.classDate)} · {slot.startTime}
             {data?.endTime ? `–${data.endTime}` : ""}
@@ -262,12 +276,13 @@ export default function ClassAttendancePanel({
         </button>
       </header>
       <div role="tablist" aria-label="Class panel" className="flex gap-6 border-b border-stone-200 bg-white px-5">
-        {(["attendance", "details"] as const).map(value => <button key={value} type="button" role="tab" id={`class-${value}-tab`} aria-controls={`class-${value}-panel`} aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} onClick={() => setTab(value)} onKeyDown={event => {
+        {(["attendance", "details", "history"] as const).map(value => <button key={value} type="button" role="tab" id={`class-${value}-tab`} aria-controls={`class-${value}-panel`} aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} onClick={() => setTab(value)} onKeyDown={event => {
           if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
           event.preventDefault();
-          const next = event.key === "Home" ? "attendance" : event.key === "End" ? "details" : tab === "attendance" ? "details" : "attendance";
+          const tabs = ["attendance", "details", "history"] as const;
+          const next = event.key === "Home" ? tabs[0] : event.key === "End" ? tabs[2] : tabs[(tabs.indexOf(tab) + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
           setTab(next); document.getElementById(`class-${next}-tab`)?.focus();
-        }} className={`border-b-2 py-3 font-sans text-sm font-semibold ${tab === value ? "border-lime-700 text-lime-800" : "border-transparent text-slate-500"}`}>{value === "attendance" ? "Attendance" : "Class details"}</button>)}
+        }} className={`border-b-2 py-3 font-sans text-sm font-semibold ${tab === value ? "border-lime-700 text-lime-800" : "border-transparent text-slate-500"}`}>{value === "attendance" ? "Attendance" : value === "details" ? "Class details" : "History"}</button>)}
       </div>
       <div className="space-y-5 p-5">
         {data?.cancelled && <p role="status" className="rounded-lg bg-red-50 p-3 font-sans text-sm text-red-700">This class is cancelled. Attendance cannot be added.</p>}
@@ -302,6 +317,7 @@ export default function ClassAttendancePanel({
             Loading students…
           </p>
         )}
+        {tab === "history" && <section role="tabpanel" id="class-history-panel" aria-labelledby="class-history-tab"><ClassChangeLog slot={slot} revision={retry} /></section>}
         {tab === "details" && <section role="tabpanel" id="class-details-panel" aria-labelledby="class-details-tab" className="space-y-5">
           {data && <form onSubmit={event => { event.preventDefault(); void saveDetails(); }} className="space-y-4">
             <p className="font-sans text-sm text-slate-500">Changes apply to this class only. Recorded attendance follows any date or start-time change.</p>
@@ -408,6 +424,8 @@ export function AttendanceStudentCard({
   onOpenStudent,
   complimentary = false,
   onComplimentaryToggle,
+  freeMissed = false,
+  onFreeMissedToggle,
 }: {
   student: ClassStudent;
   selected: boolean;
@@ -416,6 +434,8 @@ export function AttendanceStudentCard({
   onOpenStudent?: () => void;
   complimentary?: boolean;
   onComplimentaryToggle?: () => void;
+  freeMissed?: boolean;
+  onFreeMissedToggle?: () => void;
 }) {
   const green = Boolean(student.attended) !== selected;
   return (
@@ -457,6 +477,9 @@ export function AttendanceStudentCard({
         {complimentary ? "✓ Free attendance" : "Free attendance"}
       </button>
     </div>}
+    {onFreeMissedToggle && <button type="button" aria-label={`Free missed attendance for ${student.firstName} ${student.lastName}`} aria-pressed={freeMissed} disabled={disabled} onClick={onFreeMissedToggle} className={`shrink-0 rounded-md border px-3 py-2 font-sans text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-amber-600 focus:ring-offset-2 disabled:opacity-50 ${freeMissed ? "border-amber-600 bg-amber-600 text-white hover:bg-amber-700" : "border-stone-300 bg-white text-slate-600 hover:border-amber-500"}`}>
+      {freeMissed ? "✓ Free missed attendance" : "Free missed attendance"}
+    </button>}
     </div>
   );
 }

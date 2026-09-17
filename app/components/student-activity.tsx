@@ -1,8 +1,8 @@
 "use client";
 import DatePicker from './date-picker';
 
+import PaymentGroupFields from "./payment-group-fields";
 import PaymentTransferCheckbox from "./payment-transfer-checkbox";
-import { useRecordedAbsencesMode } from "./dashboard-settings";
 import { useEffect, useRef, useState } from "react";
 import { formatLogDate, formatMoney, schoolToday, type StudentActivity as Activity } from "../lib/student-activity";
 import { presetDraft, type PaymentPreset } from "../lib/payment-presets";
@@ -39,7 +39,7 @@ async function readResponse(response: Response): Promise<unknown> {
   return body;
 }
 
-export default function StudentActivity({ studentId, initialPaymentId, targetPaymentId, targetPaymentKind = "payment", targetAttendanceDate }: { studentId: number; initialPaymentId?: number; targetPaymentId?: number; targetPaymentKind?: "payment" | "practice_attendance"; targetAttendanceDate?: string }) {
+export default function StudentActivity({ studentId, initialPaymentId, targetPaymentId, targetPaymentKind = "payment", targetAttendanceDate, onOpenPayment }: { onOpenPayment?: (studentId: number, paymentId: number) => void; studentId: number; initialPaymentId?: number; targetPaymentId?: number; targetPaymentKind?: "payment" | "practice_attendance"; targetAttendanceDate?: string }) {
   const [data, setData] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -53,6 +53,9 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
   const dialog = useRef<HTMLDialogElement>(null);
   const [formError, setFormError] = useState("");
   const [date, setDate] = useState("");
+  const [group, setGroup] = useState(false);
+  const [studentCount, setStudentCount] = useState("2");
+  const [studentIds, setStudentIds] = useState<number[]>([studentId]);
   const [presets, setPresets] = useState<PaymentPreset[]>([]);
   const [presetId, setPresetId] = useState("");
   const [presetsLoading, setPresetsLoading] = useState(false);
@@ -64,7 +67,7 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
   const [amount, setAmount] = useState("");
   const [allocations, setAllocations] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState("");
-  const presetToMatch = useRef<Pick<Activity["logs"][number], "amountMinor" | "allocations"> | null>(null);
+  const presetToMatch = useRef<Pick<Activity["logs"][number], "amountMinor" | "allocations" | "studentCount"> | null>(null);
   const requestKey = useRef("");
   const submitted = useRef<string | null>(null);
   const initialPaymentOpened = useRef<number | null>(null);
@@ -73,7 +76,6 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
   const scrolledAttendanceTarget = useRef("");
   const scrolledPaymentTarget = useRef<number | null>(null);
   const url = `/api/students/${studentId}/activity`;
-  const useRecordedAbsences = useRecordedAbsencesMode();
 
   useEffect(() => {
     const loadColumns = () => setActivityLogColumns(readActivityLogColumns());
@@ -96,12 +98,12 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError("");
-    fetch(`${url}?useRecordedAbsences=${useRecordedAbsences}${initialPaymentId ? `&paymentId=${initialPaymentId}` : ""}`, { signal: controller.signal })
+    fetch(`${url}${initialPaymentId ? `?paymentId=${initialPaymentId}` : ""}`, { signal: controller.signal })
       .then(readResponse).then((body) => { if (!controller.signal.aborted) setData(body as Activity); })
       .catch((reason) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load student activity."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [url, reload, initialPaymentId, useRecordedAbsences]);
+  }, [url, reload, initialPaymentId]);
   useEffect(() => {
     const refresh = (event: Event) => { if ((event as CustomEvent<number>).detail === studentId) setReload((value) => value + 1); };
     const refreshActivity = () => setReload((value) => value + 1);
@@ -135,7 +137,7 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
         setPresets(loaded);
         const payment = presetToMatch.current;
         if (payment) {
-          const match = loaded.find((preset) => preset.amountMinor === payment.amountMinor && preset.allocations.length === payment.allocations.length && preset.allocations.every((allocation) => payment.allocations.some((saved) => saved.courseId === allocation.courseId && saved.allowance === allocation.allowance)));
+          const match = loaded.find((preset) => (preset.studentCount ?? 1) === (payment.studentCount ?? 1) && preset.amountMinor === payment.amountMinor && preset.allocations.length === payment.allocations.length && preset.allocations.every((allocation) => payment.allocations.some((saved) => saved.courseId === allocation.courseId && saved.allowance === allocation.allowance)));
           setPresetId(match ? String(match.id) : "");
           presetToMatch.current = null;
         }
@@ -149,7 +151,8 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
   function open(next: "payment") {
     // Payments are returned newest first independently of the current activity-log page.
     const previous = data?.payments[0];
-    presetToMatch.current = previous ?? null;
+    presetToMatch.current = previous ? { ...previous, studentCount: 1 } : null;
+    setGroup(false); setStudentCount("2"); setStudentIds([studentId]);
     setEditingPaymentId(null); setConfirmDelete(false); setReceivedMethod(data?.paymentMethods.find((method) => method.toLocaleLowerCase() === "cash") ?? "");
     setPresetId(""); setPresets([]);
     setDate(schoolToday());
@@ -158,10 +161,11 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
     setNotes(previous?.notes ?? ""); setFormError("");
     submitted.current = null; requestKey.current = crypto.randomUUID(); setMode(next);
   }
-  function editPayment(row: Pick<Activity["logs"][number], "id" | "eventDate" | "amountMinor" | "notes" | "allocations" | "receivedMethod">) {
+  function editPayment(row: Pick<Activity["logs"][number], "id" | "eventDate" | "amountMinor" | "notes" | "allocations" | "receivedMethod" | "studentCount" | "students">) {
     open("payment");
     presetToMatch.current = row;
     setEditingPaymentId(row.id);
+    setGroup((row.studentCount ?? 1) > 1); setStudentCount(String(Math.max(2, row.studentCount ?? 2))); setStudentIds(row.students?.map(student => student.id) ?? [studentId]);
     setDate(row.eventDate.slice(0, 10)); setAmount((row.amountMinor! / 100).toFixed(2));
     setNotes(row.notes); setReceivedMethod(row.receivedMethod ?? "");
     setAllocations(Object.fromEntries(row.allocations.map((a) => [String(a.courseId), String(a.allowance)])));
@@ -207,7 +211,8 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
     if (saving.current || !mode) return;
     if (mode === "payment" && Object.keys(allocations).length === 0) { setFormError("Select at least one course and enter its class allowance."); return; }
     if (!receivedMethod) { setFormError("Choose how you received this payment."); return; }
-    const payload = { paymentId: editingPaymentId, kind: "payment", requestKey: requestKey.current, notes, paidOn: date, amount, receivedMethod, allocations: Object.entries(allocations).map(([id, allowance]) => ({ courseId: Number(id), allowance: Number(allowance) })) };
+    if (group && (!Number.isSafeInteger(Number(studentCount)) || Number(studentCount) < 2 || studentIds.length !== Number(studentCount))) { setFormError("Select exactly the configured number of students, including the payer."); return; }
+    const payload = { studentCount: group ? Number(studentCount) : 1, studentIds: group ? studentIds : [studentId], paymentId: editingPaymentId, kind: "payment", requestKey: requestKey.current, notes, paidOn: date, amount, receivedMethod, allocations: Object.entries(allocations).map(([id, allowance]) => ({ courseId: Number(id), allowance: Number(allowance) })) };
     saving.current = true; setBusy(true); setFormError("");
     submitted.current ??= JSON.stringify(payload);
     try {
@@ -253,6 +258,32 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
       saving.current = false; setBusy(false);
     }
   }
+  async function toggleFreeMissed(row: Activity["logs"][number]) {
+    if (saving.current || loading || (row.kind !== "missed" && row.kind !== "free_missed") || !row.courseId) return;
+    saving.current = true;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await readResponse(await fetch("/api/class-attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          courseId: row.courseId,
+          classDate: row.eventDate.slice(0, 10),
+          startTime: row.eventDate.slice(11, 16),
+          studentIds: [],
+          freeMissedChanges: [{ studentId, free: row.kind === "missed" }],
+        }),
+      }));
+      setReload((value) => value + 1);
+      window.dispatchEvent(new Event("student-activity-updated"));
+      window.dispatchEvent(new Event("calendar-updated"));
+      setNotice(row.kind === "missed" ? "Free missed attendance enabled." : "Free missed attendance disabled.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not update free missed attendance.");
+    } finally {
+      saving.current = false; setBusy(false);
+    }
+  }
 
   const connections = (data?.logs ?? []).flatMap((payment, paymentIndex) => {
     if (payment.kind !== "payment") return [];
@@ -272,7 +303,7 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
     return { ...connection, lane };
   });
   const connectorWidth = laneEnds.length ? 12 + laneEnds.length * 10 : 0;
-  const firstTargetAttendance = targetAttendanceDate ? data?.logs.findIndex((row) => (row.kind === "attendance" || row.kind === "missed" || row.kind === "practice_attendance") && row.eventDate.slice(0, 10) === targetAttendanceDate) : -1;
+  const firstTargetAttendance = targetAttendanceDate ? data?.logs.findIndex((row) => (row.kind === "attendance" || row.kind === "missed" || row.kind === "free_missed" || row.kind === "practice_attendance") && row.eventDate.slice(0, 10) === targetAttendanceDate) : -1;
 
   return <section aria-labelledby="student-activity-title" className="mt-6 space-y-5 rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="student-activity-title" className="m-0 text-xl font-normal">Attendance & payments</h2><div className="flex flex-wrap gap-2"><button type="button" className={primary} disabled={loading || !data || !data.courses.length} onClick={() => open("payment")}>Record payment</button></div></div>
@@ -301,20 +332,20 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
               <tr>{["Type", "Date", "Class / event", "Attendance / amount", ...(activityLogColumns.recordedBy ? ["Recorded by"] : []), ...(activityLogColumns.schoolTransfer ? ["School transfer"] : []), "Actions"].map((label) => <th key={label} scope="col" className="px-3 py-3 font-semibold">{label}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
-              {data.logs.map((row, rowIndex) => { const paymentTargeted = row.kind === targetPaymentKind && row.id === targetPaymentId; const attendanceTargeted = rowIndex === firstTargetAttendance; return <tr key={`${row.kind}-${row.id}-${row.eventDate}`} ref={paymentTargeted ? paymentTarget : attendanceTargeted ? attendanceTarget : undefined} className={`align-top ${paymentTargeted ? "bg-cyan-50/70" : attendanceTargeted ? "bg-lime-50/70" : ""}`}>
+              {data.logs.map((row, rowIndex) => { const paymentTargeted = row.kind === targetPaymentKind && row.id === targetPaymentId; const linkedPayment = row.kind === "payment" && row.payer && row.payer.id !== studentId; const attendanceTargeted = rowIndex === firstTargetAttendance; return <tr key={`${row.kind}-${row.id}-${row.eventDate}`} ref={paymentTargeted ? paymentTarget : attendanceTargeted ? attendanceTarget : undefined} className={`align-top ${paymentTargeted ? "bg-cyan-50/70" : attendanceTargeted ? "bg-lime-50/70" : ""}`}>
                 <td className="relative px-3 py-4" style={{ paddingLeft: 12 + connectorWidth }}>
                   {positionedConnections.map((connection) => rowIndex >= connection.first && rowIndex <= connection.last && <span key={connection.paymentId} aria-hidden="true">
                     <span className="pointer-events-none absolute border-l-2 border-lime-600" style={{ left: 10 + connection.lane * 10, top: rowIndex === connection.first ? 28 : -1, bottom: rowIndex === connection.last ? "calc(100% - 28px)" : -1 }} />
                     {connection.rows.includes(rowIndex) && <span className="pointer-events-none absolute top-7 border-t-2 border-lime-600" style={{ left: 10 + connection.lane * 10, width: connectorWidth - connection.lane * 10 }} />}
                   </span>)}
                   {row.kind !== "payment" && connections.filter((connection) => connection.rows.includes(rowIndex)).map((connection) => <span key={connection.paymentId} className="sr-only">Covered by payment #{connection.paymentId}. </span>)}
-                  <span className={`relative inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${row.kind === "payment" ? "bg-lime-50 text-lime-800" : row.kind === "missed" ? "bg-amber-50 text-amber-800" : row.kind === "cancelled" ? "bg-stone-100 text-stone-600" : "bg-blue-50 text-blue-800"}`}>{row.kind === "practice_attendance" ? "Practice attendance" : row.kind === "payment" ? "Payment" : row.kind === "missed" ? "Missed" : row.kind === "cancelled" ? "Cancelled" : "Attendance"}</span></td>
+                  <span className={`relative inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${row.kind === "payment" ? "bg-lime-50 text-lime-800" : row.kind === "missed" ? "bg-amber-50 text-amber-800" : row.kind === "free_missed" ? "bg-teal-50 text-teal-800" : row.kind === "cancelled" ? "bg-stone-100 text-stone-600" : "bg-blue-50 text-blue-800"}`}>{row.kind === "practice_attendance" ? "Practice attendance" : row.kind === "payment" ? ((row.studentCount ?? 1) > 1 ? "Group payment" : "Payment") : row.kind === "missed" ? "Missed" : row.kind === "free_missed" ? "Free missed attendance" : row.kind === "cancelled" ? "Cancelled" : "Attendance"}</span></td>
                 <td className="whitespace-nowrap px-3 py-4 text-xs text-slate-500"><time dateTime={row.eventDate.slice(0, 10)}>{formatActivityDate(row.eventDate)}</time></td>
                 <td className="px-3 py-4">{row.kind === "payment" ? row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1">{allocation.courseName}</p>) : row.practiceId ? <><a className="underline" href={`/practice-parties/${row.practiceId}`}>{row.courseName}</a>{row.voidedAt && <p className="text-red-700">Voided</p>}{row.notes && <p className="text-xs text-slate-500">{row.notes}</p>}</> : row.courseName}</td>
-                <td className="px-3 py-4">{row.kind === "practice_attendance" ? <span className="whitespace-nowrap text-lime-700">Attended{row.amountMinor !== null && <span className="mt-1 block">Donation {formatMoney(row.amountMinor)}</span>}</span> : row.kind === "payment" ? <>{row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1 whitespace-nowrap">Next {allocation.allowance} classes</p>)}<span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-slate-700">{row.receivedMethod || "CASH"}</span></> : row.kind === "missed" ? <span className="whitespace-nowrap text-amber-800">1 missed</span> : row.kind === "cancelled" ? <span className="whitespace-nowrap text-slate-500">Cancelled · no credit used</span> : row.complimentary ? <span className="whitespace-nowrap text-lime-700">Free attendance{row.complimentaryBy && <span className="mt-1 block max-w-40 truncate text-xs text-slate-500" title={`Granted by ${row.complimentaryBy}`}>Granted by {row.complimentaryBy}</span>}{row.complimentaryAt && <time className="mt-1 block whitespace-nowrap text-xs text-slate-500" dateTime={row.complimentaryAt}>{formatLogDate(row.complimentaryAt)}</time>}</span> : "1 attended"}</td>
+                <td className="px-3 py-4">{row.kind === "practice_attendance" ? <span className="whitespace-nowrap text-lime-700">Attended{row.amountMinor !== null && <span className="mt-1 block">Donation {formatMoney(row.amountMinor)}</span>}</span> : row.kind === "payment" ? <>{row.amountMinor !== null && <p className="m-0 mb-1 font-semibold">{formatMoney(row.amountMinor)}</p>}{row.studentCount && row.studentCount > 1 && <p className="m-0 mb-1 text-xs">{row.studentCount} students · allowance per student</p>}{row.payer && linkedPayment && <span className="mb-2 flex items-center gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-200 text-xs">{row.payer.picture ? <img src={row.payer.picture} alt="" className="h-full w-full object-cover" /> : `${row.payer.firstName[0]}${row.payer.lastName[0]}`}</span>Paid by {row.payer.firstName} {row.payer.lastName}</span>}{!linkedPayment && row.students && <p className="m-0 mb-2 text-xs">Covers: {row.students.map(student => `${student.firstName} ${student.lastName}`).join(', ')}</p>}{row.allocations.map((allocation) => <p key={allocation.courseId} className="m-0 mb-1 whitespace-nowrap">Next {allocation.allowance} classes</p>)}{!linkedPayment && <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-slate-700">{row.receivedMethod || "CASH"}</span>}{row.notes && <p className="mt-1 text-xs text-slate-500">{row.notes}</p>}</> : row.kind === "missed" ? <span className="whitespace-nowrap text-amber-800">1 missed</span> : row.kind === "free_missed" ? <span className="whitespace-nowrap text-teal-700">Free missed attendance · no credit used</span> : row.kind === "cancelled" ? <span className="whitespace-nowrap text-slate-500">Cancelled · no credit used</span> : row.complimentary ? <span className="whitespace-nowrap text-lime-700">Free attendance{row.complimentaryBy && <span className="mt-1 block max-w-40 truncate text-xs text-slate-500" title={`Granted by ${row.complimentaryBy}`}>Granted by {row.complimentaryBy}</span>}{row.complimentaryAt && <time className="mt-1 block whitespace-nowrap text-xs text-slate-500" dateTime={row.complimentaryAt}>{formatLogDate(row.complimentaryAt)}</time>}</span> : "1 attended"}</td>
                 {activityLogColumns.recordedBy && <td className="px-3 py-4 text-xs text-slate-500"><span className="block max-w-40 truncate" title={row.recordedBy}>{row.recordedBy}</span>{row.recordedAt && <time className="mt-1 block whitespace-nowrap" dateTime={row.recordedAt}>{formatLogDate(row.recordedAt)}</time>}</td>}
-                {activityLogColumns.schoolTransfer && <td className="px-3 py-4">{row.kind === "payment" ? <PaymentTransferCheckbox paymentId={row.id} studentId={studentId} checked={row.givenToSchool === 1} disabled={loading || busy} /> : "—"}</td>}
-                <td className="px-3 py-4">{row.practiceId ? <a className={button} href={`/practice-parties/${row.practiceId}`}>View practice</a> : row.kind === "payment" ? <button type="button" className={button + " whitespace-nowrap"} disabled={loading || busy} onClick={() => editPayment(row)}>Edit payment</button> : row.kind === "missed" || row.kind === "cancelled" ? <span className="text-slate-400">—</span> : <button type="button" aria-label={`Free attendance for ${row.courseName} on ${formatLogDate(row.eventDate.slice(0, 10))}`} aria-pressed={row.complimentary === 1} disabled={loading || busy || !row.courseId} onClick={() => void toggleFreeAttendance(row)} className={`${button.replace("bg-white", "").replace("border-stone-300", "")} whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-green-600 ${row.complimentary === 1 ? "border-green-600 bg-green-600 text-white hover:bg-green-700" : "border-stone-300 bg-white text-slate-600 hover:border-green-500"}`}>{row.complimentary === 1 ? "✓ Free attendance" : "Free attendance"}</button>}</td>
+                {activityLogColumns.schoolTransfer && <td className="px-3 py-4">{row.kind === "payment" && !linkedPayment ? <PaymentTransferCheckbox paymentId={row.id} studentId={studentId} checked={row.givenToSchool === 1} disabled={loading || busy} /> : "—"}</td>}
+                <td className="px-3 py-4">{linkedPayment ? <button type="button" className={button + " whitespace-nowrap"} onClick={() => onOpenPayment?.(row.payer!.id, row.id)}>Open payer’s payment</button> : row.practiceId ? <a className={button} href={`/practice-parties/${row.practiceId}`}>View practice</a> : row.kind === "payment" ? <button type="button" className={button + " whitespace-nowrap"} disabled={loading || busy} onClick={() => editPayment(row)}>Edit payment</button> : row.kind === "missed" || row.kind === "free_missed" ? <button type="button" aria-label={`Free missed attendance for ${row.courseName} on ${formatLogDate(row.eventDate.slice(0, 10))}`} aria-pressed={row.kind === "free_missed"} disabled={loading || busy || !row.courseId} onClick={() => void toggleFreeMissed(row)} className={`${button.replace("bg-white", "").replace("border-stone-300", "")} whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-amber-600 ${row.kind === "free_missed" ? "border-amber-600 bg-amber-600 text-white hover:bg-amber-700" : "border-stone-300 bg-white text-slate-600 hover:border-amber-500"}`}>{row.kind === "free_missed" ? "✓ Free missed attendance" : "Free missed attendance"}</button> : row.kind === "cancelled" ? <span className="text-slate-400">—</span> : <button type="button" aria-label={`Free attendance for ${row.courseName} on ${formatLogDate(row.eventDate.slice(0, 10))}`} aria-pressed={row.complimentary === 1} disabled={loading || busy || !row.courseId} onClick={() => void toggleFreeAttendance(row)} className={`${button.replace("bg-white", "").replace("border-stone-300", "")} whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-green-600 ${row.complimentary === 1 ? "border-green-600 bg-green-600 text-white hover:bg-green-700" : "border-stone-300 bg-white text-slate-600 hover:border-green-500"}`}>{row.complimentary === 1 ? "✓ Free attendance" : "Free attendance"}</button>}</td>
               </tr>; })}
               {!data.logs.length && <tr><td colSpan={5 + Number(activityLogColumns.recordedBy) + Number(activityLogColumns.schoolTransfer)} className="px-3 py-6 text-center text-slate-500">No attendance or payment logs yet.</td></tr>}
             </tbody>
@@ -322,11 +353,7 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
         </div>
       </div>
     </>}
-    {mode && data && <dialog ref={dialog} aria-labelledby="activity-dialog-title" aria-describedby="activity-dialog-help" className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-xl border border-stone-200 bg-white p-6 text-slate-800 shadow-2xl backdrop:bg-slate-950/60" onCancel={(event) => { event.preventDefault(); closePayment(); }} onClick={(event) => {
-      if (event.target !== event.currentTarget) return;
-      const bounds = event.currentTarget.getBoundingClientRect();
-      if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closePayment();
-    }}>
+    {mode && data && <dialog ref={dialog} aria-labelledby="activity-dialog-title" aria-describedby="activity-dialog-help" className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-xl border border-stone-200 bg-white p-6 text-slate-800 shadow-2xl backdrop:bg-slate-950/60" onCancel={(event) => { event.preventDefault(); closePayment(); }}>
       <h2 id="activity-dialog-title" className="m-0 text-xl font-normal">{editingPaymentId ? "Edit payment" : "Record payment"}</h2>
       <p id="activity-dialog-help" className="font-sans text-sm leading-5 text-slate-500">{"Record the money received and how many classes it covers in each course. Use 0 for a class-credit-only payment."}</p>
       <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
@@ -340,20 +367,21 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
               const preset = presets.find((item) => item.id === Number(selected));
               if (!preset) return;
               if (preset.allocations.some((a) => !data.courses.some((c) => c.id === a.courseId))) { setFormError("A course in this preset is unavailable. Close the popup and reload the logs."); return; }
-              const draft = presetDraft(preset); setPresetId(selected); setAmount(draft.amount); setAllocations(draft.allocations); setFormError("");
+              const draft = presetDraft(preset); setPresetId(selected); setAmount(draft.amount); setAllocations(draft.allocations); setGroup((preset.studentCount ?? 1) > 1); setStudentCount(String(Math.max(2, preset.studentCount ?? 2))); setStudentIds([studentId]); setFormError("");
             }}><option value="">{presetsLoading ? "Loading presets…" : "Custom payment"}</option>{presets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name} — {formatMoney(preset.amountMinor)}</option>)}</select></label>
             <p className="m-0 text-xs font-normal text-slate-500">Choose a preset to fill the amount and classes below, then adjust if needed. <a href="/courses#payment-presets" target="_blank" rel="noopener noreferrer" className="underline">Manage presets</a></p>
             {presetsError && <p role="alert" className="text-xs font-normal text-red-700">{presetsError} <button type="button" className={button} onClick={() => setPresetRetry((n) => n + 1)}>Retry</button></p>}
             {!presetsLoading && !presetsError && !presets.length && <p className="text-xs font-normal text-slate-500">No presets yet. Add one on the Courses page, or enter this payment manually.</p>}
+            <PaymentGroupFields payerId={studentId} group={group} count={studentCount} selected={studentIds} onGroup={value => { setGroup(value); setPresetId(""); presetToMatch.current = null; }} onCount={value => { setStudentCount(value); setPresetId(""); presetToMatch.current = null; }} onSelected={setStudentIds} />
             <label className="block">Amount received (RON)<input required type="text" inputMode="decimal" pattern="[0-9]{1,6}([.,][0-9]{1,2})?" maxLength={9} placeholder="e.g. 0 or 200.00" value={amount} onChange={(event) => { presetToMatch.current = null; setAmount(event.target.value); setPresetId(""); }} className={inputClass} /></label>
-            <fieldset className="space-y-3 rounded-lg border border-stone-200 p-3"><legend className="px-1">Classes covered by course</legend>{data.courses.map((course) => <div key={course.id} className="flex items-center justify-between gap-3"><label className="flex items-center gap-2"><input type="checkbox" checked={course.id in allocations} onChange={(event) => { presetToMatch.current = null; setPresetId(""); setAllocations((current) => { const next = { ...current }; if (event.target.checked) next[course.id] = "1"; else delete next[course.id]; return next; }); }} className="h-4 w-4 accent-lime-700" />{course.name}</label>{course.id in allocations && <input aria-label={`Classes covered for ${course.name}`} type="number" min="1" max="10000" step="1" required value={allocations[course.id]} onChange={(event) => { presetToMatch.current = null; setPresetId(""); setAllocations((current) => ({ ...current, [course.id]: event.target.value })); }} className="w-20 shrink-0 rounded-md border border-stone-300 p-2 text-sm" />}</div>)}</fieldset>
+            <fieldset className="space-y-3 rounded-lg border border-stone-200 p-3"><legend className="px-1">Classes covered by course (per student)</legend>{data.courses.map((course) => <div key={course.id} className="flex items-center justify-between gap-3"><label className="flex items-center gap-2"><input type="checkbox" checked={course.id in allocations} onChange={(event) => { presetToMatch.current = null; setPresetId(""); setAllocations((current) => { const next = { ...current }; if (event.target.checked) next[course.id] = "1"; else delete next[course.id]; return next; }); }} className="h-4 w-4 accent-lime-700" />{course.name}</label>{course.id in allocations && <input aria-label={`Classes covered for ${course.name}`} type="number" min="1" max="10000" step="1" required value={allocations[course.id]} onChange={(event) => { presetToMatch.current = null; setPresetId(""); setAllocations((current) => ({ ...current, [course.id]: event.target.value })); }} className="w-20 shrink-0 rounded-md border border-stone-300 p-2 text-sm" />}</div>)}</fieldset>
           </>
           <label className="block">Notes (optional)<textarea maxLength={1000} rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} className={inputClass} /></label>
         </fieldset>
         {formError && <p role="alert" className="font-sans text-sm text-red-700">{formError}</p>}
         {!busy && submitted.current && <p className="font-sans text-xs text-slate-500">Retry sends the same record to prevent duplicates. Before starting a new entry, close this popup and check the log.</p>}
         {editingPaymentId && confirmDelete && <div className="mt-4 rounded-lg border border-red-200 p-3">
-          <p className="font-sans text-sm text-red-700">Delete this payment and all its course allowances? Attendance records will be kept.</p>
+          <p className="font-sans text-sm text-red-700">Delete this payment and its course allowances for every covered student? Attendance records will be kept.</p>
           <button type="button" className={button + " text-red-700"} disabled={busy} onClick={() => void deletePayment()}>Confirm delete payment</button> <button type="button" className={button} disabled={busy} onClick={() => setConfirmDelete(false)}>Keep payment</button>
         </div>}
         <div className="mt-5 flex flex-wrap justify-end gap-3 border-t border-stone-200 pt-4">

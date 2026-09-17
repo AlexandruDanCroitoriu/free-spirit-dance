@@ -263,7 +263,7 @@ try {
   assert.equal(new Set(ordered.map(task=>task.sortOrder)).size,ordered.length);
   const exported = await expect(exporter.GET(ownerRequest()));
   const copied=database();
-  try { await transfer.replaceDatabase(copied,exported.tables,null);
+  try { await transfer.replaceDatabase(copied,exported.tables);
     assert.deepEqual(copied.sqlite.prepare('SELECT * FROM task_preferences ORDER BY email').all(),db.sqlite.prepare('SELECT * FROM task_preferences ORDER BY email').all());
     assert.deepEqual(copied.sqlite.prepare('SELECT * FROM task_boards ORDER BY id').all(),db.sqlite.prepare('SELECT * FROM task_boards ORDER BY id').all());
     assert.deepEqual(copied.sqlite.prepare('SELECT * FROM task_lists ORDER BY id').all(),db.sqlite.prepare('SELECT * FROM task_lists ORDER BY id').all());
@@ -272,7 +272,7 @@ try {
   const withoutColors = exported.tables.filter(table=>table.name!=='task_preferences').map(table=>['task_boards','task_lists'].includes(table.name)?{...table,columns:table.columns.filter(column=>column!=='color'),rows:table.rows.map(({color,...row})=>row)}:table);
   const oldColorCopy=database();
   try {
-    await transfer.replaceDatabase(oldColorCopy,withoutColors,null);
+    await transfer.replaceDatabase(oldColorCopy,withoutColors);
     assert.equal(oldColorCopy.sqlite.prepare("SELECT COUNT(*) n FROM task_boards WHERE color!='default'").get().n,0);
     assert.equal(oldColorCopy.sqlite.prepare('SELECT COUNT(*) n FROM task_preferences').get().n,0);
     assert.deepEqual(oldColorCopy.sqlite.prepare('SELECT * FROM manual_tasks ORDER BY id').all(),db.sqlite.prepare('SELECT * FROM manual_tasks ORDER BY id').all());
@@ -284,7 +284,7 @@ try {
   legacy.push({name:'automatic_task_occurrences',columns:['id'],rows:[{id:1}]},{name:'task_rule_state',columns:['rule_key'],rows:[{rule_key:'retired'}]});
   const legacyCopy = database();
   try {
-    await transfer.replaceDatabase(legacyCopy,legacy,null);
+    await transfer.replaceDatabase(legacyCopy,legacy);
     assert.equal(legacyCopy.sqlite.prepare('SELECT name FROM task_boards WHERE id=1').get().name,'School');
     assert.equal(legacyCopy.sqlite.prepare('SELECT COUNT(*) AS n FROM manual_tasks WHERE list_id != 1 OR list_id IS NULL').get().n,0);
     assert.equal(legacyCopy.sqlite.prepare('SELECT COUNT(*) AS n FROM manual_tasks').get().n,exported.tables.find(table=>table.name==='manual_tasks').rows.length);

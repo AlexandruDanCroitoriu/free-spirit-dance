@@ -3,7 +3,10 @@ import { env } from "../../lib/storage";
 const json = (data: unknown, status = 200) => Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const localAdministrator = "administrator@local";
-type PaymentType = "course" | "practice_party";
+type PaymentType = "course" | `free_event:${number}`;
+function isPaymentType(value: unknown): value is PaymentType {
+  return value === 'course' || (typeof value === 'string' && /^free_event:[1-9][0-9]*$/.test(value) && Number.isSafeInteger(Number(value.slice(11))));
+}
 type Input = { id?: unknown; empty?: unknown; giveAllForFilterId?: unknown; collectorEmail?: unknown; collectorEmails?: unknown; fromDate?: unknown; toDate?: unknown; paymentTypes?: unknown };
 
 function actor(request: Request) {
@@ -22,7 +25,7 @@ function parse(input: Input) {
   const collectorEmails = [...new Set((emails as string[]).map((value) => value.trim().toLowerCase()))];
   const fromDate = date(input.fromDate), toDate = date(input.toDate);
   const paymentTypes = input.paymentTypes === undefined ? [] : Array.isArray(input.paymentTypes) ? [...new Set(input.paymentTypes)] : null;
-  if (fromDate === undefined || toDate === undefined || (fromDate && toDate && fromDate > toDate) || !paymentTypes || paymentTypes.some((item) => item !== "course" && item !== "practice_party")) return null;
+  if (fromDate === undefined || toDate === undefined || (fromDate && toDate && fromDate > toDate) || !paymentTypes || paymentTypes.some((item) => !isPaymentType(item))) return null;
   return { collectorEmails, fromDate, toDate, paymentTypes: paymentTypes as PaymentType[] };
 }
 function filterWhere(filter: { collectorEmails: string[]; fromDate: string | null; toDate: string | null; paymentTypes: PaymentType[] }) {
@@ -30,7 +33,7 @@ function filterWhere(filter: { collectorEmails: string[]; fromDate: string | nul
   const values: (string | number)[] = [JSON.stringify(filter.collectorEmails)];
   if (filter.fromDate) { conditions.push("p.paid_on >= ?"); values.push(filter.fromDate); }
   if (filter.toDate) { conditions.push("p.paid_on <= ?"); values.push(filter.toDate); }
-  conditions.push(filter.paymentTypes.length ? `(${filter.paymentTypes.map((type) => type === "course" ? "p.purpose = 'course'" : "p.purpose = 'practice_donation'").join(" OR ")})` : "1 = 0");
+  conditions.push(filter.paymentTypes.length ? `(${filter.paymentTypes.map((type) => type === "course" ? "p.purpose = 'course'" : `(p.purpose = 'free_event_donation' AND p.event_id = ${Number(type.slice(11))})`).join(" OR ")})` : "1 = 0");
   return { where: conditions.join(" AND "), values };
 }
 
@@ -49,19 +52,20 @@ export async function GET(request: Request) {
       if (!Number.isSafeInteger(filterId) || filterId < 1) return json({ error: "Invalid saved filter." }, 400);
       const filter = await env.DB.prepare("SELECT id, collector_email AS collectorEmail, collector_emails AS collectorEmails, from_date AS fromDate, to_date AS toDate, payment_types AS paymentTypes, payment_kind AS paymentKind FROM payment_transfer_filters WHERE id = ? AND administrator_email = ?").bind(filterId, email).first<{ id: number; collectorEmail: string; collectorEmails: string; fromDate: string | null; toDate: string | null; paymentTypes: string; paymentKind: string }>();
       if (!filter) return json({ error: "Saved filter not found." }, 404);
-      const clause = filterWhere({ ...filter, collectorEmails: JSON.parse(filter.collectorEmails), paymentTypes: filter.paymentTypes.split(",").filter((type): type is PaymentType => type === "course" || type === "practice_party") });
-      const payments = await env.DB.prepare(`SELECT p.id, p.purpose, p.practice_id AS practiceId, p.practice_description AS practiceDescription, p.student_id AS studentId, s.first_name AS firstName, s.last_name AS lastName, s.email AS studentEmail, s.picture AS studentPicture, p.paid_on AS paidOn, p.amount_minor AS amountMinor, p.received_method AS receivedMethod, p.given_to_school AS givenToSchool FROM school_payment_records p JOIN students s ON s.id = p.student_id WHERE ${clause.where} ORDER BY p.paid_on DESC, p.id DESC`).bind(...clause.values).all<{ id: number; purpose: "course" | "practice_donation"; practiceId: number | null; practiceDescription: string | null; studentId: number; firstName: string; lastName: string; studentEmail: string | null; studentPicture: string | null; paidOn: string; amountMinor: number; receivedMethod: string; givenToSchool: number }>();
+      const clause = filterWhere({ ...filter, collectorEmails: JSON.parse(filter.collectorEmails), paymentTypes: filter.paymentTypes.split(",").filter(isPaymentType) });
+      const payments = await env.DB.prepare(`SELECT p.id, p.purpose, p.event_id AS eventId, p.meeting_id AS meetingId, p.event_name AS eventName, p.student_id AS studentId, s.first_name AS firstName, s.last_name AS lastName, s.email AS studentEmail, s.picture AS studentPicture, p.paid_on AS paidOn, p.amount_minor AS amountMinor, p.received_method AS receivedMethod, p.given_to_school AS givenToSchool FROM report_payment_records p JOIN students s ON s.id = p.student_id WHERE ${clause.where} ORDER BY p.paid_on DESC, p.id DESC`).bind(...clause.values).all<{ id: number; purpose: "course" | "free_event_donation"; eventId: number | null; meetingId: number | null; eventName: string | null; studentId: number; firstName: string; lastName: string; studentEmail: string | null; studentPicture: string | null; paidOn: string; amountMinor: number; receivedMethod: string; givenToSchool: number }>();
       const coursePaymentIds = payments.results.filter((payment) => payment.purpose === "course").map((payment) => payment.id);
       const allowances = coursePaymentIds.length ? await env.DB.prepare(`SELECT payment_id AS paymentId, course_name AS courseName, allowance FROM payment_course_allowances WHERE payment_id IN (SELECT value FROM json_each(?)) ORDER BY payment_id, course_name COLLATE NOCASE`).bind(JSON.stringify(coursePaymentIds)).all<{ paymentId: number; courseName: string; allowance: number }>() : { results: [] as { paymentId: number; courseName: string; allowance: number }[] };
       return json({ payments: payments.results.map((payment) => ({ ...payment, allocations: allowances.results.filter((allowance) => allowance.paymentId === payment.id) })) });
     }
     const filters = await env.DB.prepare(`SELECT f.id, f.collector_email AS collectorEmail, f.collector_emails AS collectorEmails, f.from_date AS fromDate, f.to_date AS toDate, f.payment_types AS paymentTypes, f.payment_kind AS paymentKind, profile.name AS collectorName,
-      (SELECT COALESCE(SUM(p.amount_minor), 0) FROM school_payment_records p WHERE p.recorded_by COLLATE NOCASE IN (SELECT value FROM json_each(f.collector_emails)) AND (f.from_date IS NULL OR p.paid_on >= f.from_date) AND (f.to_date IS NULL OR p.paid_on <= f.to_date) AND ((instr(',' || f.payment_types || ',', ',course,') > 0 AND p.purpose = 'course') OR (instr(',' || f.payment_types || ',', ',practice_party,') > 0 AND p.purpose = 'practice_donation'))) AS totalMinor,
-      (SELECT COUNT(*) FROM school_payment_records p WHERE p.recorded_by COLLATE NOCASE IN (SELECT value FROM json_each(f.collector_emails)) AND (f.from_date IS NULL OR p.paid_on >= f.from_date) AND (f.to_date IS NULL OR p.paid_on <= f.to_date) AND ((instr(',' || f.payment_types || ',', ',course,') > 0 AND p.purpose = 'course') OR (instr(',' || f.payment_types || ',', ',practice_party,') > 0 AND p.purpose = 'practice_donation'))) AS paymentCount,
-      (SELECT COALESCE(MIN(p.given_to_school), 0) FROM school_payment_records p WHERE p.recorded_by COLLATE NOCASE IN (SELECT value FROM json_each(f.collector_emails)) AND (f.from_date IS NULL OR p.paid_on >= f.from_date) AND (f.to_date IS NULL OR p.paid_on <= f.to_date) AND ((instr(',' || f.payment_types || ',', ',course,') > 0 AND p.purpose = 'course') OR (instr(',' || f.payment_types || ',', ',practice_party,') > 0 AND p.purpose = 'practice_donation'))) AS allGiven
+      (SELECT COALESCE(SUM(p.amount_minor), 0) FROM report_payment_records p WHERE p.recorded_by COLLATE NOCASE IN (SELECT value FROM json_each(f.collector_emails)) AND (f.from_date IS NULL OR p.paid_on >= f.from_date) AND (f.to_date IS NULL OR p.paid_on <= f.to_date) AND ((instr(',' || f.payment_types || ',', ',course,') > 0 AND p.purpose = 'course') OR (p.purpose = 'free_event_donation' AND instr(',' || f.payment_types || ',', ',free_event:' || p.event_id || ',') > 0))) AS totalMinor,
+      (SELECT COUNT(*) FROM report_payment_records p WHERE p.recorded_by COLLATE NOCASE IN (SELECT value FROM json_each(f.collector_emails)) AND (f.from_date IS NULL OR p.paid_on >= f.from_date) AND (f.to_date IS NULL OR p.paid_on <= f.to_date) AND ((instr(',' || f.payment_types || ',', ',course,') > 0 AND p.purpose = 'course') OR (p.purpose = 'free_event_donation' AND instr(',' || f.payment_types || ',', ',free_event:' || p.event_id || ',') > 0))) AS paymentCount,
+      (SELECT COALESCE(MIN(p.given_to_school), 0) FROM report_payment_records p WHERE p.recorded_by COLLATE NOCASE IN (SELECT value FROM json_each(f.collector_emails)) AND (f.from_date IS NULL OR p.paid_on >= f.from_date) AND (f.to_date IS NULL OR p.paid_on <= f.to_date) AND ((instr(',' || f.payment_types || ',', ',course,') > 0 AND p.purpose = 'course') OR (p.purpose = 'free_event_donation' AND instr(',' || f.payment_types || ',', ',free_event:' || p.event_id || ',') > 0))) AS allGiven
       FROM payment_transfer_filters f LEFT JOIN admin_profiles profile ON profile.email = f.collector_email WHERE f.administrator_email = ? ORDER BY f.sort_order, f.id`).bind(email).all();
     const collectors = await env.DB.prepare("SELECT directory.email, profile.name, profile.picture FROM (SELECT email FROM administrator_permissions UNION SELECT ? AS email) directory LEFT JOIN admin_profiles profile ON profile.email = directory.email ORDER BY COALESCE(NULLIF(TRIM(profile.name), ''), directory.email) COLLATE NOCASE").bind(email).all<{ email: string; name: string | null; picture: string | null }>();
-    return json({ filters: filters.results.map((filter) => ({ ...filter, collectorEmails: JSON.parse(filter.collectorEmails as string), isDraft: filter.paymentKind === "multiple_courses" })), collectors: collectors.results });
+    const events = await env.DB.prepare("SELECT id, name FROM free_events ORDER BY name COLLATE NOCASE, id").all();
+    return json({ events: events.results, filters: filters.results.map((filter) => ({ ...filter, collectorEmails: JSON.parse(filter.collectorEmails as string), isDraft: filter.paymentKind === "multiple_courses" })), collectors: collectors.results });
   } catch (error) { console.error("Could not load saved payment transfer filters", error); return json({ error: id !== null ? "Could not load report payments." : "Could not load saved transfer filters." }, 500); }
 }
 
@@ -72,10 +76,10 @@ export async function POST(request: Request) {
     try {
       const filter = await env.DB.prepare("SELECT collector_email AS collectorEmail, collector_emails AS collectorEmails, from_date AS fromDate, to_date AS toDate, payment_types AS paymentTypes, payment_kind AS paymentKind FROM payment_transfer_filters WHERE id = ? AND administrator_email = ?").bind(raw!.giveAllForFilterId, email).first<{ collectorEmail: string; collectorEmails: string; fromDate: string | null; toDate: string | null; paymentTypes: string; paymentKind: string }>();
       if (!filter) return json({ error: "Saved filter not found." }, 404);
-      const clause = filterWhere({ ...filter, collectorEmails: JSON.parse(filter.collectorEmails), paymentTypes: filter.paymentTypes.split(",").filter((type): type is PaymentType => type === "course" || type === "practice_party") });
+      const clause = filterWhere({ ...filter, collectorEmails: JSON.parse(filter.collectorEmails), paymentTypes: filter.paymentTypes.split(",").filter(isPaymentType) });
       const results = await env.DB.batch([
-        env.DB.prepare(`UPDATE student_payments SET given_to_school = 1 WHERE given_to_school = 0 AND id IN (SELECT p.id FROM school_payment_records p WHERE ${clause.where} AND p.purpose = 'course')`).bind(...clause.values),
-        env.DB.prepare(`UPDATE practice_attendance SET donation_given_to_school = 1 WHERE donation_amount_minor IS NOT NULL AND donation_given_to_school = 0 AND id IN (SELECT p.id FROM school_payment_records p WHERE ${clause.where} AND p.purpose = 'practice_donation')`).bind(...clause.values),
+        env.DB.prepare(`UPDATE student_payments SET given_to_school = 1 WHERE given_to_school = 0 AND id IN (SELECT p.id FROM report_payment_records p WHERE ${clause.where} AND p.purpose = 'course')`).bind(...clause.values),
+        env.DB.prepare(`UPDATE free_event_attendance SET donation_given_to_school = 1 WHERE donation_given_to_school = 0 AND id IN (SELECT p.id FROM report_payment_records p WHERE ${clause.where} AND p.purpose = 'free_event_donation')`).bind(...clause.values),
       ]);
       return json({ updated: results.reduce((count, result) => count + result.meta.changes, 0) });
     } catch (error) { console.error("Could not give report payments to school", error); return json({ error: "Could not update the report payments." }, 500); }

@@ -43,7 +43,7 @@ assert.equal((await api.POST(request('POST', null, undefined, 'https://bad.examp
 const one = await api.POST(request()); assert.equal(one.status, 200); assert.equal((await one.json()).id, 'working');
 assert.deepEqual(first.sqlite.prepare('SELECT email,method FROM administrator_payment_methods ORDER BY email,method').all(), production.sqlite.prepare('SELECT email,method FROM administrator_payment_methods ORDER BY email,method').all());
 assert.deepEqual(first.sqlite.prepare('SELECT administrator_email,collector_email,collector_emails,from_date,to_date,payment_types FROM payment_transfer_filters').all(), production.sqlite.prepare('SELECT administrator_email,collector_email,collector_emails,from_date,to_date,payment_types FROM payment_transfer_filters').all());
-assert.deepEqual(first.sqlite.prepare('SELECT student_id,course_id,class_date,start_time FROM history_absences').all(), production.sqlite.prepare('SELECT student_id,course_id,class_date,start_time FROM history_absences').all());
+assert.equal(first.sqlite.prepare("SELECT name FROM sqlite_master WHERE name = 'history_absences'").get(), undefined);
 first.sqlite.exec("UPDATE students SET first_name='Edited locally'");
 await firstImages.put('student-test', 'local-image');
 const two = await api.POST(request()); assert.equal(two.status, 200); assert.equal((await two.json()).id, 'copy2');
@@ -58,7 +58,7 @@ assert.equal(catalog.sqlite.prepare('SELECT first_name FROM students').get().fir
 assert.equal(catalogImages.items.get('student-test'), 'local-image');
 assert.equal(catalog.sqlite.prepare('SELECT COUNT(*) n FROM group_sheet_audit').get().n, 0);
 assert.deepEqual(catalog.sqlite.prepare('SELECT administrator_email,collector_email,collector_emails,from_date,to_date,payment_types FROM payment_transfer_filters').all(), first.sqlite.prepare('SELECT administrator_email,collector_email,collector_emails,from_date,to_date,payment_types FROM payment_transfer_filters').all());
-assert.deepEqual(catalog.sqlite.prepare('SELECT student_id,course_id,class_date,start_time FROM history_absences').all(), first.sqlite.prepare('SELECT student_id,course_id,class_date,start_time FROM history_absences').all());
+assert.equal(catalog.sqlite.prepare("SELECT name FROM sqlite_master WHERE name = 'history_absences'").get(), undefined);
 assert.equal((await api.PATCH(request('PATCH', { id: 'copy2', name: 'September review' }))).status, 200);
 assert.equal((await api.PATCH(request('PATCH', { id: 'copy2', name: ' ' }))).status, 400);
 assert.equal(first.sqlite.prepare("SELECT name FROM local_database_copies WHERE id='copy2'").get().name, 'September review');

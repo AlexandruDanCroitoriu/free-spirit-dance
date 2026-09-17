@@ -1,211 +1,141 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
-const { courseCreditBalance } = await import('data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(readFileSync('app/lib/student-activity.ts', 'utf8'))).toString('base64'));
 
-// A historical payment consumes held classes; covered blanks become automatic misses.
+const { courseCreditBalance, resolveSharedPaymentStarts } = await import('data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(readFileSync('app/lib/student-activity.ts', 'utf8'))).toString('base64'));
+
+const course = { courseId: 1, courseName: 'Beginners', startDate: '2026-01-01', endDate: null };
+const thursdayAtSeven = [{ day: 'Thursday', startTime: '19:00' }];
+
+// A confirmed class occurrence without attendance is missed and consumes a
+// package credit; an unrelated recurring timetable must not create a slot.
 {
-  const missed = [], covered = [], cancelled = [];
-  const history = ['2024-01-11T19:00', '2024-02-08T19:00', '2026-03-12T19:00'];
-  const presence = ['2024-01-09T19:00:00', '2024-02-06T19:00:00', '2026-03-10T19:00:00'].map(attendedAt => ({ attendedAt }));
-  const result = courseCreditBalance(
-    { courseId: 1, courseName: 'Historical', startDate: '2024-01-01', endDate: null },
-    [{ day: 'Tuesday', startTime: '19:00' }, { day: 'Thursday', startTime: '19:00' }],
-    [{ classDate: '2025-06-10', startTime: '19:00', cancelled: 0 }, { classDate: '2026-06-11', startTime: '19:00', cancelled: 1 }],
-    [{ paymentId: 1, paidOn: '2024-01-09', allowance: 10 }], presence,
-    new Date('2026-09-12T12:00:00Z'), (_, detail) => covered.push(...detail.classes.map(c => c.startsAt)),
-    slot => missed.push(slot), slot => cancelled.push(slot), history,
+  const misses = [];
+  const balance = courseCreditBalance(
+    course,
+    thursdayAtSeven,
+    [
+      { classDate: '2026-09-03', startTime: '19:00', cancelled: 0 },
+      { classDate: '2026-09-10', startTime: '19:00', cancelled: 0 },
+      { classDate: '2026-09-17', startTime: '19:00', cancelled: 0 },
+    ],
+    [{ paymentId: 1, paidOn: '2026-09-03', allowance: 4 }],
+    [{ attendedAt: '2026-09-03T19:00:00' }, { attendedAt: '2026-09-17T19:00:00' }],
+    new Date('2026-09-18T12:00:00Z'),
+    undefined,
+    slot => misses.push(slot),
   );
-  assert.deepEqual(missed, ['2024-01-11T19:00']);
-  assert.equal(result.attendanceCount, 3);
-  assert.equal(result.missedClasses, 1);
-  assert.deepEqual(cancelled, []);
-  assert.equal(covered.length, 2, 'A payment cannot cover attendance more than four weeks before its coverage start.');
-  const noHistory = [];
-  courseCreditBalance({ courseId: 1, courseName: 'Historical', startDate: null, endDate: null },
-    [{ day: 'Tuesday', startTime: '19:00' }], [], [], presence, new Date('2026-09-12T12:00:00Z'),
-    undefined, slot => noHistory.push(slot), undefined, []);
-  assert.deepEqual(noHistory, [], 'An empty catalog absence list must not fall back to generated absences');
+  assert.deepEqual(misses, ['2026-09-10T19:00']);
+  assert.equal(balance.missedClasses, 1);
+  assert.equal(balance.remainingAllowance, 1);
+  assert.equal(balance.excessAttendance, 0);
 }
-const course = { courseId: 1, courseName: 'Zouk', startDate: '2026-01-01', endDate: null };
-const schedules = [{ day: 'Monday', startTime: '19:00' }];
-const payments = [{ paidOn: '2026-01-05', allowance: 4 }];
-const run = (date, occurrences = [], attendance = [], credits = payments) => courseCreditBalance(course, schedules, occurrences, credits, attendance, new Date(date));
-assert.equal(run('2026-01-26T20:00:00Z').remainingAllowance, 4, 'A package retains credits until qualifying attendance starts it');
-const cancelled = [{ classDate: '2026-01-12', startTime: '19:00', cancelled: 1 }];
-assert.equal(run('2026-01-26T20:00:00Z', cancelled).remainingAllowance, 4);
-assert.equal(run('2026-02-02T20:00:00Z', cancelled).remainingAllowance, 4);
-assert.equal(run('2026-01-05T16:00:00Z').remainingAllowance, 4, 'future class today is not consumed');
-assert.equal(run('2026-01-05T17:00:00Z').remainingAllowance, 4, 'A same-day class without attendance does not start the package');
-assert.equal(run('2026-02-02T20:00:00Z', [], [], [...payments, { paidOn: '2026-01-12', allowance: 4 }]).remainingAllowance, 8, 'Both unstarted packages retain their allowance');
-assert.equal(run('2026-02-02T20:00:00Z', [], [{ attendedAt: '2026-02-02T19:00:00' }]).excessAttendance, 1);
-assert.equal(run('2026-01-26T20:00:00Z', [], [{ attendedAt: '2026-01-05T19:00:00' }]).excessAttendance, 0);
-assert.equal(run('2026-01-26T20:00:00Z', [], [{ attendedAt: '2026-01-05T19:00:00' }], [{ paidOn: '2026-01-12', allowance: 4 }]).excessAttendance, 0, 'later payment covers prior attendance');
-assert.equal(courseCreditBalance({ ...course, endDate: '2026-01-12' }, schedules, [], payments, [], new Date('2026-02-02T20:00:00Z')).remainingAllowance, 4);
-console.log('PASS: absent students, cancellations, restoration, school time, early renewal, uncovered attendance and course end.');
 
-const prior = [{ attendedAt: '2026-01-05T19:00:00' }];
-const renewal = [{ paidOn: '2026-01-09', allowance: 4 }];
-let balance = run('2026-01-09T10:00:00Z', [], prior, renewal);
-assert.equal(balance.remainingAllowance, 3, 'prior attendance consumes future payment immediately');
-assert.equal(balance.excessAttendance, 0);
-assert.equal(balance.attendanceCount, 1);
-assert.equal(run('2026-01-26T20:00:00Z', [], prior, renewal).remainingAllowance, 0, 'remaining three credits consumed by held classes');
-assert.equal(run('2026-01-26T20:00:00Z', cancelled, prior, renewal).remainingAllowance, 1, 'cancellation preserves credit after debt settlement');
-const debt = ['2026-01-05', '2026-01-12', '2026-01-19'].map(date => ({ attendedAt: date + 'T19:00:00' }));
-balance = run('2026-01-23T10:00:00Z', [], debt, [{ paidOn: '2026-01-23', allowance: 2 }]);
-assert.equal(balance.remainingAllowance, 0);
-assert.equal(balance.excessAttendance, 1, 'partial payment leaves unpaid attendance');
-balance = run('2026-01-24T10:00:00Z', [], debt, [{ paidOn: '2026-01-23', allowance: 2 }, { paidOn: '2026-01-24', allowance: 4 }]);
-assert.equal(balance.remainingAllowance, 3);
-assert.equal(balance.excessAttendance, 0);
-assert.equal(run('2026-01-09T10:00:00Z', [], [], renewal).remainingAllowance, 4, 'absence before payment creates no debt');
-assert.equal(run('2026-01-09T10:00:00Z', [], prior, []).excessAttendance, 1);
-console.log('PASS: retroactive attendance credit, immediate and partial settlement, multiple payments, cancellations and prior absences.');
+// Explicit historical occurrences override a later recurring schedule on that
+// date. This is the 19 March pattern: Beginners was held but not attended.
+{
+  const misses = [];
+  const balance = courseCreditBalance(
+    course,
+    [{ day: 'Thursday', startTime: '20:00' }],
+    [
+      { classDate: '2026-03-10', startTime: '19:00', cancelled: 0 },
+      { classDate: '2026-03-12', startTime: '19:00', cancelled: 0 },
+      { classDate: '2026-03-17', startTime: '19:00', cancelled: 0 },
+      { classDate: '2026-03-19', startTime: '19:00', cancelled: 0 },
+    ],
+    [{ paidOn: '2026-03-10', allowance: 8 }],
+    [{ attendedAt: '2026-03-10T19:00:00' }, { attendedAt: '2026-03-12T19:00:00' }, { attendedAt: '2026-03-17T19:00:00' }],
+    new Date('2026-03-20T12:00:00Z'),
+    undefined,
+    slot => misses.push(slot),
+  );
+  assert.deepEqual(misses, ['2026-03-19T19:00']);
+  assert.equal(balance.remainingAllowance, 4);
+}
 
-const oldDebt = courseCreditBalance(course, schedules, [], [{ paidOn: '2026-02-16', allowance: 4 }], [
-  { attendedAt: '2026-01-05T19:00:00' }, { attendedAt: '2026-02-09T19:00:00' },
-], new Date('2026-02-17T20:00:00Z'));
-assert.equal(oldDebt.excessAttendance, 1, 'A February payment must not settle a January attendance more than four weeks earlier.');
-console.log('PASS: old debt remains unpaid when it is outside the payment coverage period.');
+// Cancellations remain explicit calendar activity and never use a credit.
+{
+  const balance = courseCreditBalance(
+    course,
+    thursdayAtSeven,
+    [{ classDate: '2026-09-10', startTime: '19:00', cancelled: 1 }],
+    [{ paidOn: '2026-09-03', allowance: 2 }],
+    [{ attendedAt: '2026-09-03T19:00:00' }, { attendedAt: '2026-09-17T19:00:00' }],
+    new Date('2026-09-18T12:00:00Z'),
+  );
+  assert.equal(balance.remainingAllowance, 0);
+  assert.equal(balance.missedClasses, 0);
+}
 
-const fourWeekWindow = courseCreditBalance(
-  course, schedules, [], [{ paidOn: '2026-01-05', allowance: 8 }],
-  ['2026-01-05', '2026-01-12', '2026-01-19', '2026-01-26', '2026-02-02', '2026-02-09'].map(date => ({ attendedAt: `${date}T19:00:00` })),
-  new Date('2026-02-10T12:00:00Z'),
-);
-assert.equal(fourWeekWindow.remainingAllowance, 4, 'classes after four weeks do not consume the payment');
-assert.equal(fourWeekWindow.excessAttendance, 2, 'attendance after the four-week window is not covered');
-const extendedForCancellation = courseCreditBalance(
-  course, schedules, [{ classDate: '2026-01-19', startTime: '19:00', cancelled: 1 }], [{ paidOn: '2026-01-05', allowance: 5 }],
-  ['2026-01-05', '2026-01-12', '2026-01-26', '2026-02-02'].map(date => ({ attendedAt: `${date}T19:00:00` })),
-  new Date('2026-02-03T12:00:00Z'),
-);
-assert.equal(extendedForCancellation.remainingAllowance, 1, 'a cancelled session extends coverage to the next scheduled class');
-assert.equal(extendedForCancellation.excessAttendance, 0, 'the replacement class remains covered');
-console.log('PASS: payment coverage ends after four weeks and extends for cancelled classes.');
+// A free missed attendance waives exactly that confirmed class: it is not
+// marked attended and it does not consume a package credit.
+{
+  const misses = [];
+  const balance = courseCreditBalance(
+    course,
+    thursdayAtSeven,
+    [{ classDate: '2026-09-10', startTime: '19:00', cancelled: 0 }],
+    [{ paidOn: '2026-09-03', allowance: 1 }],
+    [],
+    new Date('2026-09-18T12:00:00Z'),
+    undefined,
+    slot => misses.push(slot),
+    undefined,
+    undefined,
+    undefined,
+    ['2026-09-10T19:00'],
+  );
+  assert.deepEqual(misses, []);
+  assert.equal(balance.missedClasses, 0);
+  assert.equal(balance.remainingAllowance, 1);
+}
 
-const recordedEarly = [
-  { attendedAt: '2026-09-03T19:00:00' },
-  { attendedAt: '2026-09-10T19:00:00' },
-];
-const beforeClass = new Date('2026-09-10T11:45:00Z');
-const earlyBalance = (attendance, credits = [], now = beforeClass) => courseCreditBalance(
-  course, [{ day: 'Thursday', startTime: '19:00' }], [], credits, attendance, now,
-);
-balance = earlyBalance(recordedEarly);
-assert.equal(balance.attendanceCount, 2);
-assert.equal(balance.paidAllowance, 0);
-assert.equal(balance.excessAttendance, 2, 'both saved attendances count before today’s class starts');
-const todayPayment = [{ paidOn: '2026-09-10', allowance: 2 }];
-balance = earlyBalance(recordedEarly, todayPayment);
-assert.equal(balance.excessAttendance, 0);
-assert.equal(balance.remainingAllowance, 0, 'early attendance consumes credit immediately');
-assert.deepEqual(earlyBalance(recordedEarly, todayPayment, new Date('2026-09-10T18:00:00Z')), balance, 'class start must not charge recorded attendance twice');
-assert.equal(earlyBalance(recordedEarly.slice(0, 1), todayPayment).remainingAllowance, 1, 'unrecorded future class preserves credit');
-assert.equal(earlyBalance([], todayPayment).remainingAllowance, 2);
-console.log('PASS: early recorded attendance counts immediately without consuming unrecorded future classes or double charging.');
+console.log('PASS: confirmed absent classes are missed, phantom schedule slots are excluded, and cancellations remain explicit.');
 
-const septemberCourse = { ...course, startDate: '2026-09-01' };
-const thursdays = [{ day: 'Thursday', startTime: '19:00' }];
-const septemberAttendance = ['2026-09-03', '2026-09-17'].map(date => ({ attendedAt: date + 'T19:00:00' }));
-const septemberPayment = [{ paidOn: '2026-09-18', allowance: 4 }];
-const september = (date, cancelled = [], credits = septemberPayment) => courseCreditBalance(septemberCourse, thursdays, cancelled, credits, septemberAttendance, new Date(date));
-assert.equal(september('2026-09-18T12:00:00Z').remainingAllowance, 1, 'September 3, 10 (missed), and 17 consume three credits');
-assert.equal(september('2026-09-18T12:00:00Z').excessAttendance, 0);
-assert.equal(september('2026-09-24T18:00:00Z').remainingAllowance, 0, 'September 24 is the fourth covered class');
-assert.equal(september('2026-09-18T12:00:00Z', [{ classDate: '2026-09-10', startTime: '19:00', cancelled: 1 }]).remainingAllowance, 2, 'cancelled classes do not consume the retroactive package');
-assert.equal(september('2026-09-24T18:00:00Z', [], [...septemberPayment, { paidOn: '2026-09-20', allowance: 4 }]).remainingAllowance, 4, 'renewal does not cover the same classes twice');
-console.log('PASS: packages start at earliest unpaid attendance, include missed classes, skip cancellations, and queue renewals.');
+// A single payment for several courses has one subscription start. An
+// attendance in either course starts it, and an absence in the other course on
+// that same date consumes that course's credit.
+{
+  const beginners = { courseId: 1, courseName: 'Beginners', startDate: '2026-01-01', endDate: null };
+  const intermediates = { courseId: 2, courseName: 'Intermediates', startDate: '2026-01-01', endDate: null };
+  const payment = { paymentId: 7, paidOn: '2026-04-07', allowance: 2 };
+  const aprilClasses = [
+    { classDate: '2026-04-07', startTime: '19:00', cancelled: 0 },
+    { classDate: '2026-04-09', startTime: '19:00', cancelled: 0 },
+  ];
+  const intermediateClasses = aprilClasses.map((slot) => ({ ...slot, startTime: '20:00' }));
+  const inputs = [
+    { course: beginners, schedules: [], occurrences: aprilClasses, payments: [payment], attendance: [{ attendedAt: '2026-04-09T19:00:00' }] },
+    { course: intermediates, schedules: [], occurrences: intermediateClasses, payments: [payment], attendance: [{ attendedAt: '2026-04-07T20:00:00' }] },
+  ];
+  const starts = resolveSharedPaymentStarts(inputs, new Date('2026-04-10T12:00:00Z'));
+  assert.equal(starts.get(7), '2026-04-07');
+  const covered = inputs.map((input) => {
+    let classes = [];
+    courseCreditBalance(input.course, input.schedules, input.occurrences, input.payments.map((item) => ({ ...item, coverageStart: starts.get(item.paymentId) })), input.attendance, new Date('2026-04-10T12:00:00Z'), (_, detail) => { classes = detail.classes; });
+    return classes;
+  });
+  assert.deepEqual(covered[0], [{ startsAt: '2026-04-07T19:00', attended: false }, { startsAt: '2026-04-09T19:00', attended: true }]);
+  assert.deepEqual(covered[1], [{ startsAt: '2026-04-07T20:00', attended: true }, { startsAt: '2026-04-09T20:00', attended: false }]);
+}
 
-const coverageByPayment = new Map();
-const coverageBalance = courseCreditBalance(septemberCourse, thursdays, [], [{ paymentId: 11, paidOn: '2026-09-18', allowance: 4 }], septemberAttendance, new Date('2026-09-18T12:00:00Z'), (id, detail) => coverageByPayment.set(id, detail));
-assert.deepEqual(coverageByPayment.get(11), { classes: [
-  { startsAt: '2026-09-03T19:00', attended: true },
-  { startsAt: '2026-09-10T19:00', attended: false },
-  { startsAt: '2026-09-17T19:00', attended: true },
-], remaining: 1 });
-assert.equal(coverageByPayment.get(11).remaining, coverageBalance.remainingAllowance);
-console.log('PASS: payment coverage identifies attended and missed classes consistently with remaining credits.');
+console.log('PASS: multi-course payments share the latest uncovered attendance as their subscription start.');
 
-const advanceAttendance = ['2026-09-03', '2026-09-10', '2026-10-01', '2026-10-22'].map(date => ({ attendedAt: date + 'T19:00:00' }));
-const advanceCoverage = new Map();
-const advanceCredits = [{ paymentId: 12, paidOn: '2026-09-10', allowance: 4 }];
-const advanceBalance = courseCreditBalance(septemberCourse, thursdays, [], advanceCredits, advanceAttendance, new Date('2026-09-10T12:00:00Z'), (id, detail) => advanceCoverage.set(id, detail));
-assert.deepEqual(advanceCoverage.get(12).classes.map(slot => slot.startsAt.slice(0, 10)), ['2026-09-03', '2026-09-10', '2026-09-17', '2026-09-24']);
-assert.equal(advanceBalance.excessAttendance, 2, 'October attendance cannot skip the September classes reserved by this payment');
-assert.equal(advanceBalance.remainingAllowance, 0, 'later recorded attendance consumes the earlier covered block');
-const afterPackage = courseCreditBalance(septemberCourse, thursdays, [], advanceCredits, advanceAttendance, new Date('2026-10-23T12:00:00Z'));
-assert.equal(afterPackage.remainingAllowance, 0, 'missed September classes still use both credits');
-assert.equal(afterPackage.excessAttendance, 2);
-console.log('PASS: four consecutive available classes are covered even with later attendance entered in advance.');
+// A payment recorded between classes begins at the next recorded attendance
+// when there is no attendance available to settle on or before the payment date.
+{
+  let coverage;
+  courseCreditBalance(
+    course,
+    thursdayAtSeven,
+    [{ classDate: '2026-03-12', startTime: '19:00', cancelled: 0 }],
+    [{ paymentId: 8, paidOn: '2026-03-10', allowance: 8 }],
+    [{ attendedAt: '2026-03-12T19:00:00' }],
+    new Date('2026-03-13T12:00:00Z'),
+    (_, detail) => { coverage = detail; },
+  );
+  assert.deepEqual(coverage, { classes: [{ startsAt: '2026-03-12T19:00', attended: true }], remaining: 7 });
+}
 
-assert.equal(afterPackage.missedClasses, 2, 'missed covered September classes are counted');
-assert.equal(advanceBalance.missedClasses, 2, 'gaps before later recorded attendance count as missed');
-assert.equal(september('2026-09-18T12:00:00Z').missedClasses, 1);
-assert.equal(september('2026-09-18T12:00:00Z', [{ classDate: '2026-09-10', startTime: '19:00', cancelled: 1 }]).missedClasses, 0, 'cancelled classes never count as missed');
-console.log('PASS: missed classes count only elapsed, covered classes without attendance.');
-
-const screenshotAttendance = ['2026-09-03', '2026-09-10', '2026-09-17', '2026-10-01', '2026-10-08'].map(date => ({ attendedAt: date + 'T19:00:00' }));
-const screenshotBalance = courseCreditBalance(septemberCourse, thursdays, [], advanceCredits, screenshotAttendance, new Date('2026-09-10T12:00:00Z'));
-assert.equal(screenshotBalance.attendanceCount, 5);
-assert.equal(screenshotBalance.paidAllowance, 4);
-assert.equal(screenshotBalance.missedClasses, 1, 'September 24 is the one missed covered class');
-assert.equal(screenshotBalance.excessAttendance, 2);
-assert.equal(screenshotBalance.remainingAllowance, 0);
-console.log('PASS: screenshot scenario counts one missed class before later recorded attendance.');
-
-const freeAttendance = [{ attendedAt: '2026-01-05T19:00:00', complimentary: 1 }];
-const freeOnly = run('2026-01-05T20:00:00Z', [], freeAttendance, []);
-assert.equal(freeOnly.attendanceCount, 1);
-assert.equal(freeOnly.excessAttendance, 0);
-assert.equal(freeOnly.missedClasses, 0);
-assert.equal(run('2026-01-05T20:00:00Z', [], freeAttendance).remainingAllowance, 4, 'complimentary attendance preserves every paid credit');
-assert.equal(run('2026-01-12T20:00:00Z', [], freeAttendance).remainingAllowance, 4, 'Complimentary attendance does not start paid-credit consumption');
-console.log('PASS: complimentary attendance counts as attendance without debt, missed classes or paid-credit use.');
-
-const missedDates = [];
-const missedBalance = courseCreditBalance(septemberCourse, thursdays, [], advanceCredits, screenshotAttendance, new Date('2026-09-10T12:00:00Z'), undefined, (slot) => missedDates.push(slot));
-assert.deepEqual(missedDates, ['2026-09-24T19:00']);
-assert.equal(missedDates.length, missedBalance.missedClasses);
-const cancelledMisses = [];
-courseCreditBalance(septemberCourse, thursdays, [{ classDate: '2026-09-24', startTime: '19:00', cancelled: 1 }], advanceCredits, screenshotAttendance, new Date('2026-09-10T12:00:00Z'), undefined, (slot) => cancelledMisses.push(slot));
-assert.deepEqual(cancelledMisses, [], 'cancelled classes must not produce missed activity rows');
-const correctedMisses = [];
-courseCreditBalance(septemberCourse, thursdays, [], advanceCredits, [...screenshotAttendance, { attendedAt: '2026-09-24T19:00:00' }], new Date('2026-09-10T12:00:00Z'), undefined, (slot) => correctedMisses.push(slot));
-assert.deepEqual(correctedMisses, [], 'recording attendance removes the calculated missed row');
-console.log('PASS: missed activity dates match totals and update after cancellations or attendance corrections.');
-
-const futureCoverage = new Map();
-const futurePayments = [{paymentId:1,paidOn:'2026-09-03',allowance:4},{paymentId:2,paidOn:'2026-10-14',allowance:4}];
-const futureAttendance = ['2026-09-03','2026-09-10','2026-09-17','2026-09-24','2026-10-15'].map(date => ({attendedAt:date+'T19:00:00'}));
-const futureBalance = courseCreditBalance(septemberCourse, thursdays, [], futurePayments, futureAttendance, new Date('2026-09-10T12:00:00Z'), (id, detail) => futureCoverage.set(id, detail));
-assert.equal(futureBalance.paidAllowance, 8);
-assert.equal(futureBalance.excessAttendance, 1);
-assert.equal(futureBalance.missedClasses, 0);
-assert.equal(futureBalance.remainingAllowance, 4);
-assert.deepEqual(futureCoverage.get(2), {classes:[],remaining:4});
-const notReached = courseCreditBalance(septemberCourse, thursdays, [], futurePayments, futureAttendance.slice(0,4), new Date('2026-09-10T12:00:00Z'));
-assert.equal(notReached.paidAllowance, 4, 'payments beyond today and the latest attendance remain inactive');
-console.log('PASS: a payment needs eligible unpaid attendance on or before its coverage start, even with advance attendance.');
-
-const gapMisses = [], gapCancellations = [];
-const gapBalance = courseCreditBalance(septemberCourse, thursdays, [{classDate:'2026-10-08',startTime:'19:00',cancelled:1}], futurePayments, futureAttendance, new Date('2026-09-10T12:00:00Z'), undefined, slot => gapMisses.push(slot), slot => gapCancellations.push(slot));
-assert.deepEqual(gapMisses, [], 'unpaid gaps between packages do not appear as missed');
-assert.deepEqual(gapCancellations, [], 'Cancelled gaps outside a started package stay hidden');
-assert.equal(gapBalance.remainingAllowance, 4, 'unpaid absences and cancellations do not use payment credits');
-assert.equal(gapBalance.excessAttendance, 1);
-const upcomingCancellations = [];
-courseCreditBalance(septemberCourse, thursdays, [{classDate:'2026-10-08',startTime:'19:00',cancelled:1}], futurePayments, futureAttendance.slice(0,4), new Date('2026-09-10T12:00:00Z'), undefined, undefined, slot => upcomingCancellations.push(slot));
-assert.deepEqual(upcomingCancellations, [], 'Cancellations outside a valid package do not appear');
-console.log('PASS: unpaid gaps and cancellations outside a valid package remain hidden.');
-
-const afterLeaving = [];
-const paidPeriod = courseCreditBalance(course, schedules, [], [{ paidOn: '2026-01-05', allowance: 2 }],
-  [{ attendedAt: '2026-01-05T19:00:00' }], new Date('2026-09-12T12:00:00Z'), undefined, slot => afterLeaving.push(slot));
-assert.deepEqual(afterLeaving, ['2026-01-12T19:00'], 'Only the missed paid class is visible after a student stops attending');
-assert.equal(paidPeriod.missedClasses, afterLeaving.length);
-const unpaidMisses = [];
-courseCreditBalance(course, schedules, [], [], [{ attendedAt: '2026-01-05T19:00:00' }],
-  new Date('2026-09-12T12:00:00Z'), undefined, slot => unpaidMisses.push(slot));
-assert.deepEqual(unpaidMisses, [], 'Attendance without a payment never creates missed-class logs');
+console.log('PASS: payments made between classes begin with the next recorded attendance.');

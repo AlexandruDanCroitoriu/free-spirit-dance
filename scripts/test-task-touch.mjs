@@ -17,8 +17,8 @@ const bundle = await build({ stdin: { resolveDir: resolve('.'), loader: 'tsx', c
  import TaskDragBoard from './app/components/task-drag-board';
  const tasks=Array.from({length:30},(_,i)=>({key:'manual:'+i,title:'Card '+i,status:'in_progress',source:'manual',category:'manual',listId:1,description:'',dueDate:null,students:[],courses:[],sortOrder:i,canDelete:true,createdBy:'',createdAt:'',updatedBy:'',updatedAt:''}));
  const columns=Array.from({length:3},(_,i)=>({id:i+1,boardId:1,title:'List '+i,sortOrder:i,color:'default'}));
- window.edits=0;window.starts=0;window.fetch=async()=>Response.json([]);
- createRoot(document.querySelector('#editor')).render(<TaskDragBoard board={{tasks,lists:columns,boards:[{id:1,scope:'school',color:'default'}],inboxColor:'default',revision:1}} columns={columns} visible={tasks} today="2026-09-16" disabled={false} onDragging={v=>{if(v)window.starts++}} onStudent={()=>{}} onMove={async()=>{}} onEdit={()=>window.edits++} onCreate={async()=>{}} onAddList={async()=>{}} onColor={async()=>{}} onListMove={async()=>{}} onRemoveList={async()=>{}}/>);
+ window.edits=0;window.starts=0;window.addedList=null;window.fetch=async()=>Response.json([]);
+ createRoot(document.querySelector('#editor')).render(<TaskDragBoard board={{tasks,lists:columns,boards:[{id:1,scope:'school',color:'default'}],inboxColor:'default',revision:1}} columns={columns} visible={tasks} today="2026-09-16" disabled={false} onDragging={v=>{if(v)window.starts++}} onStudent={()=>{}} onMove={async()=>{}} onEdit={()=>window.edits++} onAddCard={listId=>{window.addedList=listId}} onAddList={async()=>{}} onColor={async()=>{}} onListMove={async()=>{}} onRemoveList={async()=>{}}/>);
 ` }, bundle: true, write: false, platform: 'browser', format: 'iife', jsx: 'automatic' });
 const css = (await postcss([tailwind()]).process(await readFile('app/globals.css', 'utf8'), {from:resolve('app/globals.css')})).css;
 const server = createServer((request, response) => {
@@ -94,7 +94,7 @@ try {
    await touch('touchStart',p);await pause(500);
    assert.equal(await evaluate('starts'),3+index,'holding a header button starts list drag');
    await touch('touchMove',{x:p.x+20,y:p.y+10});await touch('touchEnd');await pause(600);
-   assert.equal(await evaluate(`!!document.querySelector('input[aria-label="Card title"]')`),false,'long press does not open composer');
+   assert.equal(await evaluate('addedList'),null,'long press does not open card popup');
    assert.equal(await evaluate(`!!document.querySelector('[popover]:popover-open')`),false,'long press does not open settings');
  }
  p=await evaluate(`(()=>{const r=document.querySelector('[data-list-handle] button[popovertarget]').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
@@ -104,7 +104,7 @@ try {
  await call('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
  p=await evaluate(`(()=>{const r=document.querySelector('[data-list-handle] button:not([popovertarget])').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
  await touch('touchStart',p);await pause(50);await touch('touchEnd');await pause(100);
- assert.ok(await evaluate(`!!document.querySelector('input[aria-label="Card title"]')`),'Add card still opens on tap');
+ assert.equal(await evaluate('addedList'),1,'Add card opens the selected list popup on tap');
  assert.equal(await evaluate('starts'),4,'normal button taps do not drag');
  console.log('PASS: touch taps open cards, vertical and horizontal swipes scroll, and only a hold activates dragging.');
 

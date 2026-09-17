@@ -1,5 +1,6 @@
 import { env } from "../../../lib/storage";
 import { schoolToday } from "../../../lib/calendar-dates";
+import { changedProfileFields, logValue, studentLogActor, type ProfileValues } from "../../../lib/student-profile-log";
 
 type StudentRow = { id: number; first_name: string; last_name: string; email: string; phone: string; birth_date: string | null; facebook_url: string; instagram_url: string; picture: string | null; active: number };
 
@@ -48,6 +49,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 }
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const actor = studentLogActor(request);
+  if (!actor) return Response.json({ error: "Administrator identity is required." }, { status: 403 });
   const id = Number((await context.params).id);
   if (!Number.isInteger(id) || id < 1) return Response.json({ error: "Invalid student id." }, { status: 400 });
   const input = await request.json().catch(() => null);
@@ -62,7 +65,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (student.picture !== null && typeof student.picture !== "string") return Response.json({ error: "Picture must be a URL or empty." }, { status: 400 });
   try {
     const db = env.DB;
-    const existing = await db.prepare("SELECT picture FROM students WHERE id = ?").bind(id).first<{ picture: string | null }>();
+    const existing = await db.prepare("SELECT first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active FROM students WHERE id = ?").bind(id).first<ProfileValues>();
     if (!existing) return Response.json({ error: "Student not found." }, { status: 404 });
     const phone = student.phone.trim();
     const facebookUrl = (student.facebookUrl as string).trim();
@@ -71,9 +74,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       const duplicatePhone = await db.prepare("SELECT id FROM students WHERE id <> ? AND trim(phone) = ? LIMIT 1").bind(id, phone).first<{ id: number }>();
       if (duplicatePhone) return Response.json({ error: "A student with this phone number already exists." }, { status: 409 });
     }
-    const [updated] = await db.batch<StudentRow>([db.prepare("UPDATE students SET first_name = ?, last_name = ?, email = ?, phone = ?, birth_date = ?, facebook_url = ?, instagram_url = ?, picture = ?, active = ? WHERE id = ? RETURNING id, first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active").bind(
-      student.firstName.trim(), student.lastName.trim(), student.email.trim(), phone, typeof student.birthDate === "string" && student.birthDate.trim() ? student.birthDate.trim() : null, facebookUrl, instagramUrl, typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, student.active ? 1 : 0, id,
-    )]);
+    const next: ProfileValues = { first_name: student.firstName.trim(), last_name: student.lastName.trim(), email: student.email.trim(), phone,
+      birth_date: typeof student.birthDate === "string" && student.birthDate.trim() ? student.birthDate.trim() : null,
+      facebook_url: facebookUrl, instagram_url: instagramUrl,
+      picture: typeof student.picture === "string" && student.picture.trim() ? student.picture.trim() : null, active: student.active ? 1 : 0 };
+    const changed = changedProfileFields(existing, next);
+    if (!changed.length) return Response.json(serialize({ ...existing, id }));
+    const now = new Date().toISOString();
+    const statements = [db.prepare("UPDATE students SET first_name = ?, last_name = ?, email = ?, phone = ?, birth_date = ?, facebook_url = ?, instagram_url = ?, picture = ?, active = ? WHERE id = ? RETURNING id, first_name, last_name, email, phone, birth_date, facebook_url, instagram_url, picture, active").bind(
+      next.first_name, next.last_name, next.email, next.phone, next.birth_date, next.facebook_url, next.instagram_url, next.picture, next.active, id,
+    ), ...changed.map(field => db.prepare("INSERT INTO student_profile_log (student_id, administrator_email, action, field, old_value, new_value, created_at) VALUES (?, ?, 'changed', ?, ?, ?, ?)").bind(id, actor, field, logValue(field, existing[field]), logValue(field, next[field]), now))];
+    const [updated] = await db.batch<StudentRow>(statements);
     const result = updated.results[0];
     if (!result) return Response.json({ error: "Student not found." }, { status: 404 });
     const previousImageKey = imageKey(existing.picture);

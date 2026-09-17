@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   try {
     const db = env.DB;
     const results = await db.batch([
-      db.prepare("INSERT INTO payment_presets (name, amount_minor) VALUES (?, ?)").bind(input.name, input.amountMinor),
+      db.prepare("INSERT INTO payment_presets (name, amount_minor, student_count) VALUES (?, ?, ?)").bind(input.name, input.amountMinor, input.studentCount),
       ...input.allocations.map((a) => db.prepare("INSERT INTO payment_preset_courses (preset_id, course_id, allowance) VALUES ((SELECT seq FROM sqlite_sequence WHERE name = 'payment_presets'), ?, ?)").bind(a.courseId, a.allowance)),
       db.prepare(presetQuery + " WHERE p.id = (SELECT seq FROM sqlite_sequence WHERE name = 'payment_presets') ORDER BY a.course_id"),
     ]);

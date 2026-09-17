@@ -23,6 +23,7 @@ try {
   const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Bucharest", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const practices = [{ id: 1, startsAt: `${todayKey}T21:00`, startsUtc: `${todayKey}T18:00:00Z`, durationMinutes: 120, cancelled: 0, revision: 1, attendanceCount: 0 }];
   const source = (await readFile("app/components/course-calendar-widget.tsx", "utf8"))
+    .replace('useState<(FreeMeeting & { eventName: string })[]>([])', `useState<(FreeMeeting & { eventName: string })[]>(${JSON.stringify([{...practices[0], id:5, eventId:2, eventName:'Community Zouk', name:'Open meetup', spaceRentMinor:0, acceptsDonations:1}])})`)
     .replace("useState<PracticeSession[]>([])", `useState<PracticeSession[]>(${JSON.stringify(practices)})`)
     .replace("useState<Course[]>([])", `useState<Course[]>(${JSON.stringify(courses)})`)
     .replace("[loading, setLoading] = useState(true)", "[loading, setLoading] = useState(false)");
@@ -36,6 +37,8 @@ try {
   assert.match(html, /Zouk basics/);
   assert.doesNotMatch(html, /Unscheduled course/);
   assert.match(html, /Practice party/);
+  assert.match(html, /Community Zouk/);
+  assert.match(html, /Open meetup/);
   const days = [...html.matchAll(/<section\b[^>]*calendar-widget-day[\s\S]*?<\/section>/g)].map(([day]) => day);
   const scheduledDays = days.filter((day) => day.includes("Zouk basics"));
   const today = new Date(todayKey + "T12:00:00");

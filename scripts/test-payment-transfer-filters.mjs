@@ -43,6 +43,8 @@ INSERT INTO payment_transfer_filters (administrator_email,collector_email,paymen
 VALUES ('a@test','b@test','course','now'), ('a@test','a@test','multiple_courses','now');
 `);
 sqlite.exec(readFileSync('migrations/0052_payment_transfer_filter_collectors.sql','utf8'));
+sqlite.exec(readFileSync('migrations/0072_free_events.sql','utf8'));
+sqlite.exec(readFileSync('migrations/0073_free_event_reports.sql','utf8'));
 assert.equal(sqlite.prepare('SELECT collector_emails FROM payment_transfer_filters WHERE id=1').get().collector_emails, '["b@test"]');
 assert.equal(sqlite.prepare('SELECT collector_emails FROM payment_transfer_filters WHERE id=2').get().collector_emails, '[]');
 const api = await import(moduleUrl(readFileSync('app/api/payment-transfer-filters/route.ts','utf8').replace('import { env } from "../../lib/storage";', 'const env = globalThis.activityTestEnv;')));
@@ -99,3 +101,29 @@ assert.equal(details.reduce((sum,payment)=>sum+payment.amountMinor,0),(await row
 assert.equal(details.filter(payment=>payment.allocations.some(allocation=>allocation.courseName==='Regression course' && allocation.allowance===4)).length,390);
 assert.ok(details.filter(payment=>payment.purpose==='practice_donation').every(payment=>payment.allocations.length===0));
 console.log('PASS: 393-payment report loads all details and allocations within D1 parameter limits.');
+
+sqlite.exec(`
+INSERT INTO free_events (id,name,created_by,created_at,updated_at) VALUES
+ (1,'Community Zouk','a@test','now','now'),(2,'Open dance','a@test','now','now');
+INSERT INTO free_event_meetings (id,event_id,name,starts_at,starts_utc,duration_minutes,space_rent_minor,accepts_donations,created_by,created_at,updated_at) VALUES
+ (1,1,'Friday meetup','2026-09-15T20:00','2026-09-15T17:00:00Z',120,0,1,'a@test','now','now'),
+ (2,2,'Other event','2026-09-15T20:00','2026-09-15T17:00:00Z',120,0,1,'a@test','now','now');
+INSERT INTO free_event_attendance (meeting_id,student_id,recorded_by,recorded_at,donation_amount_minor) VALUES
+ (1,1,'a@test','2026-09-15T17:00:00Z',2500),(2,1,'a@test','2026-09-15T17:00:00Z',9000);
+`);
+assert.equal((await api.PATCH(req('PATCH',{id,...selection,paymentTypes:['free_event:1']}))).status,200);
+assert.equal((await row()).totalMinor,2500);
+assert.equal((await row()).paymentCount,1);
+const eventDetails = (await (await api.GET(req('GET',null,'?id='+id))).json()).payments;
+assert.equal(eventDetails[0].purpose,'free_event_donation');
+assert.equal(eventDetails[0].meetingId,1);
+assert.equal(eventDetails[0].eventName,'Community Zouk');
+assert.deepEqual(eventDetails[0].allocations,[]);
+assert.equal((await (await api.GET(req('GET'))).json()).events.length,2);
+assert.equal((await (await api.POST(req('POST',{giveAllForFilterId:id}))).json()).updated,1);
+assert.equal((await row()).allGiven,1);
+assert.equal(sqlite.prepare('SELECT donation_given_to_school AS given FROM free_event_attendance WHERE meeting_id=2').get().given,0);
+for (const type of ['free_event:0','free_event:1 OR 1=1','free_event:-1']) {
+  assert.equal((await api.PATCH(req('PATCH',{id,...selection,paymentTypes:[type]}))).status,400);
+}
+console.log('PASS: event options, selected-event donation totals/details, bulk transfers and filter validation.');

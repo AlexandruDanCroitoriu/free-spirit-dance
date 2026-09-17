@@ -202,7 +202,7 @@ try {
   // Copies preserve task content/links/order; revision tokens belong to the destination.
   const exported = await transfer.readTables(db);
   const copy = database();
-  await transfer.replaceDatabase(copy, exported, null);
+  await transfer.replaceDatabase(copy, exported);
   assert.deepEqual(copy.sqlite.prepare('SELECT * FROM manual_tasks ORDER BY id').all(), rows());
   assert.deepEqual(copy.sqlite.prepare('PRAGMA foreign_key_check').all(), []);
   assert.deepEqual(copy.sqlite.prepare('SELECT * FROM task_students ORDER BY task_id,student_id').all(), db.sqlite.prepare('SELECT * FROM task_students ORDER BY task_id,student_id').all());
@@ -211,13 +211,13 @@ try {
   const oldExport = exported.filter(table => table.name !== 'task_students').map(table => table.name !== 'manual_tasks' ? table : {...table, columns:legacyColumns, rows:table.rows.map(row => ({...row,status:'done',student_id:db.sqlite.prepare('SELECT student_id FROM task_students WHERE task_id=?').get(row.id)?.student_id ?? null}))});
   const oldCopy = database();
   try {
-    await transfer.replaceDatabase(oldCopy, oldExport, null);
+    await transfer.replaceDatabase(oldCopy, oldExport);
     assert.deepEqual(oldCopy.sqlite.prepare('SELECT * FROM task_students ORDER BY task_id,student_id').all(), db.sqlite.prepare('SELECT * FROM task_students ORDER BY task_id,student_id').all());
     assert.equal(oldCopy.sqlite.prepare('PRAGMA table_info(manual_tasks)').all().some(column => column.name === 'status'), true);
     assert.equal(oldCopy.sqlite.prepare("SELECT COUNT(*) AS n FROM manual_tasks WHERE status != 'done'").get().n, 0);
   } finally { oldCopy.sqlite.close(); }
   const copyRevision = copy.sqlite.prepare('SELECT revision FROM task_board_state').get().revision;
-  await transfer.replaceDatabase(copy, exported, null);
+  await transfer.replaceDatabase(copy, exported);
   assert.ok(copy.sqlite.prepare('SELECT revision FROM task_board_state').get().revision > copyRevision);
   assert.equal(copy.sqlite.prepare('SELECT can_tasks FROM administrator_permissions WHERE email=?').get(admin).can_tasks, 1);
 

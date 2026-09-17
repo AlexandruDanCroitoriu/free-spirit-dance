@@ -725,5 +725,75 @@
     "statements": [
       "ALTER TABLE manual_tasks ADD COLUMN status TEXT NOT NULL DEFAULT 'in_progress' CHECK(status IN ('in_progress', 'done'));"
     ]
+  },
+  {
+    "name": "0067_free_missed_attendance.sql",
+    "statements": [
+      "CREATE TABLE free_missed_attendance (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_id INTEGER NOT NULL REFERENCES students(id),\n  class_id INTEGER NOT NULL REFERENCES classes(id),\n  granted_by TEXT NOT NULL COLLATE NOCASE REFERENCES admin_profiles(email),\n  granted_at TEXT NOT NULL,\n  notes TEXT NOT NULL DEFAULT '',\n  UNIQUE (student_id, class_id)\n);",
+      "CREATE INDEX free_missed_attendance_student_class ON free_missed_attendance (student_id, class_id);"
+    ]
+  },
+  {
+    "name": "0068_group_payments.sql",
+    "statements": [
+      "-- One financial record; group members each receive the full course allowances.\nALTER TABLE payment_presets ADD COLUMN student_count INTEGER NOT NULL DEFAULT 1\n  CHECK (typeof(student_count) = 'integer' AND student_count BETWEEN 1 AND 10000);",
+      "ALTER TABLE student_payments ADD COLUMN student_count INTEGER NOT NULL DEFAULT 1\n  CHECK (typeof(student_count) = 'integer' AND student_count BETWEEN 1 AND 10000);",
+      "CREATE TABLE payment_students (\n  payment_id INTEGER NOT NULL REFERENCES student_payments(id) ON DELETE CASCADE,\n  student_id INTEGER NOT NULL REFERENCES students(id),\n  PRIMARY KEY (payment_id, student_id)\n);",
+      "CREATE INDEX payment_students_student_idx ON payment_students(student_id, payment_id);",
+      "-- Single payments remain compatible with existing imports and course presets.\nCREATE VIEW student_payment_coverage AS\nSELECT id AS payment_id, student_id FROM student_payments WHERE student_count = 1\nUNION ALL\nSELECT ps.payment_id, ps.student_id FROM payment_students ps\nJOIN student_payments p ON p.id = ps.payment_id WHERE p.student_count > 1;",
+      "DROP VIEW student_course_balances;",
+      "CREATE VIEW student_course_balances AS\nWITH pairs AS (\n  SELECT student_id, course_id FROM student_courses\n  UNION SELECT student_id, course_id FROM attendance\n  UNION SELECT p.student_id, a.course_id FROM payment_course_allowances a JOIN student_payment_coverage p ON p.payment_id = a.payment_id\n), totals AS (\n  SELECT pairs.student_id, pairs.course_id,\n    (SELECT COUNT(*) FROM attendance a WHERE a.student_id = pairs.student_id AND a.course_id = pairs.course_id) AS attendance_count,\n    (SELECT COALESCE(SUM(a.allowance), 0) FROM payment_course_allowances a JOIN student_payment_coverage p ON p.payment_id = a.payment_id WHERE p.student_id = pairs.student_id AND a.course_id = pairs.course_id) AS paid_allowance\n  FROM pairs\n)\nSELECT student_id, course_id, attendance_count, paid_allowance,\n  paid_allowance - attendance_count AS remaining_allowance,\n  MAX(attendance_count - paid_allowance, 0) AS excess_attendance FROM totals;"
+    ]
+  },
+  {
+    "name": "0069_class_creator.sql",
+    "statements": [
+      "ALTER TABLE classes ADD COLUMN created_by TEXT COLLATE NOCASE REFERENCES admin_profiles(email);",
+      "-- Older class rows were made when attendance was recorded. Use the first\n-- recorded attendance for each class; classes without attendance stay unknown.\nUPDATE classes SET created_by = (\n  SELECT a.recorded_by FROM attendance a\n  WHERE a.class_id = classes.id\n  ORDER BY COALESCE(a.recorded_at, a.attended_at), a.id\n  LIMIT 1\n)\nWHERE EXISTS (SELECT 1 FROM attendance a WHERE a.class_id = classes.id);"
+    ]
+  },
+  {
+    "name": "0070_student_profile_log.sql",
+    "statements": [
+      "CREATE TABLE student_profile_log (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,\n  administrator_email TEXT NOT NULL,\n  action TEXT NOT NULL CHECK (action IN ('created', 'changed', 'course_added', 'course_removed')),\n  field TEXT,\n  old_value TEXT,\n  new_value TEXT,\n  created_at TEXT NOT NULL\n);",
+      "CREATE INDEX student_profile_log_student_idx ON student_profile_log (student_id, created_at DESC, id DESC);"
+    ]
+  },
+  {
+    "name": "0071_class_change_log.sql",
+    "statements": [
+      "CREATE TABLE class_change_log (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,\n  administrator_email TEXT NOT NULL,\n  action TEXT NOT NULL,\n  field TEXT,\n  old_value TEXT,\n  new_value TEXT,\n  student_name TEXT,\n  created_at TEXT NOT NULL\n);",
+      "CREATE INDEX class_change_log_class_idx ON class_change_log (class_id, created_at DESC, id DESC);",
+      "-- Creation can be inferred for older attendance-backed classes. Later edits\n-- cannot be reconstructed reliably, so no change entries are invented for them.\nINSERT INTO class_change_log (class_id, administrator_email, action, created_at)\nSELECT cl.id, cl.created_by, 'created', COALESCE(\n  (SELECT MIN(COALESCE(a.recorded_at, a.attended_at)) FROM attendance a WHERE a.class_id = cl.id),\n  '1970-01-01T00:00:00Z'\n) FROM classes cl WHERE cl.created_by IS NOT NULL;"
+    ]
+  },
+  {
+    "name": "0072_free_events.sql",
+    "statements": [
+      "CREATE TABLE free_events (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  name TEXT NOT NULL CHECK (length(trim(name)) BETWEEN 1 AND 160),\n  starts_on TEXT,\n  ends_on TEXT,\n  image_path TEXT,\n  revision INTEGER NOT NULL DEFAULT 0,\n  created_by TEXT NOT NULL REFERENCES admin_profiles(email),\n  created_at TEXT NOT NULL,\n  updated_at TEXT NOT NULL,\n  CHECK (starts_on IS NULL OR length(starts_on) = 10),\n  CHECK (ends_on IS NULL OR length(ends_on) = 10),\n  CHECK (starts_on IS NULL OR ends_on IS NULL OR starts_on <= ends_on)\n);",
+      "CREATE INDEX free_events_dates_idx ON free_events (starts_on, ends_on, id);",
+      "CREATE TABLE free_event_meetings (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  event_id INTEGER NOT NULL REFERENCES free_events(id) ON DELETE CASCADE,\n  name TEXT NOT NULL CHECK (length(trim(name)) BETWEEN 1 AND 160),\n  starts_at TEXT NOT NULL,\n  starts_utc TEXT NOT NULL,\n  duration_minutes INTEGER NOT NULL CHECK (duration_minutes BETWEEN 1 AND 1440),\n  space_rent_minor INTEGER NOT NULL CHECK (typeof(space_rent_minor) = 'integer' AND space_rent_minor BETWEEN 0 AND 99999999),\n  accepts_donations INTEGER NOT NULL DEFAULT 0 CHECK (accepts_donations IN (0, 1)),\n  cancelled INTEGER NOT NULL DEFAULT 0 CHECK (cancelled IN (0, 1)),\n  revision INTEGER NOT NULL DEFAULT 0,\n  created_by TEXT NOT NULL REFERENCES admin_profiles(email),\n  created_at TEXT NOT NULL,\n  updated_at TEXT NOT NULL\n);",
+      "CREATE INDEX free_event_meetings_event_idx ON free_event_meetings (event_id, starts_at, id);",
+      "CREATE TABLE free_event_attendance (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  meeting_id INTEGER NOT NULL REFERENCES free_event_meetings(id) ON DELETE CASCADE,\n  student_id INTEGER NOT NULL REFERENCES students(id),\n  recorded_by TEXT NOT NULL REFERENCES admin_profiles(email),\n  recorded_at TEXT NOT NULL,\n  donation_amount_minor INTEGER CHECK (donation_amount_minor IS NULL OR (typeof(donation_amount_minor) = 'integer' AND donation_amount_minor BETWEEN 1 AND 99999999)),\n  donation_received_method TEXT NOT NULL DEFAULT '',\n  UNIQUE (meeting_id, student_id)\n);",
+      "CREATE INDEX free_event_attendance_meeting_idx ON free_event_attendance (meeting_id, id);",
+      "CREATE TABLE free_event_change_log (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  event_id INTEGER NOT NULL REFERENCES free_events(id) ON DELETE CASCADE,\n  administrator_email TEXT NOT NULL REFERENCES admin_profiles(email),\n  action TEXT NOT NULL,\n  before_json TEXT,\n  after_json TEXT,\n  created_at TEXT NOT NULL\n);",
+      "CREATE INDEX free_event_change_log_event_idx ON free_event_change_log (event_id, created_at DESC, id DESC);",
+      "CREATE TABLE free_meeting_change_log (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  meeting_id INTEGER NOT NULL REFERENCES free_event_meetings(id) ON DELETE CASCADE,\n  administrator_email TEXT NOT NULL REFERENCES admin_profiles(email),\n  action TEXT NOT NULL,\n  before_json TEXT,\n  after_json TEXT,\n  created_at TEXT NOT NULL\n);",
+      "CREATE INDEX free_meeting_change_log_meeting_idx ON free_meeting_change_log (meeting_id, created_at DESC, id DESC);"
+    ]
+  },
+  {
+    "name": "0073_free_event_reports.sql",
+    "statements": [
+      "ALTER TABLE free_event_attendance ADD COLUMN donation_given_to_school INTEGER NOT NULL DEFAULT 0 CHECK (donation_given_to_school IN (0, 1));",
+      "CREATE VIEW report_payment_records AS\nSELECT p.*, NULL AS event_id, NULL AS meeting_id, NULL AS event_name\nFROM school_payment_records p\nUNION ALL\nSELECT a.id, 'free_event_donation', NULL, e.name || ' · ' || m.name,\n  a.student_id, substr(m.starts_at, 1, 10), a.donation_amount_minor,\n  a.recorded_by, a.donation_received_method, a.donation_given_to_school,\n  e.id, m.id, e.name\nFROM free_event_attendance a\nJOIN free_event_meetings m ON m.id = a.meeting_id\nJOIN free_events e ON e.id = m.event_id\nWHERE a.donation_amount_minor IS NOT NULL;"
+    ]
+  },
+  {
+    "name": "0074_free_events_permission.sql",
+    "statements": [
+      "ALTER TABLE administrator_permissions ADD COLUMN can_free_events INTEGER NOT NULL DEFAULT 0\n  CHECK (can_free_events IN (0, 1));",
+      "-- Free Events previously shared the Practice Parties permission. Preserve that\n-- access when upgrading existing administrator records.\nUPDATE administrator_permissions SET can_free_events = can_practice_parties;"
+    ]
   }
 ]

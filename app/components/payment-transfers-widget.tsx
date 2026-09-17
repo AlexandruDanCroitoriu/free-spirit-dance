@@ -8,12 +8,15 @@ import StudentPanel from "./student-panel";
 
 type Collector = { email: string; name: string | null; picture: string | null };
 type Filter = { id: number; collectorEmail: string; collectorEmails: string[]; collectorName: string | null; fromDate: string | null; toDate: string | null; paymentTypes: string; isDraft: boolean; totalMinor: number; paymentCount: number; allGiven: number };
-type Payment = { id: number; purpose: "course" | "practice_donation"; practiceId: number | null; studentId: number; firstName: string; lastName: string; studentEmail: string | null; studentPicture: string | null; paidOn: string; amountMinor: number; receivedMethod: string; givenToSchool: number; allocations: { paymentId: number; courseName: string; allowance: number }[] };
-type Data = { filters: Filter[]; collectors: Collector[] };
+type Payment = { id: number; purpose: "course" | "free_event_donation"; eventId?: number; meetingId?: number; eventName?: string; studentId: number; firstName: string; lastName: string; studentEmail: string | null; studentPicture: string | null; paidOn: string; amountMinor: number; receivedMethod: string; givenToSchool: number; allocations: { paymentId: number; courseName: string; allowance: number }[] };
+type Data = { filters: Filter[]; collectors: Collector[]; events?: { id: number; name: string }[] };
 type Draft = { collectorEmails: string[]; fromDate: string; toDate: string; paymentTypes: string[] };
 
 const input = "h-8 w-full rounded border border-stone-300 bg-white px-2 text-xs leading-none disabled:opacity-50";
-const types = ["course", "practice_party"] as const;
+const baseTypes = ["course"];
+function paymentTypeLabel(type: string, events: { id: number; name: string }[]) {
+  return type === "course" ? "Courses" : events.find(event => `free_event:${event.id}` === type)?.name ?? "Deleted event";
+}
 
 // Native popovers render above the card's clipping and scrolling containers.
 function useReportPopover() {
@@ -82,7 +85,12 @@ export default function PaymentTransfersWidget() {
       setData(body); setError("");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not load saved transfer filters."); }
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    const reload = () => { void load(); setPaymentsRevision(value => value + 1); };
+    window.addEventListener("payment-transfer-updated", reload);
+    return () => window.removeEventListener("payment-transfer-updated", reload);
+  }, []);
 
   function toggle(filter: Filter) {
     setPayments([]); setPaymentsError(""); setPaymentsLoading(true);
@@ -151,7 +159,7 @@ export default function PaymentTransfersWidget() {
     if (giving) return;
     setGiving(key);
     try {
-      const response = await fetch("/api/students/payments", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paymentId: payment.id, studentId: payment.studentId, purpose: payment.purpose, practiceId: payment.practiceId, givenToSchool }) });
+      const response = await fetch("/api/students/payments", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paymentId: payment.id, studentId: payment.studentId, purpose: payment.purpose, meetingId: payment.meetingId, givenToSchool }) });
       const body = await readJson<{ error?: string }>(response);
       if (!response.ok) throw new Error(body.error ?? "Could not save the school transfer.");
       setPayments((current) => current.map((item) => item.purpose === payment.purpose && item.id === payment.id ? { ...item, givenToSchool: givenToSchool ? 1 : 0 } : item));
@@ -191,7 +199,7 @@ export default function PaymentTransfersWidget() {
         <tbody>{data?.filters.map((filter, index) => <Fragment key={filter.id}>
           <tr className="cursor-pointer border-b border-stone-200 hover:bg-lime-50" onClick={() => void toggle(filter)}>
             <td className="px-2 py-1"><div className="flex gap-0.5"><button type="button" aria-label={`Move report for ${filter.collectorName || filter.collectorEmail} up`} title="Move up" disabled={index === 0 || moving !== null} className="rounded border border-stone-300 px-1 py-0.5 text-xs leading-none text-slate-700 hover:bg-lime-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={(event) => { event.stopPropagation(); void reorder(filter.id, data.filters[index - 1].id); }}>▲</button><button type="button" aria-label={`Move report for ${filter.collectorName || filter.collectorEmail} down`} title="Move down" disabled={index === data.filters.length - 1 || moving !== null} className="rounded border border-stone-300 px-1 py-0.5 text-xs leading-none text-slate-700 hover:bg-lime-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={(event) => { event.stopPropagation(); void reorder(filter.id, data.filters[index + 1].id); }}>▼</button></div></td>
-            <EditableFields filter={filter} collectors={data.collectors} onSaved={async () => { setExpanded(null); setPayments([]); await load(); }} />
+            <EditableFields filter={filter} collectors={data.collectors} events={data.events ?? []} onSaved={async () => { setExpanded(null); setPayments([]); await load(); }} />
             <td className="px-2 py-1 text-right"><button type="button" aria-expanded={expanded === filter.id} className="max-w-full" onClick={(event) => { event.stopPropagation(); void toggle(filter); }}>{expanded === filter.id ? "▾ " : "▸ "}{formatMoney(filter.totalMinor)} ({filter.paymentCount})</button></td>
             <td className="px-2 py-1"><button type="button" disabled={!filter.paymentCount || !!filter.allGiven || givingAll !== null} className={`max-w-full rounded px-2 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${filter.allGiven ? "text-lime-800" : "border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"}`} onClick={(event) => { event.stopPropagation(); void giveAll(filter); }}>{givingAll === filter.id ? "Saving…" : filter.allGiven ? "✓ All given" : "Give all to school"}</button></td>
             <td className="px-2 py-1"><button type="button" className="rounded bg-red-700 px-2 py-1 text-xs font-bold text-white hover:bg-red-800" onClick={(event) => { event.stopPropagation(); setRemoving(filter.id); }}>Remove</button></td>
@@ -203,12 +211,12 @@ export default function PaymentTransfersWidget() {
       </table>
     </div>
     {removing !== null && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><div className="rounded-xl border border-red-300 bg-red-50 p-5"><h3 className="m-0 text-red-950">Remove saved report?</h3><p className="text-sm text-red-900">Payments will not be deleted.</p><div className="flex justify-end gap-2"><button type="button" className="rounded border px-3 py-2 text-xs" onClick={() => setRemoving(null)}>Cancel</button><button type="button" className="rounded bg-red-700 px-3 py-2 text-xs font-bold text-white" onClick={() => void remove()}>Remove report</button></div></div></div>}
-    {student && <StudentPanel key={`${student.studentId}-${student.purpose}-${student.paymentId}`} id={student.studentId} targetPaymentId={student.paymentId} targetPaymentKind={student.purpose === "course" ? "payment" : "practice_attendance"} onClose={() => setStudent(null)} onUpdate={() => void load()} onDelete={() => setStudent(null)} />}
+    {student && <StudentPanel key={`${student.studentId}-${student.purpose}-${student.paymentId}`} id={student.studentId} targetPaymentId={student.purpose === "free_event_donation" ? undefined : student.paymentId} targetPaymentKind={student.purpose === "course" ? "payment" : "practice_attendance"} onClose={() => setStudent(null)} onUpdate={() => void load()} onDelete={() => setStudent(null)} />}
   </section>;
 }
 
-function EditableFields({ filter, collectors, onSaved }: { filter: Filter; collectors: Collector[]; onSaved: () => Promise<void> }) {
-  const initial = (): Draft => ({ collectorEmails: filter.collectorEmails, fromDate: filter.fromDate ?? "", toDate: filter.toDate ?? "", paymentTypes: filter.paymentTypes.split(",").filter(Boolean) });
+function EditableFields({ filter, collectors, events = [], onSaved }: { filter: Filter; collectors: Collector[]; events?: { id: number; name: string }[]; onSaved: () => Promise<void> }) {
+  const initial = (): Draft => ({ collectorEmails: filter.collectorEmails, fromDate: filter.fromDate ?? "", toDate: filter.toDate ?? "", paymentTypes: filter.paymentTypes.split(",").filter((type) => type && type !== "practice_party") });
   const [draft, setDraft] = useState<Draft>(initial);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -229,6 +237,7 @@ function EditableFields({ filter, collectors, onSaved }: { filter: Filter; colle
     } catch (reason) { setDraft(initial()); setSaveError(reason instanceof Error ? reason.message : "Could not save report."); }
     finally { setBusy(false); }
   }
+  const types = [...new Set([...baseTypes, ...events.map(event => `free_event:${event.id}`), ...draft.paymentTypes.filter(type => type !== "practice_party")])];
   const selected = draft.collectorEmails.map((email) => collectors.find((collector) => collector.email === email) ?? { email, name: null, picture: null });
   const options = [...collectors, ...selected.filter((item) => !collectors.some((collector) => collector.email === item.email))];
   const selectionLabel = selected.length ? selected.map((collector) => collector.name || collector.email).join(", ") : "Select administrators";
@@ -253,7 +262,7 @@ function EditableFields({ filter, collectors, onSaved }: { filter: Filter; colle
     </td>
     <td className="px-2 py-1" onClick={stop}><DateNameInput ariaLabel="From date" value={draft.fromDate} disabled={busy} onCommit={(fromDate) => void save({ ...draft, fromDate })} /></td>
     <td className="px-2 py-1" onClick={stop}><DateNameInput ariaLabel="To date" value={draft.toDate} disabled={busy} onCommit={(toDate) => void save({ ...draft, toDate })} /></td>
-    <td className="px-2 py-1" onClick={stop}><div className="relative min-w-0"><button type="button" {...typeMenu.triggerProps} aria-label="Select payment types" className={`${input} cursor-pointer list-none truncate`}>{draft.paymentTypes.length ? draft.paymentTypes.map((type) => type === "course" ? "Courses" : "Practice party").join(" + ") : "Select payment types"} ▾</button><div {...typeMenu.popupProps} aria-label="Select payment types" className={`${reportPopup} w-44 p-1.5`}>{types.map((type) => <label key={type} className="flex items-center gap-2 p-1 text-xs"><input type="checkbox" checked={draft.paymentTypes.includes(type)} disabled={busy} onChange={() => { const paymentTypes = draft.paymentTypes.includes(type) ? draft.paymentTypes.filter((item) => item !== type) : [...draft.paymentTypes, type]; void save({ ...draft, paymentTypes }); }} />{type === "course" ? "Courses" : "Practice party"}</label>)}</div></div></td>
+    <td className="px-2 py-1" onClick={stop}><div className="relative min-w-0"><button type="button" {...typeMenu.triggerProps} aria-label="Select payment types" className={`${input} cursor-pointer list-none truncate`}>{draft.paymentTypes.length ? draft.paymentTypes.map((type) => paymentTypeLabel(type, events)).join(" + ") : "Select payment types"} ▾</button><div {...typeMenu.popupProps} aria-label="Select payment types" className={`${reportPopup} w-44 p-1.5`}>{types.map((type) => <label key={type} className="flex items-center gap-2 p-1 text-xs"><input type="checkbox" checked={draft.paymentTypes.includes(type)} disabled={busy} onChange={() => { const paymentTypes = draft.paymentTypes.includes(type) ? draft.paymentTypes.filter((item) => item !== type) : [...draft.paymentTypes, type]; void save({ ...draft, paymentTypes }); }} />{paymentTypeLabel(type, events)}</label>)}</div></div></td>
   </>;
 }
 
@@ -264,7 +273,7 @@ function Avatar({ collector, label }: { collector?: Collector; label?: string })
 
 function PaymentTreeRow({ payment, giving, onOpen, onGive }: { payment: Payment; giving: boolean; onOpen: () => void; onGive: (givenToSchool: boolean) => void }) {
   const studentName = `${payment.firstName} ${payment.lastName}`.trim() || payment.studentEmail || "Student";
-  const kind = payment.purpose === "practice_donation" ? "Practice party donation" : payment.allocations.length ? payment.allocations.map((allocation) => allocation.courseName).join(" + ") : "Custom payment";
+  const kind = payment.purpose === "free_event_donation" ? `${payment.eventName ?? "Free event"} donation` : payment.allocations.length ? payment.allocations.map((allocation) => allocation.courseName).join(" + ") : "Custom payment";
   return <div role="button" tabIndex={0} className="relative flex cursor-pointer items-center gap-2 py-1.5 text-left before:absolute before:-left-[13px] before:top-1/2 before:h-px before:w-3 before:bg-lime-300 hover:bg-lime-50 focus:outline-none focus:ring-2 focus:ring-lime-600" onClick={onOpen} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onOpen(); } }}>
     {payment.studentPicture ? <img src={payment.studentPicture} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" /> : <Avatar label={studentName} />}
     <span className="min-w-0 flex-1"><span className="font-medium text-slate-900">{studentName}</span><span className="text-slate-500"> · {formatLogDate(payment.paidOn)}</span><span className="block truncate text-[11px] text-slate-600">{kind} · {payment.receivedMethod || "CASH"}</span></span>

@@ -181,17 +181,17 @@ console.log('PASS: activity excludes cancellations outside valid payment coverag
 sqlite.exec("CREATE TABLE history_absences (student_id TEXT, course_id TEXT, class_date TEXT, start_time TEXT); INSERT INTO history_absences VALUES ('3','1','2026-01-08','18:30'),('3','1','2026-02-05','18:30'),('2','2','2026-08-02','19:00')");
 sqlite.exec("INSERT INTO students(id,first_name,last_name,email) VALUES(3,'Historical','Student','history@example.test'); INSERT INTO admin_profiles(email,name) VALUES('history@example.test','History'); INSERT INTO student_payments(id,student_id,paid_on,amount_minor,notes,recorded_by,recorded_at,request_key,request_payload) VALUES(100,3,'2026-01-01',100,'','history@example.test','2026-01-01','history-payment','{}'); INSERT INTO payment_course_allowances VALUES(100,1,'Zouk',2); INSERT INTO classes(course_id,class_date,start_time) VALUES(1,'2026-01-01','18:30'); INSERT INTO attendance(student_id,course_id,course_name,attended_at,recorded_by,class_id) VALUES(3,1,'Zouk','2026-01-01T18:30:00','history@example.test',(SELECT id FROM classes WHERE course_id=1 AND class_date='2026-01-01' AND start_time='18:30'))");
 const historical = await read(3, '?logsPageSize=50');
-assert.deepEqual(historical.logs.filter(r => r.kind === 'missed').map(r => r.eventDate), ['2026-01-08T18:30:00']);
+assert.deepEqual(historical.logs.filter(r => r.kind === 'missed').map(r => r.eventDate), ['2026-01-07T18:30:00']);
 assert.equal(historical.summary.missedClasses, 1);
 assert.equal(historical.logs.some(r => r.kind === 'cancelled'), false);
-assert.equal(historical.logsCount, historical.summary.attendanceCount + historical.summary.paymentCount + 1);
+assert.equal(historical.logsCount, historical.summary.attendanceCount + historical.summary.paymentCount + historical.summary.missedClasses);
 assert.equal(historical.summary.paymentCount, 1);
 const onlyAbsent = await read(2, '?logsPageSize=50');
 assert.equal(onlyAbsent.logs.some(r => r.kind === 'missed' && r.courseId === 2), false, 'An explicit absence without paid coverage is hidden');
 const preserved = await read(1, '?logsPageSize=50');
 assert.equal(preserved.summary.attendanceCount, upcomingLog.summary.attendanceCount);
 assert.equal(preserved.summary.paymentCount, upcomingLog.summary.paymentCount);
-console.log('PASS: catalog logs include only recorded paid absences and preserve attendance/payments.');
+console.log('PASS: catalog logs ignore historical absences and preserve attendance/payments.');
 
 sqlite.exec("INSERT INTO students(id,first_name,last_name,email) VALUES(4,'Same day','Payment','same-day@example.test'); INSERT INTO student_payments(id,student_id,paid_on,amount_minor,notes,recorded_by,recorded_at,request_key,request_payload) VALUES(101,4,'2026-09-01',100,'','history@example.test','2026-09-01','same-day-payment','{}'); INSERT INTO payment_course_allowances VALUES(101,1,'New name',1); INSERT INTO attendance(student_id,course_id,course_name,attended_at,recorded_by,request_key,request_payload,class_id) VALUES(4,1,'New name','2026-09-01T18:30:00','history@example.test','same-day-attendance','{}',(SELECT id FROM classes WHERE course_id=1 AND class_date='2026-09-01' AND start_time='18:30'))");
 const sameDay = await read(4, '?logsPageSize=50');

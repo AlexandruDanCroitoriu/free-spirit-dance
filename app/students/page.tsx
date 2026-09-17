@@ -20,6 +20,7 @@ type StoredFilters = { search?: unknown; courseFilter?: unknown; statusFilter?: 
 
 export default function StudentsPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const [targetPaymentId, setTargetPaymentId] = useState<number | undefined>();
   const [students, setStudents] = useState<Student[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm);
   const imageInput = useRef<HTMLInputElement>(null);
@@ -42,6 +43,8 @@ export default function StudentsPage() {
 
   useEffect(() => {
     const id = Number(new URLSearchParams(window.location.search).get("student"));
+    const payment = Number(new URLSearchParams(window.location.search).get("payment"));
+    if (Number.isSafeInteger(payment) && payment > 0) setTargetPaymentId(payment);
     if (Number.isSafeInteger(id) && id > 0) setSelectedStudentId(id);
   }, []);
   useEffect(() => {
@@ -68,9 +71,9 @@ export default function StudentsPage() {
     }
   }, [courseFilter, filtersInitialized, search, sortBy, statusFilter]);
   function closeStudentPanel() {
-    setSelectedStudentId(null);
+    setSelectedStudentId(null); setTargetPaymentId(undefined);
     const url = new URL(window.location.href);
-    if (url.searchParams.has("student")) { url.searchParams.delete("student"); window.history.replaceState(null, "", url.pathname + url.search + url.hash); }
+    if (url.searchParams.has("student")) { url.searchParams.delete("student"); url.searchParams.delete("payment"); window.history.replaceState(null, "", url.pathname + url.search + url.hash); }
   }
 
   async function loadStudents() {
@@ -209,6 +212,6 @@ export default function StudentsPage() {
     </div>
     {coursesError && <p role="alert" className="font-sans text-sm text-red-700">{coursesError} <button type="button" onClick={() => setCourseRetry((value) => value + 1)} className="underline">Retry</button></p>}
     <section className="overflow-hidden rounded-xl border border-stone-200 bg-white">{loading ? <p className="p-8 text-center font-sans text-sm text-slate-400">Loading students...</p> : students.length === 0 ? <div className="p-10 text-center"><h2 className="m-0 text-xl font-normal">No students yet</h2><p className="mt-2 font-sans text-sm text-slate-400">Add your first student to begin building the directory.</p></div> : sortedStudents.length === 0 ? <div className="p-10 text-center"><h2 className="m-0 text-xl font-normal">No matching students</h2><p className="mt-2 font-sans text-sm text-slate-400">Adjust your search, status, or course filter.</p></div> : <div className="divide-y divide-stone-200">{sortedStudents.map((student) => <StudentCard key={student.id} student={student} courses={(student.courseIds ?? []).map((id) => ({ id, name: courses.find((course) => course.id === id)?.name ?? `Course #${id}` }))} onOpen={() => setSelectedStudentId(student.id)} />)}</div>}</section>
-    {selectedStudentId !== null && <StudentPanel key={selectedStudentId} id={selectedStudentId} onClose={closeStudentPanel} onUpdate={(updated) => setStudents((current) => current.map((student) => student.id === updated.id ? { ...student, ...updated } : student))} onDelete={(id) => { setStudents((current) => current.filter((student) => student.id !== id)); closeStudentPanel(); }} />}
+    {selectedStudentId !== null && <StudentPanel targetPaymentId={targetPaymentId} key={selectedStudentId} id={selectedStudentId} onClose={closeStudentPanel} onUpdate={(updated) => setStudents((current) => current.map((student) => student.id === updated.id ? { ...student, ...updated } : student))} onDelete={(id) => { setStudents((current) => current.filter((student) => student.id !== id)); closeStudentPanel(); }} />}
   </div></main>;
 }

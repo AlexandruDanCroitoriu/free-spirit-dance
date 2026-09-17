@@ -132,26 +132,6 @@ export default function TaskBoard() {
       });
     }
   }
-  async function createCard(listId: number | null, title: string, requestKey: string) {
-    if (!board || busy.current || readOnly || loading) throw new Error('Wait for the current operation to finish.');
-    busy.current = true; setMoving(true);
-    try {
-      type Created = { task: BoardTask; revision: number };
-      let current = board;
-      let result: Created;
-      try {
-        result = await taskRequest<Created>('/api/tasks', 'POST', { title, listId, requestKey, revision: current.revision });
-      } catch (reason) {
-        // Creating a card has an idempotency key. A concurrent save cannot
-        // overwrite this new card, so refresh the revision and retry once.
-        if (!(reason instanceof TaskRequestError) || reason.status !== 409) throw reason;
-        current = await taskRequest<Board>('/api/tasks');
-        result = await taskRequest<Created>('/api/tasks', 'POST', { title, listId, requestKey, revision: current.revision });
-      }
-      setBoard({ ...current, revision: result.revision, tasks: [...current.tasks.filter(task => task.key !== result.task.key), result.task] });
-      setNotice(listId === null ? 'Added to your private Inbox.' : 'Card added.');
-    } finally { busy.current = false; setMoving(false); }
-  }
   const activeBoard = board?.boards.find(item => item.scope === boardScope);
   const lists = board?.lists.filter(list => list.boardId === activeBoard?.id) ?? [];
   const visible = board?.tasks.filter(task => (task.listId === null || lists.some(list => list.id === task.listId)) && (task.key === highlightedTask || matchesTask(task, { ...filters, status: 'all' }, today))) ?? [];
@@ -215,7 +195,7 @@ export default function TaskBoard() {
     {loading && <p role="status" className="px-4 font-sans text-sm">Loading tasks…</p>}
     {headerTarget && createPortal(pageHeader, headerTarget)}
     <p id="task-board-summary" tabIndex={-1} role="status" className="sr-only">{visible.length} tasks shown. Inbox and Personal are private. School is shared.</p>
-    {board && <TaskDragBoard onRenameList={renameList} highlightedTask={highlightedTask} onColor={changeColor} onListMove={moveList} onRemoveList={removeList} boardScope={boardScope} board={board} columns={lists} onCreate={createCard} onAddList={createList} visible={visible} today={today} disabled={disabled} onDragging={setDragging} onStudent={setStudentId} onMove={move} onEdit={task => setEditor({ task })} />}
+    {board && <TaskDragBoard onRenameList={renameList} highlightedTask={highlightedTask} onColor={changeColor} onListMove={moveList} onRemoveList={removeList} boardScope={boardScope} board={board} columns={lists} onAddCard={listId => setEditor({ task: null, listId })} onAddList={createList} visible={visible} today={today} disabled={disabled} onDragging={setDragging} onStudent={setStudentId} onMove={move} onEdit={task => setEditor({ task })} />}
     {editor && board && <TaskPanel listId={editor.listId} task={editor.task} board={board} studentId={filters.studentId} onClose={() => { setEditor(null); void load(); }} onSaved={async message => { setNotice(message); await load(); setEditor(null); }} />}
     {studentId !== null && <StudentPanel id={studentId} onClose={() => { setStudentId(null); void load(); }} onUpdate={() => void load()} onDelete={() => { setStudentId(null); void load(); }} />}
     <OperationNotification message={notice} onDismiss={() => setNotice('')} />

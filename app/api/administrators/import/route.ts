@@ -4,15 +4,16 @@ import { tableColumns, upgradeTaskTables } from "../export/route";
 const ownerEmail = "croitoriu.alexandru.code@gmail.com";
 const protectedTables = new Set(["admin_profiles", "administrator_permissions", "administrator_payment_methods", "payment_transfer_filters", "task_board_state"]);
 const tableNames = (Object.keys(tableColumns) as Array<keyof typeof tableColumns>).filter((name) => !protectedTables.has(name));
-const insertOrder = ["task_preferences", "task_boards", "task_lists", "students", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "payment_presets", "payment_preset_courses", "student_payments", "payment_course_allowances", "practice_parties", "attendance", "practice_attendance", "manual_tasks", "task_courses", "task_students", "task_images"] as const;
+const insertOrder = ["task_preferences", "task_boards", "task_lists", "students", "student_profile_log", "qr_codes", "courses", "course_schedule", "student_courses", "classes", "class_change_log", "payment_presets", "payment_preset_courses", "student_payments", "payment_students", "payment_course_allowances", "practice_parties", "attendance", "free_missed_attendance", "practice_attendance", "manual_tasks", "task_courses", "task_students", "task_images"] as const;
 const legacyNullableColumns: Partial<Record<keyof typeof tableColumns, readonly string[]>> = {
   students: ["picture", "birth_date"],
   qr_codes: ["image_path"],
   courses: ["start_date", "end_date", "class_cost_minor"],
   course_schedule: ["rent_cost_minor"],
   payment_presets: ["course_id"],
-  classes: ["end_time", "cancelled_by", "cancelled_at", "rent_cost_minor", "rent_paid"],
+  classes: ["end_time", "cancelled_by", "cancelled_at", "rent_cost_minor", "rent_paid", "created_by"],
   attendance: ["recorded_at", "request_key", "request_payload", "class_id", "complimentary_by", "complimentary_at"],
+  free_missed_attendance: ["notes"],
   practice_parties: ["request_hash", "last_request_key", "last_request_hash"],
   practice_attendance: ["donation_amount_minor", "donation_paid_on", "donation_recorded_by", "donation_recorded_at"],
 };
@@ -22,7 +23,7 @@ type DatabaseValue = string | number | null;
 type ImportRow = Record<string, DatabaseValue>;
 type GeneratedId = { id: number };
 type ImportEnv = CloudflareEnv & { PRODUCTION_IMAGES?: R2Bucket };
-const generatedIdTables = new Set(["task_boards", "task_lists", "students", "qr_codes", "courses", "classes", "payment_presets", "student_payments", "practice_parties", "attendance", "practice_attendance", "manual_tasks", "task_courses", "task_students"]);
+const generatedIdTables = new Set(["task_boards", "task_lists", "students", "student_profile_log", "qr_codes", "courses", "classes", "class_change_log", "payment_presets", "student_payments", "practice_parties", "attendance", "free_missed_attendance", "practice_attendance", "manual_tasks", "task_courses", "task_students"]);
 const foreignKeys: Partial<Record<keyof typeof tableColumns, Record<string, keyof typeof tableColumns>>> = {
   task_lists: { board_id: "task_boards" },
   manual_tasks: { list_id: "task_lists" },
@@ -31,21 +32,26 @@ const foreignKeys: Partial<Record<keyof typeof tableColumns, Record<string, keyo
   task_images: { task_id: "manual_tasks" },
   course_schedule: { course_id: "courses" },
   student_courses: { student_id: "students", course_id: "courses" },
+  student_profile_log: { student_id: "students" },
   classes: { course_id: "courses" },
+  class_change_log: { class_id: "classes" },
   payment_preset_courses: { preset_id: "payment_presets", course_id: "courses" },
   payment_presets: { course_id: "courses" },
   student_payments: { student_id: "students" },
+  payment_students: { payment_id: "student_payments", student_id: "students" },
   payment_course_allowances: { payment_id: "student_payments", course_id: "courses" },
   attendance: { student_id: "students", course_id: "courses", class_id: "classes" },
+  free_missed_attendance: { student_id: "students", class_id: "classes" },
   practice_attendance: { student_id: "students", practice_id: "practice_parties" },
 };
 const administratorReferenceColumns: Partial<Record<keyof typeof tableColumns, readonly string[]>> = {
   task_boards: ["owner_email"],
   task_preferences: ["email"],
   manual_tasks: ["created_by", "updated_by", "inbox_owner"],
-  classes: ["cancelled_by"],
+  classes: ["cancelled_by", "created_by"],
   student_payments: ["recorded_by"],
   attendance: ["recorded_by", "complimentary_by"],
+  free_missed_attendance: ["granted_by"],
   practice_parties: ["recorded_by"],
   practice_attendance: ["recorded_by", "donation_recorded_by"],
 };
@@ -73,7 +79,7 @@ function parseTables(input: unknown): Map<string, ImportRow[]> | null {
     const table = supplied.get(name);
     const columns = tableColumns[name];
     // Pre-task exports contain all old tables but no manual_tasks table.
-    if (!table && (name === "manual_tasks")) { rows.set(name, []); continue; }
+    if (!table && (name === "manual_tasks" || name === "free_missed_attendance" || name === "class_change_log")) { rows.set(name, []); continue; }
     if (!table || !Array.isArray(table.columns) || table.columns.length !== columns.length || table.columns.some((column, index) => column !== columns[index]) || !Array.isArray(table.rows)) return null;
     const validatedRows: ImportRow[] = [];
     for (const row of table.rows) {

@@ -1,0 +1,4 @@
+import { env } from '../../../../lib/storage';
+import { eventAccess, eventHandler, eventJson, positiveId } from '../../../../lib/free-events-server';
+type Context = { params: Promise<{ id: string }> };
+export async function GET(request: Request, context: Context) { return eventHandler(async () => { await eventAccess(request); const id = positiveId(Number((await context.params).id)); const rows = await env.DB.prepare(`SELECT l.id, l.action, l.before_json AS beforeJson, l.after_json AS afterJson, l.created_at AS createdAt, COALESCE(NULLIF(TRIM(a.name), ''), l.administrator_email) AS administrator, a.picture AS administratorPicture FROM free_event_change_log l LEFT JOIN admin_profiles a ON a.email = l.administrator_email WHERE l.event_id = ? ORDER BY l.created_at DESC, l.id DESC`).bind(id).all(); return eventJson(rows.results); }); }

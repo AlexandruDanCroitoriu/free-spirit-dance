@@ -9,7 +9,7 @@ import { TaskImage } from './task-student-mention';
 import type { TaskStudent } from '../lib/tasks';
 import { compressImage } from '../lib/profile-image';
 
-function MentionPopup({ editor, position, children, id }: { editor: Editor; position: number; children: ReactNode; id: string }) {
+function MentionPopup({ editor, position, children, id, onPointerDown }: { editor: Editor; position: number; children: ReactNode; id: string; onPointerDown: () => void }) {
   const popup = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const element = popup.current!;
@@ -39,8 +39,8 @@ function MentionPopup({ editor, position, children, id }: { editor: Editor; posi
       window.visualViewport?.removeEventListener('scroll', place);
       element.hidePopover();
     };
-  }, [editor, position, children]);
-  return <div ref={popup} popover="manual" role="listbox" aria-label="Student, course and administrator mentions" id={id} className="fixed m-0 overflow-y-auto rounded-lg border border-white/20 bg-[#292a2c] p-1 font-sans text-sm text-stone-100 shadow-xl">{children}</div>;
+  }, [editor, position]);
+  return <div ref={popup} popover="manual" role="listbox" aria-label="Student, course and administrator mentions" id={id} onPointerDownCapture={onPointerDown} className="fixed m-0 overflow-y-auto rounded-lg border border-white/20 bg-[#292a2c] p-1 font-sans text-sm text-stone-100 shadow-xl">{children}</div>;
 }
 
 export default function TaskDescriptionEditor({ value, onChange, disabled = false, readOnly = false, students = [], courses = [], administrators = [] }: {
@@ -48,6 +48,9 @@ export default function TaskDescriptionEditor({ value, onChange, disabled = fals
 }) {
   const [dismissedQuery, setDismissedQuery] = useState('');
   const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const [popupInteraction, setPopupInteraction] = useState(false);
+  const [imageStatus, setImageStatus] = useState('');
+  const [imageError, setImageError] = useState('');
   const suggestionId = useId();
   const editor = useEditor({
     extensions: [StarterKit.configure({ link: { openOnClick: false, autolink: false } }), TaskStudentMention, TaskCourseMention, TaskAdministratorMention, TaskImage],
@@ -55,10 +58,22 @@ export default function TaskDescriptionEditor({ value, onChange, disabled = fals
     shouldRerenderOnTransaction: true,
     content: descriptionDocument(value),
     editable: !readOnly && !disabled,
-    editorProps: { attributes: { class: 'task-rich-text outline-none', 'aria-label': 'Task description', ...(readOnly ? {} : { role: 'textbox', 'aria-multiline': 'true' }) } },
+    editorProps: {
+      attributes: { class: 'task-rich-text outline-none', 'aria-label': 'Task description', ...(readOnly ? {} : { role: 'textbox', 'aria-multiline': 'true' }) },
+    },
     onUpdate: ({ editor }) => { setActiveSuggestion(0); onChange?.(serializeDescription(editor.getJSON(), editor.isEmpty)); },
   });
   useEffect(() => { editor?.setEditable(!readOnly && !disabled); }, [editor, disabled, readOnly]);
+  useEffect(() => {
+    if (!popupInteraction) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && (editor?.view.dom.contains(target) || document.getElementById(suggestionId)?.contains(target))) return;
+      setPopupInteraction(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer);
+  }, [editor, popupInteraction, suggestionId]);
   useEffect(() => { if (editor && !readOnly) editor.commands.focus('end'); }, [editor, readOnly]);
   useEffect(() => {
     if (readOnly && editor) editor.commands.setContent(descriptionDocument(value), { emitUpdate: false });
@@ -86,17 +101,14 @@ export default function TaskDescriptionEditor({ value, onChange, disabled = fals
   type MentionChoice = { id: string | number; name: string; picture: string | null; kind: 'studentMention' | 'courseMention' | 'administratorMention' };
   const choices: MentionChoice[] = [...students.map(student => ({ ...student, kind: 'studentMention' as const })), ...courses.map(course => ({ ...course, picture: null, kind: 'courseMention' as const })), ...administrators.map(admin => ({ ...admin, id: admin.email, kind: 'administratorMention' as const }))];
   let query = '', matches: MentionChoice[] = [];
-  if (!disabled && editor.isFocused && selection.empty && !editor.isActive('codeBlock') && !editor.isActive('link')) {
+  if (!disabled && (editor.isFocused || popupInteraction) && selection.empty && !editor.isActive('codeBlock') && !editor.isActive('link')) {
     const command = before.match(/(?:^|\s)(\/[^\/\n\ufffc]+)$/u)?.[1];
     const search = command?.slice(1).trim() ?? '';
-    if (command && search) {
+    if (command && search.length >= 3) {
       query = command;
       const term = normalize(search);
-      // Include administrators before truncating: a large student directory
-      // must not crowd every administrator out of a shared-name search.
       matches = choices.filter(choice => normalize(choice.name).includes(term) || (choice.kind === 'administratorMention' && normalize(String(choice.id)).includes(term)))
-        .sort((a, b) => Number(b.kind === 'administratorMention') - Number(a.kind === 'administratorMention') || Number(normalize(b.name) === term) - Number(normalize(a.name) === term) || a.name.localeCompare(b.name))
-        .slice(0, 12);
+        .sort((a, b) => Number(b.kind === 'administratorMention') - Number(a.kind === 'administratorMention') || Number(normalize(b.name) === term) - Number(normalize(a.name) === term) || a.name.localeCompare(b.name));
     }
   }
   const queryKey = `${selection.from}:${query}`;
@@ -110,15 +122,18 @@ export default function TaskDescriptionEditor({ value, onChange, disabled = fals
     setActiveSuggestion(0);
   }
   async function uploadImage(file: File | undefined) {
-    if (!file || !editor || disabled) return;
+    if (!file || !editor || editor.isDestroyed || !editor.isEditable || disabled || readOnly) return;
+    setImageError('');
+    setImageStatus('Uploading image…');
     try {
       const compressed = await compressImage(file, 'task-image.jpg');
       const form = new FormData(); form.append('file', compressed);
       const response = await fetch('/api/tasks/images', { method: 'POST', body: form });
       const result = await response.json().catch(() => null) as { id?: string; error?: string } | null;
       if (!response.ok || !result?.id) throw new Error(result?.error ?? 'Could not upload image.');
-      editor.chain().focus().insertContent({ type: 'taskImage', attrs: { id: result.id } }).run();
-    } catch (reason) { window.alert(reason instanceof Error ? reason.message : 'Could not upload image.'); }
+      if (!editor.isDestroyed && editor.isEditable) editor.chain().focus().insertContent({ type: 'taskImage', attrs: { id: result.id } }).run();
+    } catch (reason) { setImageError(reason instanceof Error ? reason.message : 'Could not upload image.'); }
+    finally { setImageStatus(''); }
   }
   const control = 'min-h-10 min-w-10 rounded px-2 text-sm hover:bg-white/10 aria-pressed:bg-blue-400/20 aria-pressed:text-blue-300 disabled:opacity-40';
   const actions = [
@@ -137,19 +152,37 @@ export default function TaskDescriptionEditor({ value, onChange, disabled = fals
       <button type="button" aria-label="Redo" className={control} disabled={disabled || !editor.can().redo()} onClick={() => editor.chain().focus().redo().run()}>↷</button>
       <label className={`${control} cursor-pointer`} title="Add image">Image<input className="sr-only" type="file" accept="image/*" disabled={disabled} onChange={event => { void uploadImage(event.target.files?.[0]); event.currentTarget.value = ''; }} /></label>
     </div>
-    <div className="min-h-60 p-4" onKeyDownCapture={event => {
+    <div className="min-h-60 p-4" onPasteCapture={event => {
+      if (disabled || !editor.isEditable) return;
+      // Read the original clipboard before the rich-text editor parses it.
+      // File managers can supply an image file with an empty or generic MIME type.
+      const files = [...Array.from(event.clipboardData.files), ...Array.from(event.clipboardData.items).flatMap(item => {
+        const file = item.kind === 'file' ? item.getAsFile() : null;
+        return file ? [file] : [];
+      })];
+      const image = files.find(file => file.type.startsWith('image/') || ((!file.type || file.type === 'application/octet-stream') && /\.(png|jpe?g|webp|gif|bmp|avif|svg|ico|tiff?)$/i.test(file.name)));
+      if (image) {
+        event.preventDefault(); event.stopPropagation();
+        void uploadImage(image);
+      } else if (files.length || /file:\/\//i.test(event.clipboardData.getData('text/uri-list')) || /<img\b[^>]*\bsrc\s*=\s*["']file:\/\//i.test(event.clipboardData.getData('text/html'))) {
+        event.preventDefault(); event.stopPropagation();
+        setImageError('The clipboard did not provide a readable image. Open the picture and copy the image, or use the Image button to choose the file.');
+      }
+    }} onKeyDownCapture={event => {
       if (!suggestions.length || event.nativeEvent.isComposing) return;
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); event.stopPropagation(); setActiveSuggestion((active + (event.key === 'ArrowDown' ? 1 : suggestions.length - 1)) % suggestions.length); }
       else if (event.key === 'Enter' || event.key === 'Tab') { event.preventDefault(); event.stopPropagation(); insertStudent(suggestions[active]); }
       else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setDismissedQuery(queryKey); }
     }}><EditorContent editor={editor} />
-      {suggestions.length > 0 && <MentionPopup editor={editor} position={selection.from} id={suggestionId}>
+      {suggestions.length > 0 && <MentionPopup editor={editor} position={selection.from} id={suggestionId} onPointerDown={() => setPopupInteraction(true)}>
         {suggestions.map((student, index) => <button key={`${student.kind}:${student.id}`} type="button" role="option" aria-selected={index === active} onPointerDown={event => event.preventDefault()} onClick={() => insertStudent(student)} className={`flex min-h-11 w-full items-center gap-2 rounded-md p-2 text-left ${index === active ? 'bg-green-800 text-green-50' : 'hover:bg-white/10'}`}>
           <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lime-200 text-xs text-slate-900">{student.picture ? <img src={student.picture} alt="" className="h-full w-full object-cover" /> : student.name.split(/\s+/).map(part => part[0]).slice(0, 2).join('')}</span>{student.name}
           <span className="ml-auto text-xs opacity-70">{student.kind === 'administratorMention' ? 'Administrator' : student.kind === 'courseMention' ? 'Course' : 'Student'}</span>
         </button>)}
       </MentionPopup>}
     </div>
+    {imageStatus && <p role="status" className="px-4 text-stone-300">{imageStatus}</p>}
+    {imageError && <p role="alert" className="px-4 text-red-300">{imageError}</p>}
     {value.length > 10000 && <p role="alert" className="px-4 text-red-300">Description is too long to save. Shorten the text or simplify its formatting.</p>}
   </div>;
 }

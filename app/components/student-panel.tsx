@@ -5,12 +5,13 @@ import { compressImage } from "../lib/profile-image";
 import { readJson } from "../lib/http";
 import { useEffect, useRef, useState } from "react";
 import StudentActivity from "./student-activity";
+import StudentProfileLog from "./student-profile-log";
 import StudentCourses from "./student-courses";
 import StudentCard from "./student-card";
 import StudentTasks from "./student-tasks";
 
 export type Student = { id: number; firstName: string; lastName: string; email: string; phone: string; birthDate: string | null; facebookUrl: string; instagramUrl: string; picture: string | null; active: boolean };
-const studentTabs = [["logs", "Logs"], ["info", "Student info"]] as const;
+const studentTabs = [["logs", "Logs"], ["info", "Student info"], ["profile-history", "Profile history"]] as const;
 type Field = keyof Student;
 type EditableTextField = "firstName" | "lastName" | "email" | "phone" | "birthDate" | "facebookUrl" | "instagramUrl";
 type Drafts = Record<EditableTextField, string>;
@@ -25,7 +26,15 @@ const editableFields: Array<{ key: EditableTextField; label: string; type?: stri
 ];
 const emptyDrafts: Drafts = { firstName: "", lastName: "", email: "", phone: "", birthDate: "", facebookUrl: "", instagramUrl: "" };
 
-export default function StudentPanel({ id, onClose, onUpdate, onDelete, editPaymentId, targetPaymentId, targetPaymentKind = "payment", attendanceDate }: { id: number; onClose: () => void; onUpdate: (student: Student) => void; onDelete: (id: number) => void; editPaymentId?: number; targetPaymentId?: number; targetPaymentKind?: "payment" | "practice_attendance"; attendanceDate?: string }) {
+type StudentPanelProps = { id: number; onClose: () => void; onUpdate: (student: Student) => void; onDelete: (id: number) => void; editPaymentId?: number; targetPaymentId?: number; targetPaymentKind?: "payment" | "practice_attendance"; attendanceDate?: string };
+
+export default function StudentPanel(props: StudentPanelProps) {
+  const [linkedPayment, setLinkedPayment] = useState<{ studentId: number; paymentId: number } | null>(null);
+  const destination = linkedPayment ? { id: linkedPayment.studentId, targetPaymentId: linkedPayment.paymentId, targetPaymentKind: "payment" as const, editPaymentId: undefined, attendanceDate: undefined } : {};
+  return <StudentPanelContent {...props} {...destination} key={`${props.id}-${linkedPayment?.studentId ?? props.id}-${linkedPayment?.paymentId ?? ''}`} onOpenPayment={(studentId, paymentId) => setLinkedPayment({ studentId, paymentId })} />;
+}
+
+function StudentPanelContent({ id, onClose, onUpdate, onDelete, editPaymentId, targetPaymentId, targetPaymentKind = "payment", attendanceDate, onOpenPayment }: StudentPanelProps & { onOpenPayment: (studentId: number, paymentId: number) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const photoDialog = useRef<HTMLDialogElement>(null);
   const pendingSaves = useRef(0);
@@ -171,7 +180,10 @@ export default function StudentPanel({ id, onClose, onUpdate, onDelete, editPaym
     </section>
     </div>
     <div id="student-panel-logs" role="tabpanel" aria-labelledby="student-tab-logs" hidden={activeTab !== "logs"}>
-      {activeTab === "logs" && <StudentActivity key={`activity-${student.id}`} studentId={student.id} initialPaymentId={editPaymentId} targetPaymentId={targetPaymentId} targetPaymentKind={targetPaymentKind} targetAttendanceDate={attendanceDate} />}
+      {activeTab === "logs" && <StudentActivity onOpenPayment={onOpenPayment} key={`activity-${student.id}`} studentId={student.id} initialPaymentId={editPaymentId} targetPaymentId={targetPaymentId} targetPaymentKind={targetPaymentKind} targetAttendanceDate={attendanceDate} />}
+    </div>
+    <div id="student-panel-profile-history" role="tabpanel" aria-labelledby="student-tab-profile-history" hidden={activeTab !== "profile-history"}>
+      {activeTab === "profile-history" && <StudentProfileLog key={`profile-log-${student.id}`} studentId={student.id} />}
     </div>
     {deleteConfirmOpen && <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 p-5" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setDeleteConfirmOpen(false); }}>
       <div aria-labelledby="delete-student-title" aria-describedby="delete-student-description" aria-modal="true" className="w-full max-w-sm overflow-hidden rounded-xl border border-red-800 bg-red-50 shadow-2xl" role="alertdialog">

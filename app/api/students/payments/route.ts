@@ -53,10 +53,14 @@ export async function PATCH(request: Request) {
   const input = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!input || typeof input.paymentId !== "number" || !Number.isSafeInteger(input.paymentId) || input.paymentId < 1 || typeof input.studentId !== "number" || !Number.isSafeInteger(input.studentId) || input.studentId < 1 || typeof input.givenToSchool !== "boolean") return json({ error: "Invalid payment or transfer status." }, 400);
   const isPracticeDonation = input.purpose === "practice_donation";
+  const isFreeEventDonation = input.purpose === "free_event_donation";
+  if (isFreeEventDonation && (!Number.isSafeInteger(input.meetingId) || (input.meetingId as number) < 1)) return json({ error: "Invalid event donation." }, 400);
   if (isPracticeDonation && (!Number.isSafeInteger(input.practiceId) || (input.practiceId as number) < 1)) return json({ error: "Invalid practice donation." }, 400);
   try {
     // Practice donations are part of attendance; course payments remain independent.
-    const result = isPracticeDonation
+    const result = isFreeEventDonation
+      ? await env.DB.prepare("UPDATE free_event_attendance SET donation_given_to_school = ? WHERE id = ? AND student_id = ? AND meeting_id = ? AND donation_amount_minor IS NOT NULL").bind(input.givenToSchool ? 1 : 0, input.paymentId, input.studentId, input.meetingId).run()
+      : isPracticeDonation
       ? await env.DB.prepare("UPDATE practice_attendance SET donation_given_to_school = ? WHERE id = ? AND student_id = ? AND practice_id = ? AND donation_amount_minor IS NOT NULL").bind(input.givenToSchool ? 1 : 0, input.paymentId, input.studentId, input.practiceId).run()
       : await env.DB.prepare("UPDATE student_payments SET given_to_school = ? WHERE id = ? AND student_id = ?").bind(input.givenToSchool ? 1 : 0, input.paymentId, input.studentId).run();
     if (!result.meta.changes) return json({ error: "Payment not found." }, 404);

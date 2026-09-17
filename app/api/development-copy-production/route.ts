@@ -1,7 +1,7 @@
 import { productionImages } from "../../lib/production-backups/production-storage";
 import { env } from "../../lib/storage";
 import { copyBindings, copyRegistry, copySlots, listCopies } from "../../lib/local-copies";
-import { readTables, readHistoricalAbsences, copyImages, clearImages, replaceDatabase, deleteOrder } from "../../lib/local-database-transfer";
+import { readTables, copyImages, clearImages, replaceDatabase, deleteOrder } from "../../lib/local-database-transfer";
 
 const ownerEmail = "croitoriu.alexandru.code@gmail.com";
 type DevelopmentBindings = Partial<LocalDevelopmentBindings>;
@@ -29,12 +29,11 @@ export async function POST(request: Request) {
     if (!reserved) return Response.json({ error: "All eight local copy slots are in use." }, { status: 409 });
     const target = copyBindings(bindings, reserved)!;
     const tables = await readTables(bindings.PRODUCTION_DB);
-    const historicalAbsences = await readHistoricalAbsences(bindings.PRODUCTION_DB);
     // Retain a recoverable snapshot of the previous working records before replacement.
     const backupKey = `database-backups/${crypto.randomUUID()}.json`;
     await target.images.put(backupKey, JSON.stringify({ tables: await readTables(target.db) }), { httpMetadata: { contentType: "application/json" } });
     const images = await copyImages(await productionImages(bindings.PRODUCTION_DB, bindings.PRODUCTION_IMAGES), target.images, tables);
-    await replaceDatabase(target.db, tables, historicalAbsences);
+    await replaceDatabase(target.db, tables);
     await registry.prepare("UPDATE local_database_copies SET ready=1 WHERE id=?").bind(reserved).run();
     return Response.json({ id: reserved, copies: await listCopies(registry), copied: tables.reduce((count, table) => count + table.rows.length, 0), imagesCopied: images.copied, imagesMissing: images.missing, backupKey }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
@@ -67,11 +66,10 @@ export async function PUT(request: Request) {
   if (!source || !copies.some((copy) => copy.id === sourceId)) return Response.json({ error: "Choose a saved production copy." }, { status: 400 });
   try {
     const tables = await readTables(source.db);
-    const historicalAbsences = await readHistoricalAbsences(source.db);
     // Catalog is a local-only store. This never reads from or writes to remote production.
     await clearImages(bindings.CATALOG_IMAGES);
     const images = await copyImages(source.images, bindings.CATALOG_IMAGES, tables);
-    await replaceDatabase(bindings.CATALOG_DB, tables, historicalAbsences);
+    await replaceDatabase(bindings.CATALOG_DB, tables);
     return Response.json({ replaced: true, copied: tables.reduce((count, table) => count + table.rows.length, 0), imagesCopied: images.copied, imagesMissing: images.missing }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Could not replace Catalog from local production copy", error);

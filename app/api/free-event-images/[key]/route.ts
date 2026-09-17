@@ -1,0 +1,3 @@
+import { env } from '../../../lib/storage';
+import { eventAccess, EventError } from '../../../lib/free-events-server';
+export async function GET(request: Request, context: { params: Promise<{ key: string }> }) { try { await eventAccess(request); const object = await env.STUDENT_IMAGES.get(decodeURIComponent((await context.params).key)); if (!object) return new Response('Not found', { status: 404 }); const headers = new Headers(); object.writeHttpMetadata(headers); headers.set('etag', object.httpEtag); return new Response(object.body, { headers }); } catch (error) { if (error instanceof EventError) return Response.json({ error: error.message }, { status: error.status }); return new Response('Could not load image', { status: 500 }); } }

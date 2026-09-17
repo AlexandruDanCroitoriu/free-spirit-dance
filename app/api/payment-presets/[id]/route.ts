@@ -14,7 +14,7 @@ export async function PATCH(request: Request, context: Context) {
     if (!preset) return Response.json({ error: "Preset not found." }, { status: 404, headers });
     if (preset.courseId !== null) return Response.json({ error: "Course payment presets can only be edited from their course." }, { status: 403, headers });
     const results = await db.batch([
-      db.prepare("UPDATE payment_presets SET name = ?, amount_minor = ? WHERE id = ?").bind(input.name, input.amountMinor, id),
+      db.prepare("UPDATE payment_presets SET name = ?, amount_minor = ?, student_count = ? WHERE id = ?").bind(input.name, input.amountMinor, input.studentCount, id),
       db.prepare("DELETE FROM payment_preset_courses WHERE preset_id = ?").bind(id),
       ...input.allocations.map((a) => db.prepare("INSERT INTO payment_preset_courses (preset_id, course_id, allowance) VALUES (?, ?, ?)").bind(id, a.courseId, a.allowance)),
       db.prepare(presetQuery + " WHERE p.id = ? ORDER BY a.course_id").bind(id),

@@ -2,14 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import StudentPanel from "./student-panel";
-import { useRecordedAbsencesMode } from "./dashboard-settings";
 
 const filterStorageKey = "free-spirit-dance.student-balances.filters.v1";
 
 type StudentBalance = { id: number; active: boolean; firstName: string; lastName: string; picture: string | null; balances: { courseId: number; courseName: string; remainingAllowance: number; excessAttendance: number; unpaidAttendances: string[] }[] };
 
 export default function StudentBalancesWidget() {
-  const useRecordedAbsences = useRecordedAbsencesMode();
   const courseDropdown = useRef<HTMLDivElement>(null);
   const courseTrigger = useRef<HTMLButtonElement>(null);
   const calendarMenu = useRef<HTMLDivElement>(null);
@@ -62,14 +60,14 @@ export default function StudentBalancesWidget() {
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError("");
-    fetch(`/api/students/balances?useRecordedAbsences=${useRecordedAbsences}`, { signal: controller.signal }).then(async (response) => {
+    fetch("/api/students/balances", { signal: controller.signal }).then(async (response) => {
       const body = await response.json() as { students?: StudentBalance[]; courses?: { id: number; name: string }[]; error?: string };
       if (!response.ok || !Array.isArray(body.students) || !Array.isArray(body.courses)) throw new Error(body.error ?? "Could not load student balances.");
       if (!controller.signal.aborted) { setStudents(body.students); setCourses(body.courses); setHasLoaded(true); }
     }).catch((reason) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load student balances."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [reload, useRecordedAbsences]);
+  }, [reload]);
   useEffect(() => {
     window.addEventListener("calendar-updated", refresh);
     window.addEventListener("student-activity-updated", refresh);

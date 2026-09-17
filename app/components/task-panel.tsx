@@ -155,6 +155,7 @@ export default function TaskPanel({ task, board, studentId, listId, onClose, onS
   const selectedAdministrators = [...new Set([...(fields.administratorEmails ?? []), ...mentions.administratorEmails])];
   const administratorChoices = [...administrators];
   for (const email of [...selectedAdministrators, fields.assignedTo].filter((email): email is string => !!email)) if (!administratorChoices.some(admin => admin.email === email)) administratorChoices.push({ email, name: email, picture: null });
+  const creator = task && administrators.find(admin => admin.email.toLowerCase() === task.createdBy.toLowerCase());
   const selectedCourses = [...new Set([...fields.courseIds, ...mentions.courseIds])];
   const courseChoices = [...courses, ...(task?.courses ?? []).filter(course => !courses.some(item => item.id === course.id))].map(course => ({ ...course, picture: null }));
   const studentChoices = students.map(student => ({ id: student.id, name: `${student.firstName} ${student.lastName}`, picture: student.picture }));
@@ -174,9 +175,13 @@ export default function TaskPanel({ task, board, studentId, listId, onClose, onS
         <button type="button" className={button} aria-haspopup="dialog" onClick={() => setStudentsOpen(true)}>Students{selectedStudents.length ? ` (${selectedStudents.length})` : ''}</button>
         <button type="button" className={button} aria-haspopup="dialog" onClick={() => setCoursesOpen(true)}>Courses{selectedCourses.length ? ` (${selectedCourses.length})` : ''}</button>
         <button type="button" className={button} aria-haspopup="dialog" onClick={() => setAdministratorsOpen(true)}>Administrators{selectedAdministrators.length ? ` (${selectedAdministrators.length})` : ''}</button>
-        <div><span className="block text-stone-300">Status</span><div role="group" aria-label="Task status" className="mt-2 inline-flex gap-1 rounded-lg border border-white/20 bg-[#292a2c] p-1">
+        <div className={task ? 'grid grid-cols-1 items-start gap-3 sm:grid-cols-2' : ''}><div><span className="block text-stone-300">Status</span><div role="group" aria-label="Task status" className="mt-2 inline-flex gap-1 rounded-lg border border-white/20 bg-[#292a2c] p-1">
           {(['in_progress', 'done'] as const).map(status => <button key={status} type="button" aria-pressed={(fields.status ?? 'in_progress') === status} className={`min-h-11 rounded-md px-4 font-semibold transition-colors ${(fields.status ?? 'in_progress') === status ? 'bg-blue-400 text-slate-950' : 'text-stone-300 hover:bg-white/10'}`} onClick={() => setFields(previous => ({ ...previous, status }))}>{status === 'done' ? 'Done' : 'In progress'}</button>)}
         </div></div>
+        {task && <div><span className="block text-stone-300">Created by</span><div className="mt-1 flex min-h-11 items-center gap-2 text-stone-100">
+          <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-purple-200 text-xs font-semibold text-purple-950">{creator?.picture && /^\/(?!\/)/.test(creator.picture) ? <img src={creator.picture} alt="" className="h-full w-full object-cover" /> : (creator?.name ?? task.createdBy).split(/\s+/).filter(Boolean).map(part => part[0]).slice(0, 2).join('').toUpperCase()}</span>
+          <span className="min-w-0 break-words">{creator?.name ?? task.createdBy}</span>
+        </div></div>}</div>
         <div className="grid grid-cols-2 items-start gap-3">
           <TaskAssigneeSelect administrators={administratorChoices} value={fields.assignedTo ?? null} disabled={saving || uncertain || missing} onChange={assignedTo => setFields(previous => ({ ...previous, assignedTo }))} />
           <TaskDueDateSelect value={fields.dueDate} disabled={saving || uncertain || missing} onChange={dueDate => setFields(previous => ({ ...previous, dueDate }))} />

@@ -1,4 +1,5 @@
 import { env } from "../../../../lib/storage";
+import { studentLogActor } from "../../../../lib/student-profile-log";
 
 type Context = { params: Promise<{ id: string }> };
 const headers = { "Cache-Control": "no-store" };
@@ -21,6 +22,8 @@ export async function GET(_request: Request, context: Context) {
 }
 
 export async function PUT(request: Request, context: Context) {
+  const actor = studentLogActor(request);
+  if (!actor) return Response.json({ error: "Administrator identity is required." }, { status: 403, headers });
   const id = Number((await context.params).id);
   if (!Number.isSafeInteger(id) || id < 1) return Response.json({ error: "Invalid student id." }, { status: 400, headers });
   const input = await request.json().catch(() => null) as { courseIds?: unknown } | null;
@@ -31,13 +34,21 @@ export async function PUT(request: Request, context: Context) {
     const db = env.DB;
     if (!await db.prepare("SELECT id FROM students WHERE id = ?").bind(id).first()) return Response.json({ error: "Student not found." }, { status: 404, headers });
     const ids = JSON.stringify(input.courseIds);
+    const current = await db.prepare("SELECT sc.course_id AS id, c.name FROM student_courses sc JOIN courses c ON c.id = sc.course_id WHERE sc.student_id = ?").bind(id).all<{ id: number; name: string }>();
+    const courses = await db.prepare("SELECT id, name FROM courses WHERE id IN (SELECT value FROM json_each(?))").bind(ids).all<{ id: number; name: string }>();
+    if (courses.results.length !== input.courseIds.length) return Response.json({ error: "A selected course no longer exists. Reload and try again." }, { status: 409, headers });
+    const previousIds = new Set(current.results.map(course => course.id));
+    const selectedIds = new Set(input.courseIds);
+    const changes = [...current.results.filter(course => !selectedIds.has(course.id)).map(course => ({ action: "course_removed", name: course.name })), ...courses.results.filter(course => !previousIds.has(course.id)).map(course => ({ action: "course_added", name: course.name }))];
+    const now = new Date().toISOString();
     // One transaction: invalid/deleted courses roll back the entire change.
     const result = await db.batch([
       db.prepare("DELETE FROM student_courses WHERE student_id = ? AND course_id NOT IN (SELECT value FROM json_each(?))").bind(id, ids),
       db.prepare("INSERT INTO student_courses (student_id, course_id) SELECT ?, value FROM json_each(?) WHERE true ON CONFLICT (student_id, course_id) DO NOTHING").bind(id, ids),
+      ...changes.map(change => db.prepare("INSERT INTO student_profile_log (student_id, administrator_email, action, new_value, created_at) VALUES (?, ?, ?, ?, ?)").bind(id, actor, change.action, change.name, now)),
       db.prepare(query).bind(id),
     ]);
-    return Response.json(result[2].results, { headers });
+    return Response.json(result.at(-1)!.results, { headers });
   } catch (error) {
     if (String(error).includes("FOREIGN KEY")) return Response.json({ error: "A student or course no longer exists. Reload and try again." }, { status: 409, headers });
     console.error("Could not save student courses", error);

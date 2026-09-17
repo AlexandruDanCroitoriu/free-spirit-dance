@@ -41,11 +41,11 @@ const columnCollision: typeof pointerIntersection = input => {
   return collision ? { ...collision, priority: 1 } : null;
 };
 
-function Column({ columnId, title, disabled, children, statusSettings, onCreate, inbox = false, color, index, onColor, onRemove, onRename }: { onRename?: (name: string) => Promise<void>; statusSettings: ReactNode; color: TaskColor; index: number; onColor: (color: TaskColor) => Promise<void>; onRemove?: () => Promise<void>; columnId: string; title: string; disabled: boolean; children: ReactNode; onCreate: (title: string, key: string) => Promise<void>; inbox?: boolean }) {
+function Column({ columnId, title, disabled, children, statusSettings, onAdd, inbox = false, color, index, onColor, onRemove, onRename }: { onRename?: (name: string) => Promise<void>; statusSettings: ReactNode; color: TaskColor; index: number; onColor: (color: TaskColor) => Promise<void>; onRemove?: () => Promise<void>; columnId: string; title: string; disabled: boolean; children: ReactNode; onAdd: () => void; inbox?: boolean }) {
   const { ref, isDropTarget } = useDroppable({ id: columnId, accept: 'task', collisionDetector: columnCollision, disabled });
   const sortable = useSortable({id: `list:${columnId}`, index, group: 'lists', type: 'task-list', accept: 'task-list', collisionDetector: pointerIntersection, disabled: disabled || inbox});
   const combinedRef = useCallback((element: HTMLElement | null) => { ref(element); sortable.ref(element); }, [ref, sortable.ref]);
-  const add = <TaskQuickAdd inbox={inbox} compact disabled={disabled} onCreate={onCreate} />;
+  const add = <TaskQuickAdd label={title} disabled={disabled} onAdd={onAdd} />;
   return <section data-dragging={sortable.isDragSource || undefined} ref={combinedRef} id={inbox ? "task-inbox" : undefined} style={{background: taskBackground(color)}} aria-labelledby={`column-${columnId}`} className={`${inbox ? 'task-inbox-column order-3 md:order-1 flex flex-col' : 'flex max-h-full w-[272px] flex-col shadow-lg shadow-slate-950/25'} max-w-[calc(100vw-2rem)] shrink-0 rounded-xl border bg-stone-100 ${isDropTarget ? 'border-lime-600 ring-2 ring-lime-600' : 'border-black/20'}`}>
     <div className={`shrink-0 rounded-t-xl bg-transparent font-sans ${color === 'default' ? 'text-slate-800' : 'text-white [text-shadow:0_1px_2px_rgb(0_0_0_/_0.35)]'}`}>
       <div ref={inbox ? undefined : sortable.handleRef} tabIndex={inbox || disabled ? undefined : 0} aria-label={inbox ? undefined : `Drag list ${title}`} aria-roledescription={inbox ? undefined : 'draggable list'} data-list-handle={inbox ? undefined : columnId} className={`flex flex-wrap touch-auto items-center gap-2 pl-4 pr-1 focus-visible:outline-2 focus-visible:outline-lime-700 ${inbox ? 'h-14' : 'min-h-11 cursor-grab select-none'}`}>
@@ -69,13 +69,13 @@ function SortableCard({ task, index, columnId, disabled, children }: {
   </div>;
 }
 
-export default function TaskDragBoard({ board, columns, visible, today, disabled, onDragging, onStudent, onMove, onEdit, onCreate, onAddList, header, onColor, onListMove, onRemoveList, onRenameList, boardScope = 'school', highlightedTask = null }: {
+export default function TaskDragBoard({ board, columns, visible, today, disabled, onDragging, onStudent, onMove, onEdit, onAddCard, onAddList, header, onColor, onListMove, onRemoveList, onRenameList, boardScope = 'school', highlightedTask = null }: {
   onRenameList: (listId: number, name: string) => Promise<void>;
   highlightedTask?: string | null;
   onColor: (change: TaskColorChange) => Promise<void>; onListMove: (change: TaskListMove) => Promise<void>; onRemoveList: (listId: number) => Promise<void>;
   board: TaskBoard; columns: TaskList[]; visible: BoardTask[]; today: string; disabled: boolean;
   onDragging: (dragging: boolean) => void; onStudent: (id: number) => void; onMove: (change: TaskMove) => Promise<void>; onEdit: (task: BoardTask) => void;
-  onCreate: (listId: number | null, title: string, key: string) => Promise<void>;
+  onAddCard: (listId: number | null) => void;
   onAddList: (name: string, requestKey: string) => Promise<void>; header?: ReactNode; boardScope?: 'school' | 'personal';
 }) {
   const [listPreview, setListPreview] = useState<string[] | null>(null);
@@ -266,7 +266,7 @@ export default function TaskDragBoard({ board, columns, visible, today, disabled
         return <button key={status} type="button" aria-pressed={active} disabled={disabled || dragging} onClick={() => toggleStatus(id, status)} className={`min-h-11 flex-1 rounded-lg px-2 text-sm font-semibold transition-colors disabled:opacity-50 ${active ? 'bg-blue-400/20 text-blue-200 ring-1 ring-inset ring-blue-400/40' : 'bg-white/5 text-stone-400 hover:bg-white/10'}`}>{status === 'done' ? 'Done' : 'In progress'}</button>;
       })}
     </div></div>;
-    return <Column onRename={!inbox ? name => onRenameList(listId!, name) : undefined} statusSettings={statusSettings} color={inbox ? board.inboxColor : list?.color ?? 'default'} index={index} onColor={color => onColor(inbox ? {target: 'inbox', color} : {target: 'list', listId: listId!, color})} onRemove={!inbox ? () => onRemoveList(listId!) : undefined} key={id} columnId={id} title={title} inbox={inbox} disabled={disabled} onCreate={(title, key) => onCreate(listId, title, key)}>
+    return <Column onRename={!inbox ? name => onRenameList(listId!, name) : undefined} statusSettings={statusSettings} color={inbox ? board.inboxColor : list?.color ?? 'default'} index={index} onColor={color => onColor(inbox ? {target: 'inbox', color} : {target: 'list', listId: listId!, color})} onRemove={!inbox ? () => onRemoveList(listId!) : undefined} key={id} columnId={id} title={title} inbox={inbox} disabled={disabled} onAdd={() => onAddCard(listId)}>
       {keys.map((key, index) => {
         const task = tasksByKey.get(key);
         if (!task) return null;

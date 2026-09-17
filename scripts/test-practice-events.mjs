@@ -30,6 +30,7 @@ async function load(file, name) {
 
 try {
   const parties = await load('app/api/practice-parties/route.ts', 'parties');
+  const calendar = await load('app/api/practice-calendar/route.ts', 'calendar');
   const party = await load('app/api/practice-parties/[id]/route.ts', 'party');
   const roster = await load('app/api/practice-parties/[id]/roster/route.ts', 'roster');
   const activity = await load('app/api/students/[id]/activity/route.ts', 'activity');
@@ -78,6 +79,19 @@ try {
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM practice_attendance').get().count, 0);
   assert.equal((await expect(payments.GET(request(null, 'GET', '/api/students/payments')), 200)).count, 0);
   assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(), []);
+  sqlite.exec(`
+    INSERT INTO free_events (id,name,created_by,created_at,updated_at) VALUES (1,'Community event','admin@test','now','now');
+    INSERT INTO free_event_meetings (event_id,name,starts_at,starts_utc,duration_minutes,space_rent_minor,created_by,created_at,updated_at) VALUES
+      (1,'In range','2026-01-07T19:00','2026-01-07T17:00:00Z',90,0,'admin@test','now','now'),
+      (1,'Out of range','2026-02-07T19:00','2026-02-07T17:00:00Z',90,0,'admin@test','now','now');
+  `);
+  const calendarData = await expect(calendar.GET(request(null,'GET','/api/practice-calendar?from=2026-01-01&to=2026-01-31')),200);
+  assert.equal(calendarData.sessions.length,1,'Practice parties remain visible');
+  assert.equal(calendarData.meetings.length,1,'Free meetings respect calendar boundaries');
+  assert.equal(calendarData.meetings[0].eventName,'Community event');
+  assert.equal(calendarData.meetings[0].name,'In range');
+  assert.equal(calendarData.meetings[0].eventId,1);
+  await expect(calendar.GET(request(null,'GET','/api/practice-calendar?from=invalid&to=2026-01-31')),400);
   console.log('PASS: practice parties keep one attendance per student, optional donation fields, retry protection, student activity, and dashboard transfer handling.');
 } finally {
   rmSync(directory, { recursive: true, force: true });

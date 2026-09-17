@@ -46,6 +46,8 @@ export async function POST(request: Request) {
       db.prepare("DELETE FROM attendance"),
       db.prepare("DELETE FROM student_payments"),
       db.prepare("DELETE FROM student_courses"),
+      db.prepare("DELETE FROM student_profile_log"),
+      db.prepare("DELETE FROM class_change_log"),
       db.prepare("UPDATE practice_attendance SET donation_amount_minor = NULL, donation_paid_on = NULL, donation_notes = '', donation_recorded_by = NULL, donation_recorded_at = NULL, donation_given_to_school = 0 WHERE donation_amount_minor IS NOT NULL"),
       db.prepare("DELETE FROM practice_attendance"),
       db.prepare("DELETE FROM practice_parties"),

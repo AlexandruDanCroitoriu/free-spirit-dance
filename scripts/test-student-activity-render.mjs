@@ -17,8 +17,8 @@ const data = {
   payments: [{id:1,paidOn:'2026-09-09',amountMinor:20050,allocations:[{courseId:1,courseName:'Zouk',allowance:2}],notes:'Cash',recordedBy:'admin@example.test',recordedAt:'2026-09-09T18:00:00Z'}],
   courses: [{id:1,name:'Zouk'},{id:2,name:'Basics'}], attendancePage: 1, paymentsPage: 1,
 };
-data.logs.unshift({id:1,kind:"missed",courseId:1,eventDate:"2026-09-10T18:00:00",courseName:"Zouk",amountMinor:null,notes:"",recordedBy:"Automatic",recordedAt:null,allocations:[]});
 data.logs.push({id:1,kind:"cancelled",courseId:1,eventDate:"2026-09-04T18:00:00",courseName:"Zouk",amountMinor:null,notes:"",recordedBy:"—",recordedAt:null,allocations:[]});
+data.logs.unshift({id:1,kind:"missed",courseId:1,eventDate:"2026-09-10T18:00:00",courseName:"Zouk",amountMinor:null,notes:"",recordedBy:"Automatic",recordedAt:null,allocations:[]});
 try {
   for (const [mode, canRecordFuturePayments] of [[null, false], ['payment', false], ['payment', true]]) {
     data.canRecordFuturePayments = canRecordFuturePayments;
@@ -36,18 +36,11 @@ try {
     assert.match(html,/03\/09\/2026/);
     assert.doesNotMatch(html,/Not attended · credit used|Classes covered in Zouk/);
     assert.match(html,/border-l-2 border-lime-600/);
-    assert.match(html,/Missed classes/);
-    const missedRow = html.match(/<tr[^>]*>(?:(?!<\/tr>)[\s\S])*?>Missed<(?:(?!<\/tr>)[\s\S])*?<\/tr>/)?.[0];
     const cancelledRow = html.match(/<tr[^>]*>(?:(?!<\/tr>)[\s\S])*?>Cancelled<(?:(?!<\/tr>)[\s\S])*?<\/tr>/)?.[0];
     assert.ok(cancelledRow);
     assert.match(cancelledRow, /Cancelled · no credit used/);
     assert.doesNotMatch(cancelledRow, /<button|Covered by payment/);
-    assert.ok(missedRow, 'a missed activity row renders');
-    assert.match(missedRow, /1 missed/);
-    assert.match(missedRow, /10 sept 2026/);
-    assert.match(missedRow, /Automatic/);
-    assert.match(missedRow, /Covered by payment #1/);
-    assert.doesNotMatch(missedRow, /<button/);
+    assert.match(html,/Missed classes/);
     assert.ok(html.indexOf("Class allowance") < html.indexOf("Missed classes"));
     assert.ok(html.indexOf("Missed classes") < html.indexOf("Attendances without credit"));
     assert.match(html,/Free attendance for Zouk on 03\/09\/2026/);

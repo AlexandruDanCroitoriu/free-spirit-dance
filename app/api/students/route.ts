@@ -1,5 +1,6 @@
 import { env } from "../../lib/storage";
 import { schoolToday } from "../../lib/calendar-dates";
+import { studentLogActor } from "../../lib/student-profile-log";
 
 type StudentRow = { id: number; first_name: string; last_name: string; email: string; phone: string; birth_date: string | null; facebook_url: string; instagram_url: string; picture: string | null; active: number; course_ids?: string };
 
@@ -56,6 +57,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const actor = studentLogActor(request);
+  if (!actor) return json({ error: "Administrator identity is required." }, { status: 403 });
   const input = await request.json().catch(() => null);
   const error = validateStudent(input);
   if (error) return json({ error }, { status: 400 });
@@ -77,7 +80,8 @@ export async function POST(request: Request) {
     // Keep creation and assignments atomic; materialize the student id before inserting course rows.
     const results = await db.batch<StudentRow>([
       insert,
-      db.prepare("INSERT INTO student_courses (student_id, course_id) SELECT student.id, courses.value FROM (SELECT last_insert_rowid() AS id LIMIT 1) student CROSS JOIN json_each(?) courses").bind(JSON.stringify(student.courseIds ?? [])),
+      db.prepare("INSERT INTO student_profile_log (student_id, administrator_email, action, created_at) VALUES (last_insert_rowid(), ?, 'created', ?)").bind(actor, new Date().toISOString()),
+      db.prepare("INSERT INTO student_courses (student_id, course_id) SELECT log.student_id, courses.value FROM (SELECT student_id FROM student_profile_log WHERE id = last_insert_rowid()) log CROSS JOIN json_each(?) courses").bind(JSON.stringify(student.courseIds ?? [])),
     ]);
     return json(serialize(results[0].results[0]), { status: 201 });
   } catch (error) {

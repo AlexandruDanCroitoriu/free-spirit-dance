@@ -68,3 +68,19 @@ sqlite.exec("DELETE FROM student_courses WHERE student_id=3 AND course_id=1");
 students=(await (await api.GET()).json()).students;
 assert.deepEqual(students.find(s=>s.id===3).balances.map(b=>b.courseId),[2],'removing an unused assignment removes its balance');
 console.log('PASS: assigned students without activity, zero credits, per-course filtering and assignment changes.');
+
+// Covered classes consume credits consistently in balances and the calendar.
+sqlite.exec("INSERT INTO classes (id,course_id,class_date,start_time) VALUES (2,1,'2020-01-13','19:00'); CREATE TABLE history_absences (student_id TEXT,course_id TEXT,class_date TEXT,start_time TEXT); INSERT INTO history_absences VALUES ('2','1','2020-01-14','19:00')");
+students=(await (await api.GET()).json()).students;
+assert.equal(students.find(s=>s.id===2).balances[0].remainingAllowance,1);
+const calendar = await import(moduleUrl(readFileSync('app/api/student-calendar/route.ts','utf8').replace('import { env } from "../../lib/storage";', 'const env = globalThis.activityTestEnv;').replace('"../../lib/student-activity"',JSON.stringify(helper))));
+const calendarRequest = () => new Request('https://example.test/api/student-calendar?studentId=2&from=2020-01-01&to=2020-01-31');
+let events = (await (await calendar.GET(calendarRequest())).json()).events;
+assert.deepEqual(events.filter(e=>e.kind==='missed').map(e=>e.date), ['2020-01-13']);
+sqlite.exec("INSERT INTO free_missed_attendance (student_id,class_id,granted_by,granted_at) VALUES (2,2,'admin@test','2020-01-13')");
+students=(await (await api.GET()).json()).students;
+assert.equal(students.find(s=>s.id===2).balances[0].remainingAllowance,2);
+events = (await (await calendar.GET(calendarRequest())).json()).events;
+assert.deepEqual(events.filter(e=>e.kind==='missed'), []);
+assert.deepEqual(events.filter(e=>e.kind==='free_missed').map(e=>e.date), ['2020-01-13']);
+console.log('PASS: balances and calendar use payment coverage and respect waived classes.');

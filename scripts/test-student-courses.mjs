@@ -34,15 +34,19 @@ globalThis.studentCoursesTestEnv = { DB: db };
 
 const api = await import(moduleUrl(readFileSync("app/api/students/[id]/courses/route.ts", "utf8").replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/, 'const env = globalThis.studentCoursesTestEnv;')));
 const context = (id) => ({ params: Promise.resolve({ id: String(id) }) });
-const request = (body) => new Request("https://example.test/api/students/1/courses", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+const request = (body) => new Request("https://example.test/api/students/1/courses", { method: "PUT", headers: { "Content-Type": "application/json", "cf-access-authenticated-user-email": "admin@example.test" }, body: JSON.stringify(body) });
 sqlite.exec("INSERT INTO students (first_name,last_name,email) VALUES ('A','Test','a@example.test'),('B','Test','b@example.test'); INSERT INTO courses (name) VALUES ('Zouk'),('Basics'),('Practice')");
 const assigned = () => sqlite.prepare("SELECT course_id FROM student_courses WHERE student_id=1 ORDER BY course_id").all().map(row => row.course_id);
 assert.equal((await api.GET(request({}),context(999))).status,404);
 assert.equal((await api.PUT(request({courseIds:[1]}),context('bad'))).status,400);
 assert.equal((await api.PUT(request({courseIds:[1]}),context(999))).status,404);
 assert.equal((await api.PUT(request({courseIds:[1,2]}),context(1))).status,200);
+assert.deepEqual(sqlite.prepare("SELECT action, new_value FROM student_profile_log WHERE student_id=1 ORDER BY id").all().map(row => [row.action, row.new_value]), [["course_added", "Zouk"], ["course_added", "Basics"]]);
+assert.equal((await api.PUT(new Request("https://example.test/api/students/1/courses", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ courseIds: [1] }) }), context(1))).status, 403);
+assert.deepEqual(assigned(), [1,2]);
 assert.deepEqual(assigned(),[1,2]);
 assert.equal((await api.PUT(request({courseIds:[1,2]}),context(1))).status,200);
+assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM student_profile_log WHERE student_id=1").get().n, 2, "Saving the same courses must not create log entries");
 for (const courseIds of [[1,1],['1'],[-1],[1.5],null]) assert.equal((await api.PUT(request({courseIds}),context(1))).status,400);
 assert.equal((await api.PUT(request({courseIds:[3,999]}),context(1))).status,409);
 assert.deepEqual(assigned(),[1,2], 'Failed save must preserve existing assignments');
@@ -59,10 +63,12 @@ assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
 console.log('PASS: multiple assignments, updates, removal, validation, rollback, student isolation and deletion constraints.');
 
 const studentsApi = await import(moduleUrl(readFileSync("app/api/students/route.ts", "utf8").replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/, 'const env = globalThis.studentCoursesTestEnv;')));
-const create = (extra) => studentsApi.POST(new Request("https://example.test/api/students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firstName: "New", lastName: "Student", email: "", phone: "", birthDate: null, facebookUrl: "", instagramUrl: "", ...extra }) }));
+const create = (extra) => studentsApi.POST(new Request("https://example.test/api/students", { method: "POST", headers: { "Content-Type": "application/json", "cf-access-authenticated-user-email": "admin@example.test" }, body: JSON.stringify({ firstName: "New", lastName: "Student", email: "", phone: "", birthDate: null, facebookUrl: "", instagramUrl: "", ...extra }) }));
 const created = await create({courseIds:[1,2,3]});
 assert.equal(created.status,201);
 const newStudent = await created.json();
+assert.equal(sqlite.prepare("SELECT administrator_email, action FROM student_profile_log WHERE student_id=?").get(newStudent.id).action, "created");
+assert.equal(sqlite.prepare("SELECT administrator_email FROM student_profile_log WHERE student_id=?").get(newStudent.id).administrator_email, "admin@example.test");
 assert.deepEqual(sqlite.prepare("SELECT course_id FROM student_courses WHERE student_id=? ORDER BY course_id").all(newStudent.id).map(row=>row.course_id),[1,2,3]);
 const count = () => sqlite.prepare("SELECT count(*) AS n FROM students").get().n;
 const before = count();
@@ -78,3 +84,12 @@ assert.deepEqual(directory.map(student => student.id), directory.map(student => 
 assert.deepEqual(directory.find(student => student.id === newStudent.id).courseIds.sort((a,b)=>a-b), [1,2,3]);
 assert.deepEqual(directory.at(-1).courseIds, []);
 console.log("PASS: student directory preserves creation order and includes course assignments for filtering.");
+
+const studentApi = await import(moduleUrl(readFileSync("app/api/students/[id]/route.ts", "utf8").replace(/import \{ env \} from "(?:\.\.\/)+lib\/storage";/, 'const env = globalThis.studentCoursesTestEnv;')));
+const profile = await (await studentApi.GET(request({}), context(newStudent.id))).json();
+const edit = (body) => new Request(`https://example.test/api/students/${newStudent.id}`, { method: "PATCH", headers: { "Content-Type": "application/json", "cf-access-authenticated-user-email": "editor@example.test" }, body: JSON.stringify(body) });
+assert.equal((await studentApi.PATCH(edit({ ...profile, firstName: "Updated", phone: "123" }), context(newStudent.id))).status, 200);
+assert.deepEqual(sqlite.prepare("SELECT field, old_value, new_value, administrator_email FROM student_profile_log WHERE student_id=? AND action='changed' ORDER BY id").all(newStudent.id).map(row => [row.field, row.old_value, row.new_value, row.administrator_email]), [["first_name", "New", "Updated", "editor@example.test"], ["phone", null, "123", "editor@example.test"]]);
+assert.equal((await studentApi.PATCH(edit({ ...profile, firstName: "Updated", phone: "123" }), context(newStudent.id))).status, 200);
+assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM student_profile_log WHERE student_id=? AND action='changed'").get(newStudent.id).n, 2);
+console.log("PASS: profile changes record actor and before/after values without duplicate no-op entries.");
