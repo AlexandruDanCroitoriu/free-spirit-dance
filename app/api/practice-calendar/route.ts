@@ -7,7 +7,7 @@ export async function GET(request: Request) { return eventHandler(async () => {
   const url = new URL(request.url), from = url.searchParams.get('from'), to = url.searchParams.get('to');
   const maximumDays = url.searchParams.get('all') === 'true' ? 200 * 366 : 370;
   if (!validPaymentDate(from, true) || !validPaymentDate(to, true) || from > to || Date.parse(to) - Date.parse(from) > maximumDays * 86400000) throw new EventError(`Choose a calendar range of up to ${maximumDays} days.`);
-  const meetings = await env.DB.prepare(`SELECT m.id, m.event_id AS eventId, e.name AS eventName, m.name,
+  const meetings = await env.DB.prepare(`SELECT m.id, m.event_id AS eventId, e.name AS eventName, e.image_path AS eventImagePath, m.name,
     m.starts_at AS startsAt, m.starts_utc AS startsUtc, m.duration_minutes AS durationMinutes,
     m.cancelled, m.revision, m.space_rent_minor AS spaceRentMinor, m.accepts_donations AS acceptsDonations,
     (SELECT COUNT(*) FROM free_event_attendance a WHERE a.meeting_id = m.id) AS attendanceCount
