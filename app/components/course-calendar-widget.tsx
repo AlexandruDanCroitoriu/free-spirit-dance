@@ -404,9 +404,10 @@ export default function CourseCalendarWidget() {
   function schoolSlotsOn(dateKey: string, day: string) {
     const daySlots = slots.filter((slot) => dateKey >= schoolToday() && slot.day === day && isWithinCourseDates(dateKey, slot));
     for (const course of courses) for (const occurrence of course.occurrences ?? []) {
-      // A saved class can otherwise keep an ended course visible in future
-      // calendar views. Its course dates remain the boundary for projection.
-      if (occurrence.classDate !== dateKey || !isWithinCourseDates(dateKey, course)) continue;
+      // Keep recorded past classes as history, even if an administrator later
+      // changes the course dates. Only future calendar projection observes the
+      // current end date.
+      if (occurrence.classDate !== dateKey || (dateKey > schoolToday() && !isWithinCourseDates(dateKey, course))) continue;
       const existing = daySlots.findIndex((slot) => slot.courseId === course.id && slot.startTime === occurrence.startTime);
       const recorded = { courseId: course.id, courseName: course.name, day, startTime: occurrence.startTime, endTime: occurrence.endTime ?? "", startDate: course.startDate, endDate: course.endDate };
       if (existing >= 0) daySlots[existing] = recorded; else daySlots.push(recorded);
