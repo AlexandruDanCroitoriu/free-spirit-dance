@@ -87,10 +87,16 @@ export async function POST(request: Request) {
   if (!tables || !sourceImages) return Response.json({ error: "The local database snapshot is not valid." }, { status: 400 });
 
   try {
-    // Copy existing local images first. Historical Catalog snapshots can retain
-    // image references whose local bucket objects are unavailable; those must
-    // not prevent the requested SQL replacement.
+    // Copy the source objects before replacing D1. Non-task media may be absent
+    // from older Catalog snapshots; task attachments are checked below because
+    // their IDs are embedded in task descriptions.
     const images = await copyImages(sourceImages, await productionImages(bindings.PRODUCTION_DB, bindings.PRODUCTION_IMAGES), tableNames.map((name) => ({ name, columns: [...tableColumns[name]], rows: tables.get(name)! })));
+    // Task descriptions reference image IDs in D1. Replacing the database
+    // without every matching R2 object would make their attachments vanish,
+    // so leave production untouched and make the source problem explicit.
+    if (images.taskImages.missing) {
+      return Response.json({ error: `Production was not replaced because ${images.taskImages.missing} task attachment${images.taskImages.missing === 1 ? " is" : "s are"} missing from the local source.` }, { status: 409 });
+    }
     // D1 batches are transactions. This avoids raw BEGIN/COMMIT statements,
     // which the local D1 runtime intentionally rejects.
     const existing = await bindings.PRODUCTION_DB.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${legacyEventDeleteOrder.map(() => "?").join(", ")})`).bind(...legacyEventDeleteOrder).all<{ name: string }>();

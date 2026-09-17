@@ -60,22 +60,32 @@ function freeEventImageKey(path: unknown) {
 
 export async function copyImages(source: R2Bucket, target: R2Bucket, tables: ExportTable[]) {
   const table = new Map(tables.map((item) => [item.name, item.rows]));
+  const taskImageKeys = new Set((table.get("task_images") ?? [])
+    .map((row) => typeof row.object_key === "string" && row.object_key.startsWith("task-images/") ? row.object_key : null)
+    .filter((key): key is string => key !== null));
   const keys = new Set([
     ...(table.get("students") ?? []).map((row) => imageKey(row.picture)),
     ...(table.get("admin_profiles") ?? []).map((row) => imageKey(row.picture)),
     ...(table.get("qr_codes") ?? []).map((row) => typeof row.image_path === "string" && row.image_path.startsWith("qr-") ? row.image_path : null),
-    ...(table.get("task_images") ?? []).map((row) => typeof row.object_key === "string" && row.object_key.startsWith("task-images/") ? row.object_key : null),
+    ...taskImageKeys,
     ...(table.get("free_events") ?? []).map((row) => freeEventImageKey(row.image_path)),
   ].filter((key): key is string => key !== null));
   let copied = 0;
   let missing = 0;
+  let taskImagesCopied = 0;
+  let taskImagesMissing = 0;
   for (const key of keys) {
     const image = await source.get(key);
-    if (!image) { missing++; continue; }
+    if (!image) {
+      missing++;
+      if (taskImageKeys.has(key)) taskImagesMissing++;
+      continue;
+    }
     await target.put(key, image.body, { httpMetadata: image.httpMetadata });
     copied++;
+    if (taskImageKeys.has(key)) taskImagesCopied++;
   }
-  return { copied, missing };
+  return { copied, missing, taskImages: { copied: taskImagesCopied, missing: taskImagesMissing } };
 }
 
 export async function clearImages(bucket: R2Bucket) {
