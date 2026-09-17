@@ -367,6 +367,16 @@ export async function moveTaskList(request: Request) {
   return taskJson(board(snapshot(await env.DB.batch([...writes, ...snapshotStatements(email)]))));
 }
 
+export async function renameTaskList(request: Request, listId: string) {
+  const email = await taskAccess(request), input = await taskInput(request, ['name', 'revision']);
+  if (typeof input.name !== 'string' || !input.name.trim() || input.name.trim().length > 100 || input.name.includes('\0')) throw new TaskError('Enter a name of 1–100 characters.');
+  const data = await readTaskSnapshot(email), expected = taskRevision(input.revision);
+  requireRevision(expected, data.revision);
+  const id = validList(data, Number(listId));
+  if (id === null || String(id) !== listId) throw new TaskError('Choose an existing task list.');
+  return taskJson(board(snapshot(await env.DB.batch([guard(expected), env.DB.prepare('UPDATE task_lists SET name = ? WHERE id = ?').bind(input.name.trim(), id), ...snapshotStatements(email)]))));
+}
+
 export async function removeTaskList(request: Request, listId: string) {
   const email = await taskAccess(request), input = await taskInput(request, ['revision']);
   const data = await readTaskSnapshot(email), expected = taskRevision(input.revision);

@@ -187,6 +187,14 @@ export default function TaskBoard() {
   }
   const changeColor = (change: TaskColorChange) => updateLayout('/api/tasks/appearance', 'PATCH', change);
   const moveList = (change: TaskListMove) => updateLayout('/api/tasks/lists/move', 'POST', change);
+  async function renameList(listId: number, name: string) {
+    if (!board || busy.current || readOnly || loading || error) throw new Error('Wait for the current operation to finish.');
+    busy.current = true; setMoving(true); setNotice('');
+    try {
+      setBoard(await taskRequest<Board>(`/api/tasks/lists/${listId}`, 'PATCH', { name, revision: board.revision }));
+      setNotice('List renamed.');
+    } finally { busy.current = false; setMoving(false); }
+  }
   async function removeList(listId: number) {
     if (!board || busy.current || readOnly || loading || error) throw new Error('Wait for the current operation to finish.');
     busy.current = true; setMoving(true); setNotice('');
@@ -207,7 +215,7 @@ export default function TaskBoard() {
     {loading && <p role="status" className="px-4 font-sans text-sm">Loading tasks…</p>}
     {headerTarget && createPortal(pageHeader, headerTarget)}
     <p id="task-board-summary" tabIndex={-1} role="status" className="sr-only">{visible.length} tasks shown. Inbox and Personal are private. School is shared.</p>
-    {board && <TaskDragBoard highlightedTask={highlightedTask} onColor={changeColor} onListMove={moveList} onRemoveList={removeList} boardScope={boardScope} board={board} columns={lists} onCreate={createCard} onAddList={createList} visible={visible} today={today} disabled={disabled} onDragging={setDragging} onStudent={setStudentId} onMove={move} onEdit={task => setEditor({ task })} />}
+    {board && <TaskDragBoard onRenameList={renameList} highlightedTask={highlightedTask} onColor={changeColor} onListMove={moveList} onRemoveList={removeList} boardScope={boardScope} board={board} columns={lists} onCreate={createCard} onAddList={createList} visible={visible} today={today} disabled={disabled} onDragging={setDragging} onStudent={setStudentId} onMove={move} onEdit={task => setEditor({ task })} />}
     {editor && board && <TaskPanel listId={editor.listId} task={editor.task} board={board} studentId={filters.studentId} onClose={() => { setEditor(null); void load(); }} onSaved={async message => { setNotice(message); await load(); setEditor(null); }} />}
     {studentId !== null && <StudentPanel id={studentId} onClose={() => { setStudentId(null); void load(); }} onUpdate={() => void load()} onDelete={() => { setStudentId(null); void load(); }} />}
     <OperationNotification message={notice} onDismiss={() => setNotice('')} />

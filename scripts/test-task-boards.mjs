@@ -78,6 +78,7 @@ try {
   await expect(appearance.PATCH(request('PATCH', {target:'inbox',color:'ocean',revision:revision()})),403);
   await expect(listMoves.POST(request('POST',{})),403);
   await expect(removeLists.DELETE(request('DELETE', {revision:revision()}), listContext(1)),403);
+  await expect(removeLists.PATCH(request('PATCH', {name:'Forbidden',revision:revision()}), listContext(1)),403);
   await expect(lists.POST(ownerRequest('POST',{name:' ',scope:'school',revision:revision(),requestKey:'new-list-invalid-key'})),400);
   await expect(lists.POST(ownerRequest('POST',{name:'List',scope:'other',revision:revision(),requestKey:'new-list-invalid-key'})),400);
   const createList = async (name,scope='school') => expect(lists.POST(ownerRequest('POST',{name,scope,revision:revision(),requestKey:'new-list-'+name.replaceAll(' ','-')+'-test-key'})),201);
@@ -181,6 +182,18 @@ try {
   await expect(item.DELETE(ownerRequest('DELETE',{revision:revision()}),context(personalBoardTask.key)),404);
   await expect(moves.POST(ownerRequest('POST',{key:personalBoardTask.key,listId:firstList,position:'bottom',revision:revision()})),404);
   await expect(removeLists.DELETE(ownerRequest('DELETE',{revision:revision()}),listContext(adminList)),400);
+  const rename = (id, name, rev = revision()) => removeLists.PATCH(ownerRequest('PATCH', {name, revision:rev}), listContext(id));
+  for (const name of ['', '   ', 'x'.repeat(101), 'bad\0name', 42]) await expect(rename(firstList, name), 400);
+  await expect(rename(adminList, 'Forbidden'), 400);
+  await expect(rename('not-a-list', 'Invalid'), 400);
+  const beforeRename = await expect(api.GET(ownerRequest()));
+  const renamed = await expect(rename(firstList, '  Renamed panel  '));
+  assert.equal(renamed.lists.find(list => list.id === firstList).title, 'Renamed panel');
+  assert.deepEqual(renamed.tasks, beforeRename.tasks);
+  assert.equal((await expect(api.GET(ownerRequest()))).lists.find(list => list.id === firstList).title, 'Renamed panel');
+  await expect(rename(firstList, 'Stale', beforeRename.revision), 409);
+  await expect(rename(ownList, 'My renamed panel'));
+
   await expect(api.POST(ownerRequest('POST',{title:'Forbidden',listId:adminList,revision:revision(),requestKey:'forbidden-create-key'})),400);
   await expect(item.PATCH(ownerRequest('PATCH',{listId:adminList,revision:revision()}),context(a.key)),400);
   await expect(moves.POST(ownerRequest('POST',{key:a.key,listId:adminList,position:'bottom',revision:revision()})),400);
