@@ -10,7 +10,8 @@ export async function GET(request: Request) { return eventHandler(async () => {
   const meetings = await env.DB.prepare(`SELECT m.id, m.event_id AS eventId, e.name AS eventName, e.image_path AS eventImagePath, m.name,
     m.starts_at AS startsAt, m.starts_utc AS startsUtc, m.duration_minutes AS durationMinutes,
     m.cancelled, m.revision, m.space_rent_minor AS spaceRentMinor, m.accepts_donations AS acceptsDonations,
-    (SELECT COUNT(*) FROM free_event_attendance a WHERE a.meeting_id = m.id) AS attendanceCount
+    (SELECT COUNT(*) FROM free_event_attendance a WHERE a.meeting_id = m.id) AS attendanceCount,
+    (SELECT COALESCE(SUM(a.donation_amount_minor), 0) FROM free_event_attendance a WHERE a.meeting_id = m.id) AS totalDonationsMinor
     FROM free_event_meetings m JOIN free_events e ON e.id = m.event_id
     WHERE substr(m.starts_at, 1, 10) BETWEEN ? AND ? ORDER BY m.starts_at, m.id`).bind(from, to).all();
   return eventJson({ meetings: meetings.results, canOpen: true });

@@ -13,11 +13,11 @@ import PhoneNumberInput from "../components/phone-number-input";
 type Student = { id: number; firstName: string; lastName: string; nickname: string; email: string; phone: string; birthDate: string | null; facebookUrl: string; instagramUrl: string; picture: string | null; active: boolean; courseIds?: number[] };
 type FormState = Omit<Student, "id"> & { courseIds: number[] };
 type ApiError = { error?: string };
-type StudentSort = "newest" | "firstName" | "lastName";
+type StudentSort = "newest" | "firstName" | "lastName" | "courses" | "status" | "phone";
 const emptyForm: FormState = { firstName: "", lastName: "", nickname: "", email: "", phone: "", birthDate: null, facebookUrl: "", instagramUrl: "", picture: null, active: true, courseIds: [] };
 const filtersStorageKey = "free-spirit-dance:students-filters";
 
-type StoredFilters = { search?: unknown; courseFilter?: unknown; statusFilter?: unknown; sortBy?: unknown };
+type StoredFilters = { search?: unknown; courseFilter?: unknown; statusFilter?: unknown; sortBy?: unknown; sortDirection?: unknown };
 
 export default function StudentsPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
@@ -40,6 +40,7 @@ export default function StudentsPage() {
   const [courseRetry, setCourseRetry] = useState(0);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [sortBy, setSortBy] = useState<StudentSort>("newest");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [filtersInitialized, setFiltersInitialized] = useState(false);
 
   useEffect(() => {
@@ -55,7 +56,8 @@ export default function StudentsPage() {
         if (typeof saved.search === "string") setSearch(saved.search.slice(0, 200));
         if (saved.courseFilter === "all" || (typeof saved.courseFilter === "string" && /^[1-9]\d*$/.test(saved.courseFilter))) setCourseFilter(saved.courseFilter);
         if (saved.statusFilter === "all" || saved.statusFilter === "active" || saved.statusFilter === "inactive") setStatusFilter(saved.statusFilter);
-        if (saved.sortBy === "newest" || saved.sortBy === "firstName" || saved.sortBy === "lastName") setSortBy(saved.sortBy);
+        if (saved.sortBy === "newest" || saved.sortBy === "firstName" || saved.sortBy === "lastName" || saved.sortBy === "courses" || saved.sortBy === "status" || saved.sortBy === "phone") setSortBy(saved.sortBy);
+        if (saved.sortDirection === "asc" || saved.sortDirection === "desc") setSortDirection(saved.sortDirection);
       }
     } catch {
       // Storage can be unavailable in a private or restricted browser context.
@@ -66,11 +68,11 @@ export default function StudentsPage() {
   useEffect(() => {
     if (!filtersInitialized) return;
     try {
-      window.localStorage.setItem(filtersStorageKey, JSON.stringify({ search, courseFilter, statusFilter, sortBy }));
+      window.localStorage.setItem(filtersStorageKey, JSON.stringify({ search, courseFilter, statusFilter, sortBy, sortDirection }));
     } catch {
       // Filtering remains usable when the browser declines local storage.
     }
-  }, [courseFilter, filtersInitialized, search, sortBy, statusFilter]);
+  }, [courseFilter, filtersInitialized, search, sortBy, sortDirection, statusFilter]);
   function closeStudentPanel() {
     setSelectedStudentId(null); setTargetPaymentId(undefined);
     const url = new URL(window.location.href);
@@ -173,12 +175,12 @@ export default function StudentsPage() {
       .some((value) => value.toLocaleLowerCase().includes(normalizedSearch));
     return matchesStatus && matchesSearch && (courseFilter === "all" || student.courseIds?.includes(Number(courseFilter)));
   });
+  const courseNames = (student: Student) => (student.courseIds ?? []).map((id) => courses.find((course) => course.id === id)?.name ?? `Course #${id}`).sort().join("|");
   const sortedStudents = [...filteredStudents].sort((first, second) => {
-    if (sortBy === "newest") return second.id - first.id;
-    const primary = sortBy === "firstName" ? first.firstName.localeCompare(second.firstName, undefined, { sensitivity: "base" }) : first.lastName.localeCompare(second.lastName, undefined, { sensitivity: "base" });
-    if (primary) return primary;
-    const secondary = sortBy === "firstName" ? first.lastName.localeCompare(second.lastName, undefined, { sensitivity: "base" }) : first.firstName.localeCompare(second.firstName, undefined, { sensitivity: "base" });
-    return secondary || first.id - second.id;
+    const firstValue = sortBy === "newest" ? first.id : sortBy === "firstName" ? first.firstName : sortBy === "lastName" ? first.lastName : sortBy === "courses" ? courseNames(first) : sortBy === "status" ? Number(first.active) : first.phone;
+    const secondValue = sortBy === "newest" ? second.id : sortBy === "firstName" ? second.firstName : sortBy === "lastName" ? second.lastName : sortBy === "courses" ? courseNames(second) : sortBy === "status" ? Number(second.active) : second.phone;
+    const compared = typeof firstValue === "number" && typeof secondValue === "number" ? firstValue - secondValue : String(firstValue).localeCompare(String(secondValue), undefined, { sensitivity: "base" });
+    return (compared || first.id - second.id) * (sortDirection === "asc" ? 1 : -1);
   });
 
   return <main className="flex-1 px-6 py-6 text-slate-800 md:px-12"><div className="mx-auto max-w-5xl">
@@ -205,7 +207,8 @@ export default function StudentsPage() {
       <label className="relative col-span-2 min-w-0 flex-1 font-sans"><span className="sr-only">Search students</span><svg aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-current text-slate-400" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, nickname, phone, or email" className="w-full rounded-lg border border-stone-300 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-lime-600" /></label>
       <label className="min-w-0 font-sans"><span className="sr-only">Filter students by course</span><select value={courseFilter} onChange={(event) => setCourseFilter(event.target.value)} className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-lime-600 sm:max-w-60"><option value="all">All courses</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.name}</option>)}</select></label>
       <label className="min-w-0 font-sans"><span className="sr-only">Filter students by status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "all" | "active" | "inactive")} className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-lime-600 sm:w-40"><option value="all">All students</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
-      <label className="min-w-0 font-sans"><span className="sr-only">Arrange students by</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as StudentSort)} className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-lime-600 sm:w-44"><option value="newest">Newest added</option><option value="firstName">First name A–Z</option><option value="lastName">Last name A–Z</option></select></label>
+      <label className="min-w-0 font-sans"><span className="sr-only">Arrange students by</span><select value={sortBy} onChange={(event) => { const field = event.target.value as StudentSort; setSortBy(field); setSortDirection(field === "newest" ? "desc" : "asc"); }} className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-lime-600 sm:w-44"><option value="newest">Date added</option><option value="firstName">First name</option><option value="lastName">Last name</option><option value="courses">Courses</option><option value="status">Status</option><option value="phone">Phone</option></select></label>
+      <button type="button" onClick={() => setSortDirection((direction) => direction === "asc" ? "desc" : "asc")} className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 font-sans text-sm text-slate-800 outline-none hover:bg-stone-50 focus:ring-2 focus:ring-lime-600" aria-label={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}>{sortDirection === "asc" ? "Ascending ↑" : "Descending ↓"}</button>
     </div>
     {coursesError && <p role="alert" className="font-sans text-sm text-red-700">{coursesError} <button type="button" onClick={() => setCourseRetry((value) => value + 1)} className="underline">Retry</button></p>}
     <section className="overflow-hidden rounded-xl border border-stone-200 bg-white">{loading ? <p className="p-8 text-center font-sans text-sm text-slate-400">Loading students...</p> : students.length === 0 ? <div className="p-10 text-center"><h2 className="m-0 text-xl font-normal">No students yet</h2><p className="mt-2 font-sans text-sm text-slate-400">Add your first student to begin building the directory.</p></div> : sortedStudents.length === 0 ? <div className="p-10 text-center"><h2 className="m-0 text-xl font-normal">No matching students</h2><p className="mt-2 font-sans text-sm text-slate-400">Adjust your search, status, or course filter.</p></div> : <div className="divide-y divide-stone-200">{sortedStudents.map((student) => <StudentCard key={student.id} student={student} courses={(student.courseIds ?? []).map((id) => ({ id, name: courses.find((course) => course.id === id)?.name ?? `Course #${id}` }))} onOpen={() => setSelectedStudentId(student.id)} />)}</div>}</section>

@@ -19,6 +19,7 @@ const moneyInputPattern = /^\d*(?:[.,]\d{0,2})?$/;
 
 export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
+  const [courseSort, setCourseSort] = useState<{ field: "name" | "schedule"; direction: "asc" | "desc" }>({ field: "name", direction: "asc" });
   const [tab, setTab] = useState<"courses" | "payment-presets">("courses");
   const [form, setForm] = useState<CourseInput>(emptyForm);
   const [rentCosts, setRentCosts] = useState<Record<string, string>>({ Monday: "0.00" });
@@ -167,6 +168,15 @@ export default function CoursesPage() {
     } catch (reason) { setRelationshipError(reason instanceof Error ? reason.message : "Could not delete course."); setRelationships(null); }
     finally { setBusy(false); }
   }
+  function toggleCourseSort(field: "name" | "schedule") {
+    setCourseSort((current) => current.field === field ? { field, direction: current.direction === "asc" ? "desc" : "asc" } : { field, direction: "asc" });
+  }
+  const sortedCourses = [...courses].sort((first, second) => {
+    const firstValue = courseSort.field === "name" ? first.name : first.schedules.map((schedule) => `${weekdays.indexOf(schedule.day).toString().padStart(2, "0")}-${schedule.startTime}-${schedule.endTime}`).sort().join("|");
+    const secondValue = courseSort.field === "name" ? second.name : second.schedules.map((schedule) => `${weekdays.indexOf(schedule.day).toString().padStart(2, "0")}-${schedule.startTime}-${schedule.endTime}`).sort().join("|");
+    const compared = firstValue.localeCompare(secondValue, undefined, { sensitivity: "base" });
+    return (compared || first.id - second.id) * (courseSort.direction === "asc" ? 1 : -1);
+  });
 
   return <main className="flex-1 px-6 py-6 text-slate-800 md:px-12"><div className="mx-auto max-w-5xl space-y-4">
     <OperationNotification message={operationError} kind="error" onDismiss={() => setOperationError("")} />
@@ -251,8 +261,8 @@ export default function CoursesPage() {
     <div className="border-b border-stone-200"><nav aria-label="Courses sections" className="flex gap-5"><button type="button" aria-current={tab === "courses" ? "page" : undefined} className={`border-b-2 px-1 py-3 font-sans text-sm font-semibold ${tab === "courses" ? "border-lime-600 text-slate-800" : "border-transparent text-slate-500 hover:text-slate-800"}`} onClick={() => setTab("courses")}>Courses</button><button id="payment-presets" type="button" aria-current={tab === "payment-presets" ? "page" : undefined} className={`border-b-2 px-1 py-3 font-sans text-sm font-semibold ${tab === "payment-presets" ? "border-lime-600 text-slate-800" : "border-transparent text-slate-500 hover:text-slate-800"}`} onClick={() => setTab("payment-presets")}>Payment presets</button></nav></div>
     {tab === "payment-presets" ? <div className="pt-5"><PaymentPresets /></div> : <section className="overflow-hidden rounded-xl border border-stone-200 bg-white">
       {loading ? <p className="p-8 text-center font-sans text-sm text-slate-500">Loading courses…</p> : !loaded ? <p className="p-8 text-center font-sans text-sm">Courses could not be loaded.</p> : courses.length === 0 ? <div className="p-10 text-center"><h2 className="text-xl font-normal">No courses yet</h2><button className={primaryClass} onClick={() => window.dispatchEvent(new Event("open-add-course"))}>+ Add course</button></div> : <div className="overflow-x-auto"><table className="w-full text-left font-sans text-sm">
-        <thead className="bg-stone-50 text-xs uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">Course name</th><th className="px-5 py-3">Weekly schedule</th><th className="px-5 py-3"><span className="sr-only">Actions</span></th></tr></thead>
-        <tbody className="divide-y divide-stone-200">{courses.map((course) => <tr key={course.id} className="hover:bg-stone-50">
+        <thead className="bg-stone-50 text-xs uppercase tracking-wider text-slate-500"><tr><th aria-sort={courseSort.field === "name" ? (courseSort.direction === "asc" ? "ascending" : "descending") : "none"} className="px-5 py-3"><button type="button" onClick={() => toggleCourseSort("name")} className="inline-flex items-center gap-1 font-semibold hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-lime-600">Course name <span aria-hidden="true">{courseSort.field === "name" ? courseSort.direction === "asc" ? "↑" : "↓" : "↕"}</span></button></th><th aria-sort={courseSort.field === "schedule" ? (courseSort.direction === "asc" ? "ascending" : "descending") : "none"} className="px-5 py-3"><button type="button" onClick={() => toggleCourseSort("schedule")} className="inline-flex items-center gap-1 font-semibold hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-lime-600">Weekly schedule <span aria-hidden="true">{courseSort.field === "schedule" ? courseSort.direction === "asc" ? "↑" : "↓" : "↕"}</span></button></th><th className="px-5 py-3"><span className="sr-only">Actions</span></th></tr></thead>
+        <tbody className="divide-y divide-stone-200">{sortedCourses.map((course) => <tr key={course.id} className="hover:bg-stone-50">
           <td className="px-5 py-4 align-top font-semibold">{course.name}</td>
           <td className="px-5 py-4 text-slate-600">{course.schedules.length ? <ul className="m-0 list-none space-y-2 p-0">{course.schedules.map((s, i) => <li key={i} className="whitespace-nowrap">{dayLabels[s.day] ?? s.day}, {s.startTime}–{s.endTime} · {formatMoney(s.rentCostMinor)}</li>)}</ul> : "No classes scheduled"}</td>
           <td className="px-5 py-4 text-right align-top"><div className="flex justify-end gap-2"><button className={buttonClass} disabled={busy} onClick={() => edit(course)}>Edit<span className="sr-only"> {course.name}</span></button></div></td>

@@ -2,7 +2,7 @@ import { parseSession, sessionEnd, type PracticeSession } from './practice-parti
 import { validPaymentDate } from './student-activity';
 
 export type FreeEvent = { id: number; name: string; startsOn: string | null; endsOn: string | null; imagePath: string | null; revision: number; meetingCount: number };
-export type FreeMeeting = PracticeSession & { eventId: number; name: string; spaceRentMinor: number; acceptsDonations: number };
+export type FreeMeeting = PracticeSession & { eventId: number; name: string; spaceRentMinor: number; acceptsDonations: number; totalDonationsMinor: number };
 export const freeButton = 'rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-sans disabled:opacity-50 hover:border-lime-600';
 export const freePrimary = `${freeButton} bg-lime-100 text-lime-900`;
 export function formatFreeDate(value: string) {

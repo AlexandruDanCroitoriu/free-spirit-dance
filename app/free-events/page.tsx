@@ -8,8 +8,21 @@ import FreeEventHistory from '../components/free-event-history';
 import FreeEventImageInput from '../components/free-event-image-input';
 import { eventInput } from '../lib/practice-parties';
 import { confirmAction } from '../lib/confirmation';
+import { formatMoney } from '../lib/student-activity';
 type Detail={event:FreeEvent;meetings:FreeMeeting[]}; type EventDraft={name:string;startsOn:string;endsOn:string;imagePath:string|null};
+type Direction = 'ascending' | 'descending';
+type EventSort = 'image' | 'name' | 'dateRange' | 'meetings';
+type MeetingSort = 'name' | 'date' | 'startTime' | 'duration' | 'attendance' | 'donations';
+type Sort<T extends string> = { field: T; direction: Direction } | null;
 const blank=():EventDraft=>({name:'',startsOn:'',endsOn:'',imagePath:null});
+const compareText = (left: string, right: string) => left.localeCompare(right, 'ro', { sensitivity: 'base' });
+function toggleSort<T extends string>(current: Sort<T>, field: T): Sort<T> { return current?.field === field ? { field, direction: current.direction === 'ascending' ? 'descending' : 'ascending' } : { field, direction: 'ascending' }; }
+function SortHeader<T extends string>({ field, label, sort, setSort, className = '' }: { field: T; label: ReactNode; sort: Sort<T>; setSort: (sort: Sort<T>) => void; className?: string }) {
+  const active = sort?.field === field, direction = active ? sort.direction : 'none';
+  return <th scope="col" aria-sort={direction} className={className}><button type="button" className="inline-flex items-center gap-1 rounded text-left hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-600" onClick={() => setSort(toggleSort(sort, field))}>{label}<span aria-hidden="true" className={active ? 'text-slate-800' : 'text-slate-400'}>{active ? (sort.direction === 'ascending' ? '↑' : '↓') : '↕'}</span><span className="sr-only">{active ? `, sorted ${sort.direction}` : ', not sorted'}</span></button></th>;
+}
+function sortedEvents(events: FreeEvent[], sort: Sort<EventSort>) { if (!sort) return events; const factor = sort.direction === 'ascending' ? 1 : -1; return [...events].sort((left, right) => { if (sort.field === 'dateRange' && (!left.startsOn || !right.startsOn)) return !left.startsOn && !right.startsOn ? (left.id - right.id) * factor : !left.startsOn ? 1 : -1; let result = 0; if (sort.field === 'image') result = Number(Boolean(left.imagePath)) - Number(Boolean(right.imagePath)); else if (sort.field === 'name') result = compareText(left.name, right.name); else if (sort.field === 'meetings') result = left.meetingCount - right.meetingCount; else result = left.startsOn!.localeCompare(right.startsOn!) || (left.endsOn ?? '').localeCompare(right.endsOn ?? ''); return (result || left.id - right.id) * factor; }); }
+function sortedMeetings(meetings: FreeMeeting[], sort: Sort<MeetingSort>) { if (!sort) return meetings; const factor = sort.direction === 'ascending' ? 1 : -1; return [...meetings].sort((left, right) => { const result = sort.field === 'name' ? compareText(left.name, right.name) : sort.field === 'date' ? left.startsAt.slice(0, 10).localeCompare(right.startsAt.slice(0, 10)) : sort.field === 'startTime' ? left.startsAt.slice(11, 16).localeCompare(right.startsAt.slice(11, 16)) : sort.field === 'duration' ? left.durationMinutes - right.durationMinutes : sort.field === 'attendance' ? left.attendanceCount - right.attendanceCount : left.totalDonationsMinor - right.totalDonationsMinor; return (result || left.id - right.id) * factor; }); }
 async function send(url:string,body:object){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),x=await r.json() as {error?:string};if(!r.ok)throw new Error(x.error??'Could not save.');window.dispatchEvent(new Event('calendar-updated'));window.dispatchEvent(new Event('payment-transfer-updated'));}
 function Panel({title,close,children}:{title:string;close:()=>void;children:ReactNode}){const ref=useRef<HTMLDialogElement>(null);useEffect(()=>{ref.current?.showModal();return()=>ref.current?.close();},[]);return <dialog ref={ref} className="fixed inset-0 m-0 box-border h-dvh max-h-none w-auto max-w-none overflow-y-auto border-0 bg-stone-50 p-0 text-slate-800 shadow-2xl backdrop:bg-slate-950/60 md:inset-y-0 md:left-auto md:w-full md:max-w-3xl" onCancel={e=>{e.preventDefault();close();}}><header className="sticky top-0 z-10 flex items-center justify-between border-b border-stone-200 bg-white p-5"><h2 className="m-0 text-2xl">{title}</h2><button className={freeButton} onClick={close}>Close</button></header><div className="space-y-4 p-5">{children}</div></dialog>}
 export default function FreeEvents() {
@@ -22,6 +35,8 @@ export default function FreeEvents() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [detailError, setDetailError] = useState('');
+  const [eventSort, setEventSort] = useState<Sort<EventSort>>(null);
+  const [meetingSort, setMeetingSort] = useState<Sort<MeetingSort>>(null);
   const refresh = () => setReload(value => value + 1);
   useEffect(() => {
     const controller = new AbortController();
@@ -50,11 +65,11 @@ export default function FreeEvents() {
     {error && <p role="alert" className="font-sans text-sm text-red-700">{error}</p>}
     <section aria-label="Free events" className="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] border-collapse text-left font-sans text-sm">
+        <table className="w-full min-w-[820px] border-collapse text-left font-sans text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-slate-500">
-            <tr><th scope="col" className="w-28 px-5 py-4">Image</th><th scope="col" className="px-4 py-4">Name</th><th scope="col" className="px-4 py-4">Date range</th><th scope="col" className="px-4 py-4 text-center">Meetings</th><th scope="col" className="w-24 px-4 py-4"><span className="sr-only">Actions</span></th></tr>
+            <tr><SortHeader field="image" label="Image" sort={eventSort} setSort={setEventSort} className="w-28 px-5 py-4" /><SortHeader field="name" label="Name" sort={eventSort} setSort={setEventSort} className="px-4 py-4" /><SortHeader field="dateRange" label="Date range" sort={eventSort} setSort={setEventSort} className="px-4 py-4" /><SortHeader field="meetings" label="Meetings" sort={eventSort} setSort={setEventSort} className="px-4 py-4 text-center" /><th scope="col" className="w-24 px-4 py-4"><span className="sr-only">Actions</span></th></tr>
           </thead>
-          <tbody>{events.map(item => {
+          <tbody>{sortedEvents(events, eventSort).map(item => {
             const open = expanded === item.id;
             const current = detail?.event.id === item.id ? detail : null;
             return <Fragment key={item.id}>
@@ -79,12 +94,14 @@ export default function FreeEvents() {
                     : !current.meetings.length ? <p className="rounded-lg border border-dashed border-stone-300 bg-white p-5 text-center text-slate-500">No meetings scheduled. Add a meeting to get started.</p>
                     : <div className="overflow-hidden rounded-lg border border-stone-200 bg-white">
                       <table className="w-full border-collapse text-left text-sm">
-                        <thead className="border-b border-stone-200 bg-stone-50 text-xs text-slate-500"><tr><th scope="col" className="px-4 py-3 font-medium">Meeting</th><th scope="col" className="px-4 py-3 font-medium">Date</th><th scope="col" className="px-4 py-3 font-medium">Start time</th><th scope="col" className="px-4 py-3 font-medium">Duration</th><th scope="col" className="px-4 py-3"><span className="sr-only">Actions</span></th></tr></thead>
-                        <tbody className="divide-y divide-stone-100">{current.meetings.map(m => <tr key={m.id} className="hover:bg-stone-50/70">
+                        <thead className="border-b border-stone-200 bg-stone-50 text-xs text-slate-500"><tr><SortHeader field="name" label="Meeting" sort={meetingSort} setSort={setMeetingSort} className="px-4 py-3 font-medium" /><SortHeader field="date" label="Date" sort={meetingSort} setSort={setMeetingSort} className="px-4 py-3 font-medium" /><SortHeader field="startTime" label="Start time" sort={meetingSort} setSort={setMeetingSort} className="px-4 py-3 font-medium" /><SortHeader field="duration" label="Duration" sort={meetingSort} setSort={setMeetingSort} className="px-4 py-3 font-medium" /><SortHeader field="attendance" label="Attendances" sort={meetingSort} setSort={setMeetingSort} className="px-4 py-3 font-medium" /><SortHeader field="donations" label="Donations" sort={meetingSort} setSort={setMeetingSort} className="px-4 py-3 font-medium" /><th scope="col" className="px-4 py-3"><span className="sr-only">Actions</span></th></tr></thead>
+                        <tbody className="divide-y divide-stone-100">{sortedMeetings(current.meetings, meetingSort).map(m => <tr key={m.id} className="hover:bg-stone-50/70">
                           <td className="px-4 py-3 font-semibold text-slate-800">{m.name}</td>
                           <td className="px-4 py-3 text-slate-700">{formatFreeDate(m.startsAt)}</td>
                           <td className="whitespace-nowrap px-4 py-3 tabular-nums text-slate-700">{m.startsAt.slice(11, 16)}</td>
                           <td className="whitespace-nowrap px-4 py-3 text-slate-500">{m.durationMinutes} min</td>
+                          <td className="whitespace-nowrap px-4 py-3 tabular-nums text-slate-700">{m.attendanceCount}</td>
+                          <td className="whitespace-nowrap px-4 py-3 tabular-nums text-slate-700">{formatMoney(m.totalDonationsMinor)}</td>
                           <td className="px-4 py-3 text-right"><button className={freeButton} aria-label={`Edit meeting ${m.name}`} onClick={() => setMeeting({ event: item, meeting: m })}>Edit</button></td>
                         </tr>)}</tbody>
                       </table>
