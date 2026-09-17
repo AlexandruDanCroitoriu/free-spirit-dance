@@ -210,28 +210,31 @@ assert.equal((await api.POST(request({ ...movedSlot, studentIds: [2] }))).status
 assert.equal((await api.POST(request({ ...newClass, studentIds: [3] }))).status, 409, 'Old occurrence cannot receive attendance');
 assert.deepEqual(sqlite.prepare('SELECT * FROM course_schedule').all(), weeklyBefore, 'Editing an occurrence preserves weekly schedules');
 
-// Reject both stored and not-yet-materialized recurring destination classes.
+// A recurring destination is the intended target of a course move. Only a
+// saved occurrence there is a duplicate.
 sqlite.exec("INSERT INTO course_schedule (course_id,day_of_week,start_time,end_time) VALUES (2,'Monday','16:00','17:00')");
-assert.equal((await editDetails(movedSlot, { ...movedDetails, classDate: '2026-09-14' })).status, 409);
-assert.equal(sqlite.prepare('SELECT class_date FROM classes WHERE id = ?').get(createdClass.id).class_date, '2026-09-13');
+const recurringMovedDetails = { ...movedDetails, classDate: '2026-09-14' };
+const recurringMovedSlot = { ...movedSlot, classDate: recurringMovedDetails.classDate };
+assert.equal((await editDetails(movedSlot, recurringMovedDetails)).status, 200);
+assert.equal(sqlite.prepare('SELECT class_date FROM classes WHERE id = ?').get(createdClass.id).class_date, '2026-09-14');
 
 // A failed attendance update rolls back the class move and all associated writes.
 sqlite.exec("CREATE TRIGGER fail_test_move BEFORE UPDATE OF attended_at ON attendance WHEN NEW.attended_at = '2026-09-15T16:00:00' BEGIN SELECT RAISE(ABORT, 'test move failure'); END");
 const historyBeforeFailedMove=sqlite.prepare('SELECT COUNT(*) AS n FROM class_change_log WHERE class_id=?').get(createdClass.id).n;
-assert.equal((await editDetails(movedSlot, { ...movedDetails, classDate: '2026-09-15' })).status, 500);
+assert.equal((await editDetails(recurringMovedSlot, { ...recurringMovedDetails, classDate: '2026-09-15' })).status, 500);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM class_change_log WHERE class_id=?').get(createdClass.id).n, historyBeforeFailedMove, 'Failed detail change rolls back its history');
-assert.equal(sqlite.prepare('SELECT class_date FROM classes WHERE id = ?').get(createdClass.id).class_date, '2026-09-13');
+assert.equal(sqlite.prepare('SELECT class_date FROM classes WHERE id = ?').get(createdClass.id).class_date, '2026-09-14');
 assert.equal(sqlite.prepare("SELECT count(*) n FROM classes WHERE course_id = 2 AND class_date = '2026-09-15' AND start_time = '16:00'").get().n, 0);
 sqlite.exec('DROP TRIGGER fail_test_move');
 console.log('PASS: class details validation, rent editing, attendance-preserving moves, destination conflicts, recurring schedule preservation and atomic rollback.');
 
-const changedCourseDetails = { ...movedDetails, courseId: 1, classDate: '2026-09-13', startTime: '17:00' };
-assert.equal((await editDetails(movedSlot, changedCourseDetails)).status, 200);
+const changedCourseDetails = { ...recurringMovedDetails, courseId: 1, classDate: '2026-09-14', startTime: '17:00' };
+assert.equal((await editDetails(recurringMovedSlot, changedCourseDetails)).status, 200);
 const changedCourseSlot = { courseId: 1, classDate: changedCourseDetails.classDate, startTime: changedCourseDetails.startTime };
 const changedClass = sqlite.prepare('SELECT course_id, class_date, start_time FROM classes WHERE id = ?').get(createdClass.id);
-assert.deepEqual({ ...changedClass }, { course_id: 1, class_date: '2026-09-13', start_time: '17:00' });
+assert.deepEqual({ ...changedClass }, { course_id: 1, class_date: '2026-09-14', start_time: '17:00' });
 const changedAttendance = sqlite.prepare('SELECT course_id, course_name, attended_at FROM attendance WHERE class_id = ?').all(createdClass.id);
-assert.ok(changedAttendance.every(row => row.course_id === 1 && row.course_name === 'Zouk' && row.attended_at === '2026-09-13T17:00:00'));
+assert.ok(changedAttendance.every(row => row.course_id === 1 && row.course_name === 'Zouk' && row.attended_at === '2026-09-14T17:00:00'));
 assert.equal((await (await get(changedCourseSlot)).json()).courseName, 'Zouk');
 assert.equal((await get(movedSlot)).status, 404, 'Changing a past class course removes the prior course occurrence');
 assert.equal((await editDetails(changedCourseSlot, { ...changedCourseDetails, courseId: 999 })).status, 404);

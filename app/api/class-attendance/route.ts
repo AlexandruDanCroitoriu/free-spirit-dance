@@ -133,7 +133,10 @@ export async function PATCH(request: Request) {
       const nextCourse = await db.prepare("SELECT name FROM courses WHERE id = ?").bind(next.courseId).first<{ name: string }>();
       if (!nextCourse) return json({ error: "This course no longer exists. Reload the calendar." }, 404);
       const moved = next.courseId !== slot.courseId || next.classDate !== slot.classDate || next.startTime !== slot.startTime;
-      if (moved && await scheduledClass(db, next)) return json({ error: "A class already exists at this date and start time. Choose another time." }, 409);
+      // A weekly schedule at the destination is the slot the class is being
+      // moved onto, not a duplicate. Only an already saved occurrence there
+      // prevents the move.
+      if (moved && await db.prepare("SELECT 1 FROM classes WHERE course_id = ? AND class_date = ? AND start_time = ?").bind(next.courseId, next.classDate, next.startTime).first()) return json({ error: "A class already exists at this date and start time. Choose another time." }, 409);
       const now = new Date().toISOString();
       const changes = [
         ["course", scheduled.courseName, nextCourse.name, next.courseId !== slot.courseId],
