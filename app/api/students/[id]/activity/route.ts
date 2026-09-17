@@ -54,6 +54,13 @@ export async function GET(request: Request, context: Context) {
       FROM practice_attendance a JOIN practice_parties s ON s.id = a.practice_id WHERE a.student_id = ?
       ORDER BY s.starts_at DESC, a.recorded_at DESC, a.id DESC`).bind(id).all<Omit<StudentActivity["logs"][number], "allocations">>();
     const eventLogs: StudentActivity["logs"] = eventRows.results.map(row => ({ ...row, notes: practiceNoteForDisplay(row.notes), complimentary: 1, allocations: [] }));
+    const freeEventRows = await db.prepare(`SELECT a.id, 'free_event_attendance' AS kind, e.id AS eventId, m.starts_at AS eventDate,
+      e.name || ' · ' || m.name AS courseName, a.donation_amount_minor AS amountMinor, '' AS notes,
+      a.recorded_by AS recordedBy, a.recorded_at AS recordedAt
+      FROM free_event_attendance a JOIN free_event_meetings m ON m.id = a.meeting_id
+      JOIN free_events e ON e.id = m.event_id WHERE a.student_id = ?
+      ORDER BY m.starts_at DESC, a.recorded_at DESC, a.id DESC`).bind(id).all<Omit<StudentActivity["logs"][number], "allocations">>();
+    const freeEventLogs: StudentActivity["logs"] = freeEventRows.results.map(row => ({ ...row, complimentary: 1, allocations: [] }));
     const groups = await db.prepare(`SELECT p.id, p.student_count AS studentCount, p.student_id AS payerId,
       s.first_name AS firstName, s.last_name AS lastName, s.picture,
       (SELECT json_group_array(json_object('id', member.id, 'firstName', member.first_name, 'lastName', member.last_name, 'picture', member.picture)) FROM payment_students ps JOIN students member ON member.id = ps.student_id WHERE ps.payment_id = p.id) AS students
@@ -101,15 +108,16 @@ export async function GET(request: Request, context: Context) {
     const recordedLogs: StudentActivity["logs"] = (results[6].results as (Omit<StudentActivity["logs"][number], "allocations"> & { allocations: string; eventTime: string })[]).map((row) => ({ ...row, ...(row.kind === "payment" ? groupDetails.get(row.id) : undefined), amountMinor: row.kind === "payment" && groupDetails.get(row.id)?.payer.id !== undefined && groupDetails.get(row.id)!.payer.id !== id ? null : row.amountMinor, eventDate: row.eventTime, allocations: (JSON.parse(row.allocations) as StudentActivity["logs"][number]["allocations"]).map((allocation) => ({ ...allocation, coverage: coverage.get(`${row.id}:${allocation.courseId}`) })) }));
     const freeMissedLogs: StudentActivity["logs"] = (creditData[4].results as { id: number; courseId: number; courseName: string; startsAt: string; recordedBy: string; recordedAt: string; notes: string }[]).map((row) => ({ ...row, kind: "free_missed", eventDate: `${row.startsAt}:00`, amountMinor: null, complimentary: 1, allocations: [] }));
     summary.eventAttendanceCount = eventLogs.filter(r => r.kind === 'practice_attendance' && !r.voidedAt).length;
+    summary.freeEventAttendanceCount = freeEventLogs.length;
     summary.donationsMinor = eventLogs.filter(r => r.kind === 'practice_attendance').reduce((sum, r) => sum + (r.amountMinor ?? 0), 0);
     summary.totalPaidMinor += summary.donationsMinor;
     // Merge calculated absences before pagination so no entries are skipped between pages.
-    const logs = [...recordedLogs, ...calculatedLogs, ...freeMissedLogs, ...eventLogs].sort((a, b) =>
+    const logs = [...recordedLogs, ...calculatedLogs, ...freeMissedLogs, ...eventLogs, ...freeEventLogs].sort((a, b) =>
       b.eventDate.slice(0, 10).localeCompare(a.eventDate.slice(0, 10)) || Number(b.kind === "payment") - Number(a.kind === "payment") ||
       b.eventDate.localeCompare(a.eventDate) || (b.recordedAt ?? "").localeCompare(a.recordedAt ?? "") || b.kind.localeCompare(a.kind) || b.id - a.id,
     ).slice((logsPage - 1) * logsPageSize, logsPage * logsPageSize);
     const paymentMethods = actor(request) ? await db.prepare("SELECT method FROM administrator_payment_methods WHERE email = ? ORDER BY method COLLATE NOCASE").bind(actor(request)).all<{ method: string }>() : { results: [] };
-    return json({ canRecordFuturePayments: canRecordFuturePayments(actor(request)), logs, logsPage, logsPageSize, logsCount: summary.attendanceCount + summary.paymentCount + groups.results.filter(row => row.payerId !== id).length + calculatedLogs.length + freeMissedLogs.length + eventLogs.length, summary, balances, payments, attendance: results[1].results as StudentActivity["attendance"], courses: results[5].results as StudentActivity["courses"], paymentMethods: paymentMethods.results.map((item) => item.method), attendancePage, paymentsPage } satisfies StudentActivity);
+    return json({ canRecordFuturePayments: canRecordFuturePayments(actor(request)), logs, logsPage, logsPageSize, logsCount: summary.attendanceCount + summary.paymentCount + groups.results.filter(row => row.payerId !== id).length + calculatedLogs.length + freeMissedLogs.length + eventLogs.length + freeEventLogs.length, summary, balances, payments, attendance: results[1].results as StudentActivity["attendance"], courses: results[5].results as StudentActivity["courses"], paymentMethods: paymentMethods.results.map((item) => item.method), attendancePage, paymentsPage } satisfies StudentActivity);
   } catch (error) {
     console.error("Could not load student activity", error);
     return json({ error: "Could not load attendance and payments." }, 500);
