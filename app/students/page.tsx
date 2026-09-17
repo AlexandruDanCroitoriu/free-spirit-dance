@@ -187,7 +187,7 @@ export default function StudentsPage() {
       <div><span className="font-sans text-xs font-semibold text-slate-600">Student status</span><label className="mt-4 flex cursor-pointer items-center gap-3 font-sans text-xs font-semibold text-slate-600"><input type="checkbox" checked={form.active} onChange={(event) => updateField("active", event.target.checked)} className="peer sr-only" /><span className="relative h-6 w-11 rounded-full bg-stone-300 transition-colors after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:bg-lime-600 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-lime-600 peer-focus-visible:ring-offset-2" /><span>Active student</span></label></div>
       <div>
         <span className="font-sans text-xs font-semibold text-slate-600">Student picture (optional)</span>
-        <input ref={imageInput} aria-label="Upload student image" accept="image/*" type="file" className="hidden" disabled={saving} onChange={(event) => { void selectImage(event.target.files?.[0]); event.currentTarget.value = ""; }} />
+        <input ref={imageInput} aria-label="Upload student image" accept="image/*" type="file" style={{ display: "none" }} disabled={saving} onChange={(event) => { void selectImage(event.target.files?.[0]); event.currentTarget.value = ""; }} />
         <button type="button" disabled={saving} onClick={() => imageInput.current?.click()}
           onDragOver={(event) => { event.preventDefault(); if (!saving) { event.dataTransfer.dropEffect = "copy"; setDraggingImage(true); } }}
           onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDraggingImage(false); }}
@@ -196,10 +196,6 @@ export default function StudentsPage() {
           {form.picture ? <img src={form.picture} alt="Student photo preview" className="h-20 w-20 rounded-full object-cover" /> : <span aria-hidden="true" className="text-3xl text-slate-400">＋</span>}
           <span className="text-sm font-semibold text-slate-700">{preparingImage ? "Preparing image…" : draggingImage ? "Drop image here" : form.picture ? "Drop or click to replace photo" : "Drop an image here or click to upload"}</span>
         </button>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <button type="button" disabled={saving} onClick={() => imageInput.current?.click()} className="rounded-md border border-stone-300 px-3 py-2 font-sans text-xs font-semibold disabled:opacity-50">Upload image</button>
-          <label className="cursor-pointer rounded-md border border-stone-300 px-3 py-2 font-sans text-xs font-semibold focus-within:ring-2 focus-within:ring-lime-600 md:hidden">Take photo<input aria-label="Take student photo" accept="image/*" capture="environment" type="file" disabled={saving} className="sr-only" onChange={(event) => { void selectImage(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label>
-        </div>
       </div>
       <div className="md:col-span-2"><StudentCourses selected={form.courseIds} onChange={(courseIds) => setForm((current) => ({ ...current, courseIds }))} disabled={saving} /></div>
       <div className="flex items-center justify-between gap-4 md:col-span-2">{error ? <p role="alert" className="m-0 min-w-0 flex-1 font-sans text-sm text-red-700">{error}</p> : <span className="flex-1" />}<div className="flex shrink-0 justify-end gap-3"><button type="button" onClick={closeForm} className="rounded-md border border-stone-300 bg-white px-4 py-3 font-sans text-xs font-semibold">Cancel</button><button disabled={saving || preparingImage} className="rounded-md bg-slate-800 px-4 py-3 font-sans text-xs font-bold text-stone-100">{saving ? "Saving..." : "Add student"}</button></div></div>
