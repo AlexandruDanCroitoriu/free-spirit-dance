@@ -39,7 +39,7 @@ async function readResponse(response: Response): Promise<unknown> {
   return body;
 }
 
-export default function StudentActivity({ studentId, initialPaymentId, targetPaymentId, targetPaymentKind = "payment", targetAttendanceDate, onOpenPayment }: { onOpenPayment?: (studentId: number, paymentId: number) => void; studentId: number; initialPaymentId?: number; targetPaymentId?: number; targetPaymentKind?: "payment" | "practice_attendance"; targetAttendanceDate?: string }) {
+export default function StudentActivity({ studentId, initialPaymentId, targetPaymentId, targetPaymentKind = "payment", targetAttendanceDate, targetAttendanceCourseName, onOpenPayment }: { onOpenPayment?: (studentId: number, paymentId: number) => void; studentId: number; initialPaymentId?: number; targetPaymentId?: number; targetPaymentKind?: "payment" | "practice_attendance"; targetAttendanceDate?: string; targetAttendanceCourseName?: string | null }) {
   const [data, setData] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -303,7 +303,7 @@ export default function StudentActivity({ studentId, initialPaymentId, targetPay
     return { ...connection, lane };
   });
   const connectorWidth = laneEnds.length ? 12 + laneEnds.length * 10 : 0;
-  const firstTargetAttendance = targetAttendanceDate ? data?.logs.findIndex((row) => (row.kind === "attendance" || row.kind === "missed" || row.kind === "free_missed" || row.kind === "practice_attendance") && row.eventDate.slice(0, 10) === targetAttendanceDate) : -1;
+  const firstTargetAttendance = targetAttendanceDate ? data?.logs.findIndex((row) => (row.kind === "attendance" || row.kind === "missed" || row.kind === "free_missed" || row.kind === "practice_attendance") && row.eventDate.slice(0, 10) === targetAttendanceDate && (targetAttendanceCourseName === undefined || row.courseName === targetAttendanceCourseName)) : -1;
 
   return <section aria-labelledby="student-activity-title" className="mt-6 space-y-5 rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="student-activity-title" className="m-0 text-xl font-normal">Attendance & payments</h2><div className="flex flex-wrap gap-2"><button type="button" className={primary} disabled={loading || !data || !data.courses.length} onClick={() => open("payment")}>Record payment</button></div></div>

@@ -24,7 +24,7 @@ const editableFieldRows: Array<Array<{ key: EditableTextField; label: string; ty
 ];
 const emptyDrafts: Drafts = { firstName: "", lastName: "", nickname: "", email: "", phone: "", birthDate: "", facebookUrl: "", instagramUrl: "" };
 
-type StudentPanelProps = { id: number; onClose: () => void; onUpdate: (student: Student) => void; onDelete: (id: number) => void; editPaymentId?: number; targetPaymentId?: number; targetPaymentKind?: "payment" | "practice_attendance"; attendanceDate?: string };
+type StudentPanelProps = { id: number; onClose: () => void; onUpdate: (student: Student) => void; onDelete: (id: number) => void; editPaymentId?: number; targetPaymentId?: number; targetPaymentKind?: "payment" | "practice_attendance"; attendanceDate?: string; attendanceCourseName?: string | null };
 
 export default function StudentPanel(props: StudentPanelProps) {
   const [linkedPayment, setLinkedPayment] = useState<{ studentId: number; paymentId: number } | null>(null);
@@ -32,7 +32,7 @@ export default function StudentPanel(props: StudentPanelProps) {
   return <StudentPanelContent {...props} {...destination} key={`${props.id}-${linkedPayment?.studentId ?? props.id}-${linkedPayment?.paymentId ?? ''}`} onOpenPayment={(studentId, paymentId) => setLinkedPayment({ studentId, paymentId })} />;
 }
 
-function StudentPanelContent({ id, onClose, onUpdate, onDelete, editPaymentId, targetPaymentId, targetPaymentKind = "payment", attendanceDate, onOpenPayment }: StudentPanelProps & { onOpenPayment: (studentId: number, paymentId: number) => void }) {
+function StudentPanelContent({ id, onClose, onUpdate, onDelete, editPaymentId, targetPaymentId, targetPaymentKind = "payment", attendanceDate, attendanceCourseName, onOpenPayment }: StudentPanelProps & { onOpenPayment: (studentId: number, paymentId: number) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const photoDialog = useRef<HTMLDialogElement>(null);
   const imageInput = useRef<HTMLInputElement>(null);
@@ -196,7 +196,7 @@ function StudentPanelContent({ id, onClose, onUpdate, onDelete, editPaymentId, t
     </section>
     </div>
     <div id="student-panel-logs" role="tabpanel" aria-labelledby="student-tab-logs" hidden={activeTab !== "logs"}>
-      {activeTab === "logs" && <StudentActivity onOpenPayment={onOpenPayment} key={`activity-${student.id}`} studentId={student.id} initialPaymentId={editPaymentId} targetPaymentId={targetPaymentId} targetPaymentKind={targetPaymentKind} targetAttendanceDate={attendanceDate} />}
+      {activeTab === "logs" && <StudentActivity onOpenPayment={onOpenPayment} key={`activity-${student.id}`} studentId={student.id} initialPaymentId={editPaymentId} targetPaymentId={targetPaymentId} targetPaymentKind={targetPaymentKind} targetAttendanceDate={attendanceDate} targetAttendanceCourseName={attendanceCourseName} />}
     </div>
     <div id="student-panel-profile-history" role="tabpanel" aria-labelledby="student-tab-profile-history" hidden={activeTab !== "profile-history"}>
       {activeTab === "profile-history" && <StudentProfileLog key={`profile-log-${student.id}`} studentId={student.id} />}

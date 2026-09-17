@@ -63,7 +63,18 @@ export async function GET(request: Request) {
       item.freeMissed,
     );
     const freeMissedEvents = freeMissedResult.results.filter((item) => item.startsAt.slice(0, 10) >= from && item.startsAt.slice(0, 10) <= to).map((item) => ({ date: item.startsAt.slice(0, 10), kind: "free_missed" as const, courseName: item.courseName, count: 1, paymentId: null, complimentary: 1 }));
-    const events = [...result.results, ...missed.values(), ...freeMissedEvents]
+    // Keep a payment just outside the requested calendar range when it covers
+    // a class inside it. The client uses the payment's coverage list to colour
+    // that class as paid, including when a December payment covers January.
+    // It still renders the payment only on its own date, so this does not add
+    // an out-of-range card to the calendar.
+    const coveringPayments = new Map<number, CalendarEvent>();
+    for (const payment of paymentsResult.results) {
+      if (payment.paidOn >= from && payment.paidOn <= to) continue;
+      if (!(coverage.get(payment.paymentId) ?? []).some((item) => item.startsAt.slice(0, 10) >= from && item.startsAt.slice(0, 10) <= to)) continue;
+      coveringPayments.set(payment.paymentId, { date: payment.paidOn, kind: "payment", courseName: null, count: 1, paymentId: payment.paymentId, complimentary: 0 });
+    }
+    const events = [...result.results, ...coveringPayments.values(), ...missed.values(), ...freeMissedEvents]
       .map((event) => event.kind === "payment" && event.paymentId !== null ? { ...event, coveredClasses: coverage.get(event.paymentId) ?? [] } : event)
       .sort((a, b) => a.date.localeCompare(b.date) || a.kind.localeCompare(b.kind) || (a.courseName ?? "").localeCompare(b.courseName ?? ""));
     return Response.json({ events }, { headers: { "Cache-Control": "no-store" } });
