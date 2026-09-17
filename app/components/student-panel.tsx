@@ -9,21 +9,18 @@ import StudentProfileLog from "./student-profile-log";
 import StudentCourses from "./student-courses";
 import StudentCard from "./student-card";
 import StudentTasks from "./student-tasks";
+import PhoneNumberInput from "./phone-number-input";
 
 export type Student = { id: number; firstName: string; lastName: string; nickname: string; email: string; phone: string; birthDate: string | null; facebookUrl: string; instagramUrl: string; picture: string | null; active: boolean };
 const studentTabs = [["logs", "Logs"], ["info", "Student info"], ["profile-history", "Profile history"]] as const;
 type Field = keyof Student;
 type EditableTextField = "firstName" | "lastName" | "nickname" | "email" | "phone" | "birthDate" | "facebookUrl" | "instagramUrl";
 type Drafts = Record<EditableTextField, string>;
-const editableFields: Array<{ key: EditableTextField; label: string; type?: string }> = [
-  { key: "firstName", label: "First name" },
-  { key: "lastName", label: "Last name" },
-  { key: "nickname", label: "Nickname (optional)" },
-  { key: "email", label: "Email (optional)", type: "email" },
-  { key: "phone", label: "Phone" },
-  { key: "birthDate", label: "Birth date (optional)", type: "date" },
-  { key: "facebookUrl", label: "Facebook (optional)", type: "url" },
-  { key: "instagramUrl", label: "Instagram (optional)", type: "url" },
+const editableFieldRows: Array<Array<{ key: EditableTextField; label: string; type?: string }>> = [
+  [{ key: "firstName", label: "First name" }, { key: "lastName", label: "Last name" }],
+  [{ key: "nickname", label: "Nickname (optional)" }, { key: "birthDate", label: "Birth date (optional)", type: "date" }],
+  [{ key: "phone", label: "Phone" }, { key: "email", label: "Email (optional)", type: "email" }],
+  [{ key: "facebookUrl", label: "Facebook (optional)", type: "url" }, { key: "instagramUrl", label: "Instagram (optional)", type: "url" }],
 ];
 const emptyDrafts: Drafts = { firstName: "", lastName: "", nickname: "", email: "", phone: "", birthDate: "", facebookUrl: "", instagramUrl: "" };
 
@@ -38,6 +35,7 @@ export default function StudentPanel(props: StudentPanelProps) {
 function StudentPanelContent({ id, onClose, onUpdate, onDelete, editPaymentId, targetPaymentId, targetPaymentKind = "payment", attendanceDate, onOpenPayment }: StudentPanelProps & { onOpenPayment: (studentId: number, paymentId: number) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const photoDialog = useRef<HTMLDialogElement>(null);
+  const imageInput = useRef<HTMLInputElement>(null);
   const pendingSaves = useRef(0);
   useEffect(() => {
     const element = dialog.current;
@@ -55,6 +53,7 @@ function StudentPanelContent({ id, onClose, onUpdate, onDelete, editPaymentId, t
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingField, setSavingField] = useState<Field | null>(null);
+  const [draggingImage, setDraggingImage] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [error, setError] = useState("");
 
@@ -123,6 +122,7 @@ function StudentPanelContent({ id, onClose, onUpdate, onDelete, editPaymentId, t
     if (!response.ok) {
       setError(data.error ?? "Could not save field.");
       if (studentRef.current?.[field] === next[field]) { studentRef.current = { ...studentRef.current, [field]: current[field], picture: current.picture }; setStudent(studentRef.current); }
+      if (field === "active") setActiveDraft(String(current.active));
     } else {
       studentRef.current = { ...(studentRef.current ?? data), [field]: data[field], picture: data.picture };
       setStudent(studentRef.current); onUpdate(studentRef.current);
@@ -131,6 +131,7 @@ function StudentPanelContent({ id, onClose, onUpdate, onDelete, editPaymentId, t
     }
     } catch (reason) {
       studentRef.current = current; setStudent(current);
+      if (field === "active") setActiveDraft(String(current.active));
       setError(reason instanceof Error ? reason.message : "Could not save field. Please try again.");
     } finally { pendingSaves.current -= 1; setSavingField(null); }
   }
@@ -170,12 +171,26 @@ function StudentPanelContent({ id, onClose, onUpdate, onDelete, editPaymentId, t
       <StudentCourses key={student.id} studentId={student.id} />
       <StudentTasks key={`tasks-${student.id}`} studentId={student.id} />
     <section aria-label="Student info" className="mt-4 overflow-hidden rounded-xl border border-stone-200 bg-white px-5 shadow-sm">
-      <div className="flex items-center justify-between gap-4 border-b border-stone-200 py-4">
-        <div className="min-w-0"><p className="m-0 font-sans text-xs font-bold uppercase tracking-wider text-slate-400">Profile photo</p><p className="mt-1 truncate font-sans text-sm text-slate-800">{savingPhoto ? "Saving photo…" : "Photo changes save automatically"}</p></div>
-        <div className="flex flex-wrap justify-end gap-2"><label className="cursor-pointer rounded-md border border-stone-300 px-3 py-2 font-sans text-xs font-semibold">Camera<input accept="image/*" capture="environment" type="file" disabled={saving || savingPhoto || savingField !== null} className="sr-only" onChange={(event) => { void selectImage(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="cursor-pointer rounded-md border border-stone-300 px-3 py-2 font-sans text-xs font-semibold">Upload<input accept="image/*" type="file" disabled={saving || savingPhoto || savingField !== null} className="sr-only" onChange={(event) => { void selectImage(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label></div>
+      <div className="grid gap-5 border-b border-stone-200 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+        <div>
+          <p className="m-0 font-sans text-xs font-bold uppercase tracking-wider text-slate-400">Profile photo</p>
+          <input ref={imageInput} aria-label="Upload student photo" accept="image/*" type="file" disabled={saving || savingPhoto || savingField !== null} className="sr-only" onChange={(event) => { void selectImage(event.target.files?.[0]); event.currentTarget.value = ""; }} />
+          <button type="button" disabled={saving || savingPhoto || savingField !== null} onClick={() => imageInput.current?.click()} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDraggingImage(true); }} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDraggingImage(false); }} onDrop={(event) => { event.preventDefault(); setDraggingImage(false); if (event.dataTransfer.files.length > 1) setError("Drop one image at a time."); else void selectImage(event.dataTransfer.files[0]); }} className={`mt-2 flex min-h-32 w-full items-center justify-center gap-3 rounded-lg border-2 border-dashed px-4 py-5 text-center font-sans transition-colors focus:outline-none focus:ring-2 focus:ring-lime-600 disabled:cursor-not-allowed disabled:opacity-50 ${draggingImage ? "border-lime-600 bg-lime-50" : "border-stone-300 bg-stone-50 hover:border-lime-500 hover:bg-lime-50"}`}>
+            {student.picture ? <img src={student.picture} alt="Student photo preview" className="h-16 w-16 shrink-0 rounded-full object-cover" /> : <span aria-hidden="true" className="text-3xl text-slate-400">＋</span>}
+            <span><span className="block text-sm font-semibold text-slate-700">{savingPhoto ? "Saving photo…" : draggingImage ? "Drop image here" : student.picture ? "Drop or click to replace photo" : "Drop an image here"}</span><span className="mt-1 block text-xs font-normal text-slate-500">or click to upload</span></span>
+          </button>
+        </div>
+        <div className="sm:min-w-48">
+          <span className="flex items-center justify-between gap-3 font-sans text-xs font-bold uppercase tracking-wider text-slate-400"><span>Student status</span>{savingField === "active" && <span className="normal-case tracking-normal text-lime-700">Saving...</span>}</span>
+          <label className="mt-3 flex cursor-pointer items-center gap-3 font-sans text-sm font-semibold text-slate-600"><span className={activeDraft === "true" ? "text-lime-700" : "text-slate-400"}>Active</span><input type="checkbox" role="switch" aria-label="Student status" checked={activeDraft === "true"} disabled={savingPhoto || savingField === "active"} onChange={(event) => { const value = String(event.target.checked); setActiveDraft(value); void saveField("active", value); }} className="peer sr-only" /><span aria-hidden="true" className="relative h-6 w-11 rounded-full bg-stone-300 transition-colors after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:bg-lime-600 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-lime-600 peer-focus-visible:ring-offset-2 peer-disabled:opacity-50" /><span className={activeDraft === "false" ? "text-slate-700" : "text-slate-400"}>Inactive</span></label>
+        </div>
       </div>
-      {editableFields.map(({ key, label, type }) => <div key={key} className="border-b border-stone-200 py-4"><label className="block font-sans"><span className="flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-wider text-slate-400"><span>{label}</span>{savingField === key && <span className="normal-case tracking-normal text-lime-700">Saving...</span>}</span>{key === "birthDate" ? <DatePicker disabled={savingPhoto} max={new Date().toISOString().slice(0, 10)} value={drafts[key]} onChange={event => setDrafts(current => ({ ...current, [key]: event.target.value }))} onBlur={() => void saveField(key, drafts[key])} className="mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-slate-800" /> : <input disabled={savingPhoto} type={type ?? "text"} placeholder={key === "facebookUrl" ? "https://facebook.com/…" : key === "instagramUrl" ? "https://instagram.com/…" : undefined} value={drafts[key]} onChange={(event) => setDrafts((current) => ({ ...current, [key]: event.target.value }))} onBlur={() => void saveField(key, drafts[key])} className="mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-lime-600 focus:ring-1 focus:ring-lime-600" />}</label></div>)}
-      <div className="border-b border-stone-200 py-4"><label className="block font-sans"><span className="flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-wider text-slate-400"><span>Status</span>{savingField === "active" && <span className="normal-case tracking-normal text-lime-700">Saving...</span>}</span><select disabled={savingPhoto} value={activeDraft} onChange={(event) => setActiveDraft(event.target.value)} onBlur={(event) => void saveField("active", event.currentTarget.value)} className={`mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-lime-600 focus:ring-1 focus:ring-lime-600 ${activeDraft === "true" ? "text-lime-700" : "text-slate-500"}`}><option value="true">Active</option><option value="false">Inactive</option></select></label></div>
+      {editableFieldRows.map((row) => <div key={row[0].key} className="grid gap-4 border-b border-stone-200 py-4 sm:grid-cols-2">{row.map(({ key, label, type }) => {
+        const isSocial = key === "facebookUrl" || key === "instagramUrl";
+        const socialUrl = isSocial && /^https:\/\/[^\s]+$/i.test(drafts[key]) ? drafts[key] : null;
+        const input = key === "birthDate" ? <DatePicker disabled={savingPhoto} max={new Date().toISOString().slice(0, 10)} value={drafts[key]} onChange={event => setDrafts(current => ({ ...current, [key]: event.target.value }))} onBlur={() => void saveField(key, drafts[key])} className="mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-slate-800" /> : key === "phone" ? <PhoneNumberInput disabled={savingPhoto} value={drafts.phone} onChange={(value) => setDrafts((current) => ({ ...current, phone: value }))} onBlur={() => void saveField("phone", drafts.phone)} inputClassName="min-w-0 flex-1 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-lime-600 focus:ring-1 focus:ring-lime-600" /> : <input disabled={savingPhoto} type={type ?? "text"} placeholder={key === "facebookUrl" ? "https://facebook.com/…" : key === "instagramUrl" ? "https://instagram.com/…" : undefined} value={drafts[key]} onChange={(event) => setDrafts((current) => ({ ...current, [key]: event.target.value }))} onBlur={() => void saveField(key, drafts[key])} className="min-w-0 flex-1 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-lime-600 focus:ring-1 focus:ring-lime-600" />;
+        return <label key={key} className="block min-w-0 font-sans"><span className="flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-wider text-slate-400"><span>{label}</span>{savingField === key && <span className="normal-case tracking-normal text-lime-700">Saving...</span>}</span><span className={isSocial ? "mt-2 flex gap-2" : "mt-2 block"}>{input}{isSocial && <a href={socialUrl ?? undefined} target="_blank" rel="noreferrer" aria-label={`Open ${key === "facebookUrl" ? "Facebook" : "Instagram"} profile`} aria-disabled={!socialUrl} onClick={(event) => { if (!socialUrl) event.preventDefault(); }} className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md border transition-colors focus:outline-none focus:ring-2 focus:ring-lime-600 ${socialUrl ? "border-stone-300 text-slate-600 hover:border-lime-600 hover:bg-lime-50" : "cursor-not-allowed border-stone-200 text-slate-300"}`}><svg aria-hidden="true" className="h-4 w-4 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 3h7v7m-1-6-9 9" /><path d="M11 5H6a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-5" /></svg></a>}</span></label>;
+      })}</div>)}
       {error && <p role="alert" className="py-4 font-sans text-sm text-red-700">{error}</p>}
       <div className="flex justify-end py-4"><button disabled={saving || savingPhoto} onClick={() => setDeleteConfirmOpen(true)} className="rounded-md border border-red-300 bg-white px-3 py-2 font-sans text-xs font-semibold text-red-700 transition-colors hover:bg-red-50">Delete student</button></div>
     </section>
