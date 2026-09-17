@@ -26,11 +26,12 @@ function isLocalhost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
 }
 
-type Permission = "dashboard" | "students" | "courses" | "qrCodes" | "owner" | "practiceParties" | "tasks";
+type Permission = "dashboard" | "students" | "courses" | "freeEvents" | "qrCodes" | "owner" | "practiceParties" | "tasks";
 
 function requiredPermission(pathname: string): Permission | null {
   if (pathname === "/tasks" || pathname.startsWith("/tasks/") || pathname === "/api/tasks" || pathname.startsWith("/api/tasks/")) return "tasks";
-  if (pathname === "/practice-parties" || pathname.startsWith("/practice-parties/") || pathname === "/free-events" || pathname.startsWith("/free-events/") || pathname === "/api/free-events" || pathname.startsWith("/api/free-events/") || pathname === "/api/free-event-images" || pathname.startsWith("/api/free-event-images/")) return "practiceParties";
+  if (pathname === "/free-events" || pathname.startsWith("/free-events/") || pathname === "/api/free-events" || pathname.startsWith("/api/free-events/") || pathname === "/api/free-event-images" || pathname.startsWith("/api/free-event-images/")) return "freeEvents";
+  if (pathname === "/practice-parties" || pathname.startsWith("/practice-parties/")) return "practiceParties";
   if (pathname === "/administrators" || pathname === "/api/development-copy-production" || pathname === "/api/administrators" || pathname.startsWith("/api/administrators/")) return "owner";
   if (pathname === "/") return "dashboard";
   if (pathname.startsWith("/students")) return "students";
@@ -67,8 +68,8 @@ const application = {
       if (!authenticatedEmail) return forbidden(url.pathname);
       try {
         if (permission !== "tasks") await env.DB.prepare("INSERT OR IGNORE INTO administrator_permissions (email) VALUES (?)").bind(authenticatedEmail).run();
-        const row = await env.DB.prepare("SELECT can_dashboard, can_students, can_courses, can_practice_parties, can_qr_codes, can_tasks FROM administrator_permissions WHERE email = ?").bind(authenticatedEmail).first<{ can_dashboard: number; can_students: number; can_courses: number; can_practice_parties: number; can_qr_codes: number; can_tasks: number }>();
-        const allowed = permission === "tasks" ? row?.can_tasks === 1 : permission === "practiceParties" ? row?.can_practice_parties === 1 : permission === "dashboard" ? row?.can_dashboard === 1 : permission === "students" ? row?.can_students === 1 : permission === "courses" ? row?.can_courses === 1 : row?.can_qr_codes === 1;
+        const row = await env.DB.prepare("SELECT can_dashboard, can_students, can_courses, can_free_events, can_practice_parties, can_qr_codes, can_tasks FROM administrator_permissions WHERE email = ?").bind(authenticatedEmail).first<{ can_dashboard: number; can_students: number; can_courses: number; can_free_events: number; can_practice_parties: number; can_qr_codes: number; can_tasks: number }>();
+        const allowed = permission === "tasks" ? row?.can_tasks === 1 : permission === "freeEvents" ? row?.can_free_events === 1 : permission === "practiceParties" ? row?.can_practice_parties === 1 : permission === "dashboard" ? row?.can_dashboard === 1 : permission === "students" ? row?.can_students === 1 : permission === "courses" ? row?.can_courses === 1 : row?.can_qr_codes === 1;
         if (!allowed) return forbidden(url.pathname);
       } catch (error) {
         console.error("Could not check administrator permissions", error);

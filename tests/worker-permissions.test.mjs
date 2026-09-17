@@ -17,10 +17,10 @@ const exports = {};
 vm.runInNewContext(code, { exports, Request, Response, URL, console,
   vinextHandler: { fetch: async () => new Response('app') },
 });
-async function request(path, { qr = 0, tasks = 0, email = 'admin@example.com', host = 'admin.example.com' } = {}) {
+async function request(path, { freeEvents = 0, qr = 0, tasks = 0, email = 'admin@example.com', host = 'admin.example.com' } = {}) {
   const env = { PUBLIC_QR_BASE_URL: 'https://go.example.com', DB: {
     prepare: () => ({ bind: () => ({ run: async () => {}, first: async () => ({
-      can_dashboard: 0, can_students: 0, can_courses: 0, can_qr_codes: qr, can_tasks: tasks,
+      can_dashboard: 0, can_students: 0, can_courses: 0, can_free_events: freeEvents, can_qr_codes: qr, can_tasks: tasks,
     }) }) }),
   } };
   return exports.default.fetch(new Request(`https://${host}${path}`, {
@@ -70,5 +70,15 @@ test('Tasks permission protects the page and all task APIs', async () => {
     assert.equal((await request(path, { email: '' })).status, 403, path);
     assert.equal((await request(path, { email: 'croitoriu.alexandru.code@gmail.com' })).status, 200, path);
     assert.equal((await request(path, { tasks: 1, host: 'go.example.com' })).status, 404, path);
+  }
+});
+
+test('Free Events permission protects the page and its APIs independently', async () => {
+  for (const path of ['/free-events', '/free-events/', '/api/free-events', '/api/free-events/1', '/api/free-event-images/banner.webp']) {
+    assert.equal((await request(path)).status, 403, path);
+    assert.equal((await request(path, { freeEvents: 1 })).status, 200, path);
+    assert.equal((await request(path, { email: '' })).status, 403, path);
+    assert.equal((await request(path, { email: 'croitoriu.alexandru.code@gmail.com' })).status, 200, path);
+    assert.equal((await request(path, { freeEvents: 1, host: 'go.example.com' })).status, 404, path);
   }
 });
