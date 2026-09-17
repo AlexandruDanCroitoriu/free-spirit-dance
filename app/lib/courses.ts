@@ -9,7 +9,7 @@ export function parseCourse(value: unknown): CourseInput | string {
   if (!value || typeof value !== "object") return "A course is required.";
   const input = value as Record<string, unknown>;
   if (typeof input.name !== "string" || !input.name.trim() || input.name.trim().length > 120) return "Enter a course name of up to 120 characters.";
-  if (!Array.isArray(input.schedules) || input.schedules.length < 1 || input.schedules.length > 5) return "Choose between one and five weekly classes.";
+  if (!Array.isArray(input.schedules) || input.schedules.length > 5) return "Choose up to five weekly classes.";
   const validDate = (date: unknown): date is string => typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date) && date >= "1900-01-01" && date <= "9999-12-31" && !Number.isNaN(new Date(date + "T12:00:00Z").getTime()) && new Date(date + "T12:00:00Z").toISOString().slice(0, 10) === date;
   const startDate = input.startDate === "" || input.startDate == null ? null : input.startDate;
   const endDate = input.endDate === "" || input.endDate == null ? null : input.endDate;

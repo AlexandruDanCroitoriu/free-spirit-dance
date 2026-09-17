@@ -399,10 +399,14 @@ export default function CourseCalendarWidget() {
   const slots = courses.flatMap<ClassSlot>((course) =>
     course.schedules.map((schedule) => ({ courseId: course.id, courseName: course.name, startDate: course.startDate, endDate: course.endDate, ...schedule }))
   ).sort((first, second) => first.startTime.localeCompare(second.startTime) || first.courseName.localeCompare(second.courseName));
+  const isWithinCourseDates = (dateKey: string, course: Pick<Course, "startDate" | "endDate">) =>
+    (!course.startDate || dateKey >= course.startDate) && (!course.endDate || dateKey <= course.endDate);
   function schoolSlotsOn(dateKey: string, day: string) {
-    const daySlots = slots.filter((slot) => dateKey >= schoolToday() && slot.day === day && (!slot.startDate || dateKey >= slot.startDate) && (!slot.endDate || dateKey <= slot.endDate));
+    const daySlots = slots.filter((slot) => dateKey >= schoolToday() && slot.day === day && isWithinCourseDates(dateKey, slot));
     for (const course of courses) for (const occurrence of course.occurrences ?? []) {
-      if (occurrence.classDate !== dateKey) continue;
+      // A saved class can otherwise keep an ended course visible in future
+      // calendar views. Its course dates remain the boundary for projection.
+      if (occurrence.classDate !== dateKey || !isWithinCourseDates(dateKey, course)) continue;
       const existing = daySlots.findIndex((slot) => slot.courseId === course.id && slot.startTime === occurrence.startTime);
       const recorded = { courseId: course.id, courseName: course.name, day, startTime: occurrence.startTime, endTime: occurrence.endTime ?? "", startDate: course.startDate, endDate: course.endDate };
       if (existing >= 0) daySlots[existing] = recorded; else daySlots.push(recorded);

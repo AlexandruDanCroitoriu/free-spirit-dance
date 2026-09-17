@@ -11,7 +11,7 @@ import { formatMoney, parseAmount } from "../lib/student-activity";
 
 const dayLabels: Record<string, string> = { Monday: "Luni", Tuesday: "Marți", Wednesday: "Miercuri", Thursday: "Joi", Friday: "Vineri", Saturday: "Sâmbătă", Sunday: "Duminică" };
 const newSchedule = (): Schedule => ({ day: "Monday", startTime: "18:00", endTime: "19:00", rentCostMinor: 0 });
-const emptyForm = (): CourseInput => ({ name: "", startDate: "", endDate: "", schedules: [newSchedule()] });
+const emptyForm = (): CourseInput => ({ name: "", startDate: "", endDate: "", schedules: [] });
 const inputClass = "mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-3 text-sm font-normal text-slate-800 focus:outline-none focus:ring-2 focus:ring-lime-600";
 const buttonClass = "rounded-md border border-stone-300 bg-white px-3 py-2 font-sans text-xs font-semibold disabled:opacity-50";
 const primaryClass = "rounded-md bg-slate-800 px-4 py-3 font-sans text-xs font-bold text-stone-100 disabled:opacity-50";
@@ -81,7 +81,7 @@ export default function CoursesPage() {
   useEffect(() => {
     const open = () => {
       if (busy) return;
-      const fresh = emptyForm(), costs = { Monday: "0.00" };
+      const fresh = emptyForm(), costs = {};
       initialForm.current = formSnapshot(fresh, costs, "0", "1");
       setForm(fresh); setRentCosts(costs); setPresetAmount("0"); setPresetAllowance("1"); setEditingId(null); setError(""); setNotice(""); setOperationError(""); setFormOpen(true);
     };
@@ -112,7 +112,7 @@ export default function CoursesPage() {
     dismissForm();
   }
   function edit(course: Course) {
-    const schedules = course.schedules.length ? course.schedules.map((s) => ({ ...s })) : [newSchedule()];
+    const schedules = course.schedules.map((s) => ({ ...s }));
     const value = { name: course.name, startDate: course.startDate ?? "", endDate: course.endDate ?? "", schedules }, costs = Object.fromEntries(schedules.map((schedule) => [schedule.day, (schedule.rentCostMinor / 100).toFixed(2)])), amount = course.paymentPreset ? (course.paymentPreset.amountMinor / 100).toFixed(2) : "0", allowance = course.paymentPreset ? String(course.paymentPreset.allowance) : "1";
     initialForm.current = formSnapshot(value, costs, amount, allowance);
     setForm(value); setRentCosts(costs); setPresetAmount(amount); setPresetAllowance(allowance); setEditingId(course.id); setError(""); setNotice(""); setOperationError(""); setFormOpen(true);
