@@ -83,7 +83,7 @@ export default function TaskDragBoard({ board, columns, visible, today, disabled
   useEffect(() => {
     try {
       const saved: unknown = JSON.parse(localStorage.getItem('fsd-task-list-statuses') ?? '{}');
-      if (saved && typeof saved === 'object' && !Array.isArray(saved)) setHiddenStatuses(Object.fromEntries(Object.entries(saved).filter(([, value]) => Array.isArray(value) && value.every(status => status === 'in_progress' || status === 'done'))));
+      if (saved && typeof saved === 'object' && !Array.isArray(saved)) setHiddenStatuses(Object.fromEntries(Object.entries(saved).filter(([, value]) => Array.isArray(value) && value.every(status => status === 'in_progress' || status === 'blocked' || status === 'done'))));
     } catch { /* Use both statuses when preferences are unavailable. */ }
   }, []);
   const statusKey = (id: string) => id === 'inbox' ? 'inbox' : `${boardScope}:${id}`;
@@ -261,9 +261,9 @@ export default function TaskDragBoard({ board, columns, visible, today, disabled
     const keys = shown[id] ?? [], listId = inbox ? null : Number(id);
     const list = columns.find(column => column.id === listId), index = (listPreview ?? listOrder).indexOf(`list:${listId}`);
     const statusSettings = inbox ? null : <div className="border-b border-white/10 px-2 pb-3 pt-2"><p className="mb-2 mt-0 text-xs font-semibold text-stone-400">Show tasks</p><div role="group" aria-label={`${title} task statuses`} className="flex gap-1">
-      {(['in_progress', 'done'] as const).map(status => {
+      {(['in_progress', 'blocked', 'done'] as const).map(status => {
         const active = !hiddenStatuses[statusKey(id)]?.includes(status);
-        return <button key={status} type="button" aria-pressed={active} disabled={disabled || dragging} onClick={() => toggleStatus(id, status)} className={`min-h-11 flex-1 rounded-lg px-2 text-sm font-semibold transition-colors disabled:opacity-50 ${active ? 'bg-blue-400/20 text-blue-200 ring-1 ring-inset ring-blue-400/40' : 'bg-white/5 text-stone-400 hover:bg-white/10'}`}>{status === 'done' ? 'Done' : 'In progress'}</button>;
+        return <button key={status} type="button" aria-pressed={active} disabled={disabled || dragging} onClick={() => toggleStatus(id, status)} className={`min-h-11 flex-1 rounded-lg px-2 text-sm font-semibold transition-colors disabled:opacity-50 ${active ? 'bg-blue-400/20 text-blue-200 ring-1 ring-inset ring-blue-400/40' : 'bg-white/5 text-stone-400 hover:bg-white/10'}`}>{status === 'done' ? 'Done' : status === 'blocked' ? 'Blocked' : 'In progress'}</button>;
       })}
     </div></div>;
     return <Column onRename={!inbox ? name => onRenameList(listId!, name) : undefined} statusSettings={statusSettings} color={inbox ? board.inboxColor : list?.color ?? 'default'} index={index} onColor={color => onColor(inbox ? {target: 'inbox', color} : {target: 'list', listId: listId!, color})} onRemove={!inbox ? () => onRemoveList(listId!) : undefined} key={id} columnId={id} title={title} inbox={inbox} disabled={disabled} onAdd={() => onAddCard(listId)}>

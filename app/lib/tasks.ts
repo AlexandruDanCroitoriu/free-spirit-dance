@@ -5,7 +5,7 @@ export type TaskEvent = { id: number; name: string; imagePath?: string | null };
 export type TaskMeeting = { id: number; eventId: number; name: string; eventName: string };
 
 export type BoardTask = {
-  status: 'in_progress' | 'done';
+  status: 'in_progress' | 'blocked' | 'done';
   key: string;
   listId: number | null;
   source: 'manual';
@@ -29,7 +29,7 @@ export type BoardTask = {
 export type NamedTaskBoard = { id: number; name: string; scope: 'school' | 'personal'; color: TaskColor };
 export type TaskList = { id: number; boardId: number; title: string; sortOrder: number; color: TaskColor };
 export type TaskBoard = { inboxColor: TaskColor; selectedBoardScope: 'school' | 'personal'; tasks: BoardTask[]; boards: NamedTaskBoard[]; lists: TaskList[]; revision: number; today: string; views?: { key: string; title: string }[] };
-export type ManualTaskFields = { status?: 'in_progress' | 'done'; title: string; description: string; dueDate: string | null; studentIds: number[]; courseIds: number[]; eventIds?: number[]; meetingIds?: number[]; administratorEmails?: string[]; assignedTo?: string | null };
+export type ManualTaskFields = { status?: 'in_progress' | 'blocked' | 'done'; title: string; description: string; dueDate: string | null; studentIds: number[]; courseIds: number[]; eventIds?: number[]; meetingIds?: number[]; administratorEmails?: string[]; assignedTo?: string | null };
 
 // A move depends only on its card and the source/destination lists. Private
 // activity elsewhere must not invalidate this view of their order.
@@ -75,7 +75,7 @@ function dueDate(value: unknown): string | null {
 export function manualTaskFields(input: Record<string, unknown>, previous?: ManualTaskFields): ManualTaskFields {
   const merged = { description: '', dueDate: null, studentIds: [], courseIds: [], eventIds: [], meetingIds: [], ...previous, ...input };
   const status = input.status === undefined ? previous?.status ?? 'in_progress' : input.status;
-  if (status !== 'in_progress' && status !== 'done') throw new TaskError('Choose In progress or Done.');
+  if (status !== 'in_progress' && status !== 'blocked' && status !== 'done') throw new TaskError('Choose In progress, Blocked, or Done.');
   if (!Array.isArray(merged.studentIds) || merged.studentIds.length > 500 || merged.studentIds.some(id => typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1)) throw new TaskError('Choose valid students (up to 500 per task).');
   if (!Array.isArray(merged.courseIds) || merged.courseIds.length > 500 || merged.courseIds.some(id => typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1)) throw new TaskError('Choose valid courses (up to 500 per task).');
   if (!Array.isArray(merged.eventIds) || merged.eventIds.length > 500 || merged.eventIds.some(id => typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1)) throw new TaskError('Choose valid events (up to 500 per task).');

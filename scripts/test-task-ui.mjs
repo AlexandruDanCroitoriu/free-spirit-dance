@@ -48,6 +48,8 @@ try {
   assert.match(card, /<img[^>]*src="\/api\/student-images\/test"/);
   assert.doesNotMatch(card, />Test Student</);
   assert.doesNotMatch(card, /Move up|Move down|<details|Destination/);
+  const blockedCard = renderToStaticMarkup(createElement(Card, { task: { ...task, status: 'blocked' }, today: '2026-09-15', disabled: false, onEdit() {}, onStudent() {} }));
+  assert.match(blockedCard, /Blocked/);
   const filters = renderToStaticMarkup(createElement(Filters, { value: defaults, students: [], onChange() {} }));
   for (const label of ['All tasks', 'Manual tasks', 'Next 7 days', 'Next 30 days']) assert.ok(filters.includes(label));
   const panel = renderToStaticMarkup(createElement(Panel, { task, board: { lists, boards, tasks: [task], revision: 1, today: '2026-09-15' }, studentId: null, onClose() {}, onSaved() {} }));

@@ -67,7 +67,7 @@ try {
   const administrators = await load('app/api/administrators/[email]/route.ts', 'administrator');
   const domain = await load('app/lib/tasks.ts', 'domain');
   const filters = await load('app/lib/task-filters.ts', 'filters');
-  for (const status of ['in_progress', 'done']) {
+  for (const status of ['in_progress', 'blocked', 'done']) {
     const task = { status, source: 'manual', students: [], dueDate: null };
     assert.equal(filters.matchesTask(task, filters.readTaskFilters(new URLSearchParams()), '2026-09-16'), true);
     assert.equal(filters.matchesTask(task, filters.readTaskFilters(new URLSearchParams({ status })), '2026-09-16'), true);
@@ -255,6 +255,8 @@ try {
   await expect(item.DELETE(request('DELETE', { revision: revision() }), context(second.task.key)));
   assert.equal(rows().length, count - 1);
   await expect(item.DELETE(request('DELETE', { revision: revision() }), context(second.task.key)), 404);
+  const blocked = await expect(create('Blocked', { status: 'blocked', studentIds: [1] }), 201);
+  assert.equal(blocked.task.status, 'blocked');
   assert.equal(domain.schoolToday(new Date('2026-12-31T22:30:00Z')), '2027-01-01');
   assert.equal(domain.manualTaskFields({ title: 'Leap day', dueDate: '2028-02-29' }).dueDate, '2028-02-29');
   assert.deepEqual(db.sqlite.prepare('PRAGMA foreign_key_check').all(), []);

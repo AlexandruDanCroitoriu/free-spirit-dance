@@ -2,11 +2,11 @@ import { type BoardTask } from './tasks';
 import { addCalendarDays } from './calendar-dates';
 
 export const dueFilters = [['all', 'All dates'], ['overdue', 'Overdue'], ['today', 'Due today'], ['7', 'Next 7 days'], ['30', 'Next 30 days']] as const;
-export type TaskFilters = { status?: 'all' | 'none' | 'in_progress' | 'done'; view: string; due: typeof dueFilters[number][0]; studentId: number | null };
+export type TaskFilters = { status?: 'all' | 'none' | 'in_progress' | 'blocked' | 'done'; view: string; due: typeof dueFilters[number][0]; studentId: number | null };
 export function readTaskFilters(params: URLSearchParams, views = ['all', 'manual']): TaskFilters {
   const student = Number(params.get('studentId'));
   return {
-    status: params.get('status') === 'none' ? 'none' : params.get('status') === 'done' ? 'done' : params.get('status') === 'in_progress' ? 'in_progress' : 'all',
+    status: params.get('status') === 'none' ? 'none' : params.get('status') === 'done' ? 'done' : params.get('status') === 'blocked' ? 'blocked' : params.get('status') === 'in_progress' ? 'in_progress' : 'all',
     view: views.includes(params.get('view') ?? '') ? params.get('view')! : 'all',
     due: dueFilters.find(([value]) => value === params.get('due'))?.[0] ?? 'all',
     studentId: Number.isSafeInteger(student) && student > 0 ? student : null,
