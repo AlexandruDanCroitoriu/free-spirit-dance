@@ -11,7 +11,7 @@ export const TaskStudentMention = Node.create({
     const name = String(node.attrs.name || 'Student');
     const picture = typeof node.attrs.picture === 'string' && /^\/(?!\/)/.test(node.attrs.picture) ? node.attrs.picture : null;
     return ['span', { 'data-student-mention': String(node.attrs.id), 'data-student-name': name, class: 'task-student-mention', contenteditable: 'false' },
-      picture ? ['img', { src: picture, alt: '', loading: 'lazy' }] : ['span', { class: 'task-student-mention-avatar' }, name.split(/\s+/).map(part => part[0]).slice(0, 2).join('')],
+      picture ? ['img', { src: picture, alt: '', loading: 'lazy' }] : ['span', { class: 'task-student-mention-avatar', 'aria-hidden': 'true' }, name.split(/\s+/).map(part => part[0]).slice(0, 2).join('')],
       ['span', {}, name]];
   },
 });
@@ -33,7 +33,7 @@ export const TaskAdministratorMention = Node.create({
     const name = String(node.attrs.name || node.attrs.id || 'Administrator');
     const picture = typeof node.attrs.picture === 'string' && /^\/(?!\/)/.test(node.attrs.picture) ? node.attrs.picture : null;
     return ['span', { 'data-administrator-mention': String(node.attrs.id), 'data-administrator-name': name, class: 'task-student-mention task-administrator-mention', contenteditable: 'false' },
-      picture ? ['img', { src: picture, alt: '', loading: 'lazy' }] : ['span', { class: 'task-student-mention-avatar' }, name.split(/\s+/).map(part => part[0]).slice(0, 2).join('')],
+      picture ? ['img', { src: picture, alt: '', loading: 'lazy' }] : ['span', { class: 'task-student-mention-avatar', 'aria-hidden': 'true' }, name.split(/\s+/).map(part => part[0]).slice(0, 2).join('')],
       ['span', {}, name]];
   },
 });

@@ -1,7 +1,7 @@
 import type { JSONContent } from '@tiptap/react';
 
 const prefix = 'fsd-rich-text-v1:';
-const nodeTypes = new Set(['doc', 'paragraph', 'text', 'heading', 'bulletList', 'orderedList', 'listItem', 'blockquote', 'codeBlock', 'hardBreak', 'horizontalRule', 'studentMention', 'courseMention', 'administratorMention', 'eventMention', 'meetingMention', 'taskImage']);
+const nodeTypes = new Set(['doc', 'paragraph', 'text', 'heading', 'bulletList', 'orderedList', 'listItem', 'taskList', 'taskItem', 'blockquote', 'codeBlock', 'hardBreak', 'horizontalRule', 'studentMention', 'courseMention', 'administratorMention', 'eventMention', 'meetingMention', 'taskImage']);
 const markTypes = new Set(['bold', 'italic', 'underline', 'strike', 'code', 'link']);
 function validNode(node: JSONContent, depth = 0): boolean {
   return !!node && depth < 40 && nodeTypes.has(node.type ?? '')

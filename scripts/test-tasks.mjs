@@ -109,7 +109,7 @@ try {
   await expect(create('First', { revision: 0, studentIds: [1], dueDate: '2026-09-15' }));
   assert.equal(revision(), beforeRetry); assert.equal(rows().length, 3);
   await expect(create('First', { description: 'Different', studentIds: [1], dueDate: '2026-09-15' }), 409);
-  for (const extra of [{ title: '' }, { title: 'x'.repeat(201) }, { description: 'x'.repeat(10001) }, { dueDate: '2026-02-30' }, { dueDate: '2026-13-01' }, { status: 'waiting' }, { studentIds: [-1] }, { studentIds: ['1'] }, {studentIds: null}, {studentIds: 1}, {studentIds: Array(501).fill(1)}, { source: 'automatic' }, { sortOrder: 0 }, { revision: -1 }, { requestKey: 'short' }]) await expect(create('Invalid', extra), 400);
+  for (const extra of [{ title: '' }, { title: 'x'.repeat(201) }, { description: 'x'.repeat(50001) }, { dueDate: '2026-02-30' }, { dueDate: '2026-13-01' }, { status: 'waiting' }, { studentIds: [-1] }, { studentIds: ['1'] }, {studentIds: null}, {studentIds: 1}, {studentIds: Array(501).fill(1)}, { source: 'automatic' }, { sortOrder: 0 }, { revision: -1 }, { requestKey: 'short' }]) await expect(create('Invalid', extra), 400);
   await expect(create('Missing student', { studentIds: [9999] }), 409);
   assert.equal(rows().length, 3); assert.equal(revision(), beforeRetry, 'Failed FK creation rolls back the guard and profile changes.');
   await expect(api.POST(request('POST', {}, { headers: { Origin: 'https://other.test' } })), 403);

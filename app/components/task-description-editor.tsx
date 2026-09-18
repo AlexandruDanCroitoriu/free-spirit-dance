@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useId, type ReactNode } from 'react';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { descriptionDocument, serializeDescription } from '../lib/task-description';
 import { TaskStudentMention, TaskCourseMention, TaskAdministratorMention, TaskEventMention, TaskMeetingMention } from './task-student-mention';
 import { TaskImage } from './task-student-mention';
@@ -53,7 +54,7 @@ export default function TaskDescriptionEditor({ value, onChange, disabled = fals
   const [imageError, setImageError] = useState('');
   const suggestionId = useId();
   const editor = useEditor({
-    extensions: [StarterKit.configure({ link: { openOnClick: false, autolink: false } }), TaskStudentMention, TaskCourseMention, TaskAdministratorMention, TaskEventMention, TaskMeetingMention, TaskImage],
+    extensions: [StarterKit.configure({ link: { openOnClick: false, autolink: false } }), TaskList, TaskItem.configure({ nested: true }), TaskStudentMention, TaskCourseMention, TaskAdministratorMention, TaskEventMention, TaskMeetingMention, TaskImage],
     immediatelyRender: false,
     shouldRerenderOnTransaction: true,
     content: descriptionDocument(value),
@@ -79,19 +80,21 @@ export default function TaskDescriptionEditor({ value, onChange, disabled = fals
     if (readOnly && editor) editor.commands.setContent(descriptionDocument(value), { emitUpdate: false });
   }, [editor, value, readOnly]);
   useEffect(() => {
-    if (!editor || editor.isDestroyed || !administrators.length) return;
+    if (!editor || editor.isDestroyed || (!administrators.length && !students.length)) return;
     const transaction = editor.state.tr;
     editor.state.doc.descendants((node, position) => {
-      if (node.type.name !== 'administratorMention') return;
-      const administrator = administrators.find(person => person.email === node.attrs.id);
-      if (administrator && node.attrs.picture !== administrator.picture) {
-        transaction.setNodeMarkup(position, undefined, { ...node.attrs, picture: administrator.picture });
+      if (node.type.name === 'studentMention') {
+        const student = students.find(person => person.id === node.attrs.id);
+        if (student && (node.attrs.name !== student.name || node.attrs.picture !== student.picture)) transaction.setNodeMarkup(position, undefined, { ...node.attrs, name: student.name, picture: student.picture });
+      } else if (node.type.name === 'administratorMention') {
+        const administrator = administrators.find(person => person.email === node.attrs.id);
+        if (administrator && node.attrs.picture !== administrator.picture) transaction.setNodeMarkup(position, undefined, { ...node.attrs, picture: administrator.picture });
       }
     });
     // Resolve photos for existing mentions without replacing the draft or
     // adding an automatic profile-image update to the user's undo history.
     if (transaction.docChanged) editor.view.dispatch(transaction.setMeta('addToHistory', false).setMeta('preventUpdate', true));
-  }, [editor, administrators, value, readOnly]);
+  }, [editor, administrators, students, value, readOnly]);
   if (!editor) return <div role="status" className="p-3 text-stone-400">Loading description…</div>;
   if (readOnly) return <EditorContent editor={editor} />;
   const { selection } = editor.state;
@@ -135,6 +138,15 @@ export default function TaskDescriptionEditor({ value, onChange, disabled = fals
     } catch (reason) { setImageError(reason instanceof Error ? reason.message : 'Could not upload image.'); }
     finally { setImageStatus(''); }
   }
+  function pasteChecklist(text: string) {
+    const lines = text.replace(/\r\n?/g, '\n').split('\n');
+    const items = lines.map(line => /^\s*(?:[-*]\s*)?\[([ xX])\]\s+(.+)\s*$/u.exec(line));
+    if (!items.length || items.some(item => item === null)) return false;
+    editor.chain().focus().insertContent({ type: 'taskList', content: items.map(item => ({
+      type: 'taskItem', attrs: { checked: item![1].toLowerCase() === 'x' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: item![2] }] }],
+    })) }).run();
+    return true;
+  }
   const control = 'min-h-10 min-w-10 rounded px-2 text-sm hover:bg-white/10 aria-pressed:bg-blue-400/20 aria-pressed:text-blue-300 disabled:opacity-40';
   const actions = [
     { label: 'Bold', text: 'B', active: editor.isActive('bold'), run: () => editor.chain().focus().toggleBold().run() },
@@ -142,6 +154,7 @@ export default function TaskDescriptionEditor({ value, onChange, disabled = fals
     { label: 'Underline', text: 'U', active: editor.isActive('underline'), run: () => editor.chain().focus().toggleUnderline().run() },
     { label: 'Bullet list', text: '• List', active: editor.isActive('bulletList'), run: () => editor.chain().focus().toggleBulletList().run() },
     { label: 'Numbered list', text: '1. List', active: editor.isActive('orderedList'), run: () => editor.chain().focus().toggleOrderedList().run() },
+    { label: 'Checkbox list', text: '☐ List', active: editor.isActive('taskList'), run: () => editor.chain().focus().toggleTaskList().run() },
     { label: 'Quote', text: '❝', active: editor.isActive('blockquote'), run: () => editor.chain().focus().toggleBlockquote().run() },
   ];
   return <div className="overflow-hidden rounded-md border border-white/25 bg-[#242528] focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400">
@@ -154,6 +167,10 @@ export default function TaskDescriptionEditor({ value, onChange, disabled = fals
     </div>
     <div className="min-h-60 p-4" onPasteCapture={event => {
       if (disabled || !editor.isEditable) return;
+      if (pasteChecklist(event.clipboardData.getData('text/plain'))) {
+        event.preventDefault(); event.stopPropagation();
+        return;
+      }
       // Read the original clipboard before the rich-text editor parses it.
       // File managers can supply an image file with an empty or generic MIME type.
       const files = [...Array.from(event.clipboardData.files), ...Array.from(event.clipboardData.items).flatMap(item => {
@@ -183,6 +200,6 @@ export default function TaskDescriptionEditor({ value, onChange, disabled = fals
     </div>
     {imageStatus && <p role="status" className="px-4 text-stone-300">{imageStatus}</p>}
     {imageError && <p role="alert" className="px-4 text-red-300">{imageError}</p>}
-    {value.length > 10000 && <p role="alert" className="px-4 text-red-300">Description is too long to save. Shorten the text or simplify its formatting.</p>}
+    {value.length > 50000 && <p role="alert" className="px-4 text-red-300">Description is too long to save. Shorten the text or simplify its formatting.</p>}
   </div>;
 }

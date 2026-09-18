@@ -80,7 +80,7 @@ export function manualTaskFields(input: Record<string, unknown>, previous?: Manu
   if (!Array.isArray(merged.courseIds) || merged.courseIds.length > 500 || merged.courseIds.some(id => typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1)) throw new TaskError('Choose valid courses (up to 500 per task).');
   if (!Array.isArray(merged.eventIds) || merged.eventIds.length > 500 || merged.eventIds.some(id => typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1)) throw new TaskError('Choose valid events (up to 500 per task).');
   if (!Array.isArray(merged.meetingIds) || merged.meetingIds.length > 500 || merged.meetingIds.some(id => typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1)) throw new TaskError('Choose valid meetings (up to 500 per task).');
-  const description = taskText(merged.description, 10000), links = descriptionLinks(description);
+  const description = taskText(merged.description, 50000), links = descriptionLinks(description);
   const emails = input.administratorEmails ?? previous?.administratorEmails ?? [];
   const assignedTo = input.assignedTo === undefined ? previous?.assignedTo ?? null : input.assignedTo;
   const validEmail = (email: unknown): email is string => typeof email === 'string' && email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
