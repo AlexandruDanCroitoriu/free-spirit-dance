@@ -140,11 +140,11 @@ export async function taskEventChoices(request: Request) {
 }
 export async function assignedTaskNotifications(request: Request) {
   const email = await taskAccess(request);
-  const result = await env.DB.prepare(`SELECT t.id, t.title, t.due_date AS dueDate, l.name AS listName,
+  const result = await env.DB.prepare(`SELECT t.id, t.title, t.status, t.due_date AS dueDate, l.name AS listName,
     CASE WHEN b.owner_email IS NULL THEN 'school' ELSE 'personal' END AS scope
     FROM manual_tasks t JOIN task_lists l ON l.id = t.list_id JOIN task_boards b ON b.id = l.board_id
     WHERE (b.owner_email IS NULL OR b.owner_email = ? COLLATE NOCASE) AND t.inbox_owner IS NULL AND t.assigned_to = ? COLLATE NOCASE
-    ORDER BY t.due_date IS NULL, t.due_date, t.updated_at DESC, t.id DESC`).bind(email, email).all<{ id: number; title: string; dueDate: string | null; listName: string; scope: 'school' | 'personal' }>();
+    ORDER BY t.due_date IS NULL, t.due_date, t.updated_at DESC, t.id DESC`).bind(email, email).all<{ id: number; title: string; status: 'in_progress' | 'blocked' | 'done'; dueDate: string | null; listName: string; scope: 'school' | 'personal' }>();
   return taskJson(result.results);
 }
 async function administratorChoices() {
